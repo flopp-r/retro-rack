@@ -1,0 +1,11 @@
+{
+  // Cloudflare settings for the Retro Rack relay. The name must match the Worker name in your dashboard.
+  "name": "retro-rack-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2025-06-01",
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  // free-plan friendly SQLite-backed Durable Objects
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}
