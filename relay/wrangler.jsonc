@@ -4,8 +4,14 @@
   "main": "src/index.js",
   "compatibility_date": "2025-06-01",
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+    "bindings": [
+      { "name": "ROOMS", "class_name": "Room" },
+      { "name": "LOBBY", "class_name": "Lobby" }
+    ]
   },
-  // free-plan friendly SQLite-backed Durable Objects
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+  // free-plan friendly SQLite-backed Durable Objects (v2 adds the open-rooms list)
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room"] },
+    { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
+  ]
 }

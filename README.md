@@ -55,10 +55,12 @@ That's it.
 ## Playing online
 
 1. Open your game address, choose a game, set **Opponent** to **Online friend**, and type your name.
-2. Click **Create room**. You get a five-character room code and an invite link.
-3. Send your friend the link. They open it and the game starts as soon as they arrive. They can also type the code into **Join room**.
+2. To join a friend, pick their room from **Open rooms** and click **Join**, or type their code into **Join with code**.
+3. To host, choose **Listed** or **Private** under **New room**, then click **Create room**. You get a five-character room code and an invite link.
+   - **Listed** rooms appear in Open rooms for anyone who opens your game page, until a second player joins.
+   - **Private** rooms never appear in the list; they can only be joined with the code or link.
 
-The player who creates the room chooses the game and the aim guide, and those settings apply to both players. You see your friend's cue move as they aim. If either connection drops, the game waits and puts you both back on the same table when you reconnect, including after reloading the page. Rooms tidy themselves away after six hours unused.
+The player who creates the room chooses the game and the aim guide, and those settings apply to both players. You see your friend's cue move as they aim. If either connection drops, the game waits and puts you both back on the same table when you reconnect, including after reloading the page. A room leaves the list as soon as someone joins it, or if its creator leaves first, so nobody can wander into a game already in progress. Rooms tidy themselves away after six hours unused.
 
 **Fair play.** Your game only accepts your friend's shot *inputs* (aim, power, spin and cue ball placement), then works out what happens itself. An edited copy of the game can't report fake results or place the cue ball illegally without your game noticing. It can't stop someone using an aiming aid on their own screen, though, so this is for friendly games.
 

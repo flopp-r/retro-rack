@@ -66,11 +66,12 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #extra:empty{display:none}
 #score{font-size:16px;margin-top:3px;opacity:.8}
 #score:empty{display:none}
-#toast{position:fixed;top:calc(var(--bb,112px) + 10px);left:50%;transform:translate(-50%,-8px);padding:5px 12px;font-size:20px;background:var(--ink);border:3px solid var(--lamp);opacity:0;transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
-#toast.show{opacity:1;transform:translate(-50%,0)}
-#toast[data-kind=foul]{border-color:var(--rose);color:#ffd8e0}
-#toast[data-kind=good]{border-color:var(--chalk)}
-#thinking{position:fixed;top:calc(var(--bb,112px) + 10px);left:50%;transform:translateX(-50%);font-size:19px;padding:5px 10px;background:rgba(13,10,28,.8);border:3px solid var(--plum2)}
+#notices{position:fixed;top:calc(var(--bb,112px) + 10px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:max-content;max-width:94vw;z-index:5}
+.toast{padding:5px 12px;font-size:20px;background:var(--ink);border:3px solid var(--lamp);opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;text-align:center;max-width:94vw}
+.toast.show{opacity:1;transform:none}
+.toast[data-kind=foul]{border-color:var(--rose);color:#ffd8e0}
+.toast[data-kind=good]{border-color:var(--chalk)}
+#thinking{font-size:19px;padding:5px 10px;background:rgba(13,10,28,.8);border:3px solid var(--plum2)}
 #thinking::after{content:'...';display:inline-block;width:1.4em;text-align:left;animation:dots 1.2s steps(4) infinite;overflow:hidden;vertical-align:bottom}
 @keyframes dots{0%{width:0}100%{width:1.4em}}
 #tools{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
@@ -86,7 +87,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #aimTxt{grid-column:1 / 3;text-align:center;font-size:17px;margin-bottom:-4px;font-variant-numeric:tabular-nums}
 #bShoot{grid-column:1 / 3;font-size:10px;padding:10px;background:var(--lamp);color:var(--ink)}
 #bShoot:hover{background:#ffd48e}
-#bihTip{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);font-size:19px;padding:5px 10px;background:rgba(13,10,28,.85);border:3px solid #7dffb0}
+#bihTip{font-size:19px;text-align:center;padding:5px 10px;background:rgba(13,10,28,.85);border:3px solid #7dffb0}
 #help{position:fixed;left:10px;bottom:10px;width:min(400px,92vw);max-height:80vh;overflow:auto;padding:12px 14px 10px;font-size:18px}
 #help h2,#pause h2{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;color:var(--lamp);margin:0 0 10px}
 #help dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px}
@@ -112,14 +113,13 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #shot{grid-template-columns:84px 56px}
   #spin{width:64px;height:64px}#spinTxt{width:84px;font-size:15px}#powTxt{width:56px;font-size:15px}#aimTxt{font-size:15px}
   #pow{height:92px}#powFill{background-size:100% 86px}
-  #toast,#thinking{font-size:20px}
+  .toast{font-size:18px}#thinking,#bihTip{font-size:17px}
   #tools{top:auto;bottom:8px;right:auto;left:8px;display:grid;grid-template-columns:1fr 1fr;max-width:44vw}
   #tools .btn,#practice .btn{font-size:8px;padding:7px 6px}
   #practice{top:auto;bottom:88px}
-  #bihTip{bottom:auto;top:calc(var(--bb,90px) + 54px);font-size:19px;white-space:normal;width:max-content;max-width:90vw}
   #help{bottom:auto;top:8px;max-height:70vh}
 }
-@media (prefers-reduced-motion:reduce){#toast,#shot{transition:none}#thinking::after{animation:none;width:1.4em}}
+@media (prefers-reduced-motion:reduce){.toast,#shot{transition:none}#thinking::after{animation:none;width:1.4em}}
 #hud #tools .btn,#hud #practice .btn{font-size:8px;padding:7px 9px}
 input{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
 input:focus{border-color:var(--chalk)}
@@ -136,6 +136,14 @@ input:focus{border-color:var(--chalk)}
 #lobbyPanel .note{grid-column:auto;margin:12px 0 0}
 #net{font-size:16px;margin-top:3px}#net:empty{display:none}
 #net::before{content:'\25CF  ';color:#7dffb0}#net[data-ok="0"]::before{color:var(--rose)}
+/* open rooms */
+.roomsHead{display:flex;justify-content:space-between;align-items:baseline;font-size:20px;color:var(--lamp);margin-top:4px}
+#roomsLive{font-size:17px;color:var(--chalk)}
+#roomList{display:flex;flex-direction:column;gap:6px;max-height:172px;overflow:auto;padding:6px;background:rgba(13,10,28,.55);border:3px solid var(--plum2)}
+#roomList .note{margin:2px 4px}
+.roomItem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;background:var(--plum);border:3px solid var(--ink)}
+.roomItem .rn{font-size:20px}.roomItem .rm{font-size:17px;opacity:.8}
+.roomItem .btn{flex:none}
 </style>
 </head>
 <body>
@@ -148,8 +156,10 @@ input:focus{border-color:var(--chalk)}
     <div id="mid"><div id="modeName"></div><div id="turnLine"></div><div id="extra"></div><div id="net"></div><div id="rack"></div><div id="score"></div></div>
     <div class="pl" id="p1"><div class="pname"></div><div class="pgroup"></div><div class="pballs"></div></div>
   </div>
-  <div id="toast" role="status" aria-live="polite"></div>
-  <div id="thinking" hidden>CPU is lining up a shot</div>
+  <div id="notices" role="status" aria-live="polite">
+    <div id="thinking" hidden>CPU is lining up a shot</div>
+    <div id="bihTip" hidden>Ball in hand: drag the cue ball to place it</div>
+  </div>
   <div id="tools">
     <button class="btn" id="bCam" aria-pressed="false" title="Cue view (C)">Cue view</button>
     <button class="btn" id="bTop" aria-pressed="false" title="Overhead view (T)">Overhead</button>
@@ -167,7 +177,6 @@ input:focus{border-color:var(--chalk)}
     <div id="aimTxt">Aim 0.00°</div>
     <button class="btn" id="bShoot">Shoot</button>
   </div>
-  <div id="bihTip" hidden>Ball in hand: drag the cue ball to place it</div>
   <div id="help" class="panel" hidden>
     <h2>Controls</h2>
     <dl>
@@ -198,8 +207,11 @@ input:focus{border-color:var(--chalk)}
     <div class="row" id="rowDiff"><div class="lbl">Skill</div><div class="seg" id="mDiff"></div><div class="note" id="diffTxt"></div></div>
     <div class="row" id="rowOnline"><div class="lbl">Online</div><div class="onl">
       <label class="field">Your name <input id="netName" maxlength="14" placeholder="Player" autocomplete="nickname"></label>
-      <div class="note">Create a room to get a code and invite link, or join your friend's room:</div>
-      <div class="seg"><input id="netCode" maxlength="8" placeholder="Room code" autocomplete="off" spellcheck="false" aria-label="Room code"><button class="btn" id="bJoin" type="button">Join room</button></div>
+      <div class="roomsHead"><span>Open rooms</span><span id="roomsLive"></span></div>
+      <div id="roomList"></div>
+      <div class="field">New room <div class="seg" id="mListed"></div></div>
+      <div class="note" id="listedTxt"></div>
+      <div class="seg"><input id="netCode" maxlength="8" placeholder="Room code" autocomplete="off" spellcheck="false" aria-label="Room code"><button class="btn" id="bJoin" type="button">Join with code</button></div>
       <div class="note warn" id="netNote" role="status"></div>
     </div></div>
     <div class="row" id="rowRack"><div class="lbl">Rack</div><div class="seg" id="mRack"></div></div>
@@ -234,7 +246,7 @@ input:focus{border-color:var(--chalk)}
     <p id="lobbyStatus" role="status">Connecting…</p>
     <input id="lobbyLink" readonly aria-label="Invite link">
     <div class="actions"><button class="btn" id="bCopyLink">Copy invite link</button><button class="btn" id="bLobbyCancel">Cancel</button></div>
-    <p class="note">Your friend can open the link, or type the code into Join room. The game starts as soon as they arrive.</p>
+    <p class="note" id="lobbyNote"></p>
   </div>
 </div>
 
@@ -1075,7 +1087,7 @@ const S = { ...DEFAULTS };
 try { Object.assign(S, JSON.parse(localStorage.getItem('retroRack.settings') || '{}')); } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
-const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball' };
+const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
 const saveM = () => { try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
@@ -2041,15 +2053,23 @@ function updateHUD() {
   $('#bihTip').hidden = !(state === 'aim' && humanTurn() && game.ballInHand);
   updateShotPanel();
 }
-let toastQ = [], toastBusy = false;
-function toast(msg, kind = 'info') { toastQ.push([msg, kind]); if (!toastBusy) nextToast(); }
-function toastClear() { toastQ = []; $('#toast').classList.remove('show'); toastBusy = false; }
-function nextToast() {
-  const el = $('#toast'); if (!toastQ.length) { toastBusy = false; el.classList.remove('show'); return; }
-  toastBusy = true; const [msg, kind] = toastQ.shift();
-  el.textContent = msg; el.dataset.kind = kind; el.classList.add('show');
-  setTimeout(() => { el.classList.remove('show'); setTimeout(nextToast, 180); }, toastQ.length ? 1500 : 2300);
+// messages stack in one column under the scoreboard, so they never sit on top of each other
+const notices = $('#notices');
+const liveToasts = () => [...notices.querySelectorAll('.toast:not(.out)')];
+function toast(msg, kind = 'info') {
+  if (liveToasts().some(t => t.textContent === msg)) return;
+  const el = document.createElement('div'); el.className = 'toast'; el.dataset.kind = kind; el.textContent = msg;
+  notices.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  while (liveToasts().length > 3) dismissToast(liveToasts()[0]);
+  el._t = setTimeout(() => dismissToast(el), 2800 + msg.length * 30);
 }
+function dismissToast(el) {
+  if (!el || el.classList.contains('out')) return;
+  clearTimeout(el._t); el.classList.add('out'); el.classList.remove('show');
+  setTimeout(() => el.remove(), 230);
+}
+function toastClear() { notices.querySelectorAll('.toast').forEach(el => el.remove()); }
 
 // ------------------------------------------------------------------ menus + settings
 function segControl(el, opts, get, set) {
@@ -2094,6 +2114,9 @@ function refreshMenus() {
   segControl($('#mMode'), [['8ball', '8-ball'], ['9ball', '9-ball'], ['uk8', 'Reds & yellows'], ['practice', 'Practice']], () => M.mode, v => M.mode = v);
   segControl($('#mOpp'), [['bot', 'Computer'], ['friend', 'Same device'], ['online', 'Online friend']], () => M.opp, v => M.opp = v);
   $('#rowOnline').hidden = M.mode === 'practice' || M.opp !== 'online';
+  segControl($('#mListed'), [[true, 'Listed'], [false, 'Private']], () => M.listed !== false, v => M.listed = v);
+  $('#listedTxt').textContent = M.listed !== false ? 'Listed rooms show up in Open rooms for anyone who opens this game page.' : 'Private rooms can only be joined with the code or invite link.';
+  updateLobbyWatch();
   $('#bStart').textContent = M.opp === 'online' && M.mode !== 'practice' ? 'Create room' : "Rack 'em up";
   segControl($('#mDiff'), [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert']], () => M.diff, v => M.diff = v);
   segControl($('#mGuide'), GUIDES, () => M.guide, v => M.guide = v);
@@ -2127,7 +2150,7 @@ function togglePause(force) {
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
   if (paused) { refreshMenus(); $('#bResume').focus(); } else aimDirty = true;
 }
-$('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online' && M.mode !== 'practice') startOnline(newCode()); else startGame(false); });
+$('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online' && M.mode !== 'practice') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
 $('#bRestart').addEventListener('click', () => { togglePause(false); startGame(false); });
@@ -2176,7 +2199,8 @@ function getCid() { try { let c = sessionStorage.getItem('rr.cid'); if (!c) { c 
 function netSend(o) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(o)); }
 function netConnect() {
   let ws;
-  try { ws = new WebSocket(`${relayBase()}/room/${NET.code}?cid=${NET.cid}`); }
+  const listQ = NET.list && !NET.started ? `&list=1&name=${encodeURIComponent(NET.myName)}&mode=${encodeURIComponent(M.mode)}` : '';
+  try { ws = new WebSocket(`${relayBase()}/room/${NET.code}?cid=${NET.cid}${listQ}`); }
   catch (e) { lobbyStatus("Couldn't reach the relay. Check the relay address in the file."); return; }
   NET.ws = ws; NET.link = 'connecting'; updateNetBadge();
   ws.onopen = () => { NET.retry = 0; };
@@ -2226,17 +2250,20 @@ function onNet(m) {
 function menuNote(t) { $('#netNote').textContent = t; }
 function lobbyStatus(t) { $('#lobbyStatus').textContent = t; }
 function inviteLink() { return location.href.split('#')[0] + '#room=' + NET.code; }
-function startOnline(code) {
+function startOnline(code, listed = false) {
   if (!relayBase()) { menuNote('Online play needs your relay address first. Paste it into config.js, next to this file (the README explains how).'); return; }
   if (!code || code.length < 4) { menuNote('Room codes are 5 letters and numbers.'); return; }
   NET.on = true; NET.code = code; NET.cid = getCid(); NET.myName = cleanName($('#netName').value, 'Player'); NET.peerName = 'Friend';
   try { localStorage.setItem('retroRack.name', NET.myName); } catch (e) {}
-  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, aimT: null, stateAfter: false });
+  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, aimT: null, stateAfter: false, list: listed });
   matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote('');
   try { history.replaceState(null, '', '#room=' + code); } catch (e) {}
   state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false;
   $('#lobbyCode').textContent = code; $('#lobbyLink').value = inviteLink();
-  lobbyStatus('Connecting…'); netConnect();
+  $('#lobbyNote').textContent = listed
+    ? 'Your room is listed under Open rooms, so friends can join from there. They can also use the link or the code.'
+    : 'This room is private. Your friend can open the link, or type the code into Join with code.';
+  lobbyStatus('Connecting…'); updateLobbyWatch(); netConnect();
 }
 function leaveOnline() {
   if (!NET.on) return;
@@ -2388,6 +2415,62 @@ function tryRematch() {
   else if (!$('#over').hidden) updateAgainBtn();
 }
 $('#bJoin').addEventListener('click', () => { ensureAudio(); sfx('ui'); startOnline(cleanCode($('#netCode').value)); });
+// open rooms list: watched live from the relay while the online menu is showing
+const LW = { ws: null, rooms: [], off: 0, retry: 0, timer: 0, want: false, failed: false, loaded: false };
+const MODE_NAME = { '8ball': '8-ball', '9ball': '9-ball', uk8: 'Reds & yellows' };
+function updateLobbyWatch() {
+  const want = state === 'menu' && !NET.on && M.opp === 'online' && M.mode !== 'practice' && !!relayBase() && document.visibilityState === 'visible';
+  LW.want = want;
+  // short delay, so opening an invite link (which jumps straight into a room) never starts a list connection
+  if (want && !LW.ws && !LW.pending) LW.pending = setTimeout(() => { LW.pending = 0; if (LW.want && !LW.ws) lobbyConnect(); }, 300);
+  if (!want && LW.ws) {
+    const ws = LW.ws; LW.ws = null;
+    if (ws.readyState === 0) ws.onopen = () => { try { ws.close(1000); } catch (e) {} };
+    else { try { ws.close(1000); } catch (e) {} }
+  }
+  renderRooms();
+}
+function lobbyConnect() {
+  let ws;
+  try { ws = new WebSocket(`${relayBase()}/lobby`); } catch (e) { LW.failed = true; renderRooms(); return; }
+  LW.ws = ws; renderRooms();
+  ws.onopen = () => { LW.retry = 0; LW.failed = false; renderRooms(); };
+  ws.onmessage = e => {
+    if (e.data === 'pong') return;
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.t === 'rooms' && Array.isArray(m.rooms)) { LW.rooms = m.rooms; LW.off = (Number(m.now) || Date.now()) - Date.now(); LW.loaded = true; renderRooms(); }
+  };
+  ws.onclose = () => {
+    if (LW.ws === ws) LW.ws = null;
+    if (!LW.want) return;
+    LW.failed = LW.retry > 1; renderRooms();
+    clearTimeout(LW.timer); LW.timer = setTimeout(() => { if (LW.want && !LW.ws) lobbyConnect(); }, Math.min(10000, 1000 * Math.pow(2, LW.retry++)));
+  };
+}
+setInterval(() => { if (LW.ws && LW.ws.readyState === 1) LW.ws.send('ping'); }, 25000);
+setInterval(() => { if (LW.want) renderRooms(); }, 30000);
+document.addEventListener('visibilitychange', updateLobbyWatch);
+function renderRooms() {
+  const el = $('#roomList'), live = $('#roomsLive');
+  const note = t => { el.innerHTML = ''; const d = document.createElement('div'); d.className = 'note'; d.textContent = t; el.appendChild(d); };
+  if (!relayBase()) { live.textContent = ''; note('Add your relay address to config.js to see open rooms.'); return; }
+  live.textContent = LW.ws && LW.ws.readyState === 1 ? 'Live' : LW.failed ? "Can't reach the relay" : 'Connecting…';
+  if (!LW.rooms.length) { note(LW.loaded ? 'No open rooms right now. Create a listed room and it will show up here.' : 'Looking for open rooms…'); return; }
+  el.innerHTML = '';
+  const now = Date.now() + LW.off;
+  for (const r of LW.rooms) {
+    const row = document.createElement('div'); row.className = 'roomItem';
+    const info = document.createElement('div');
+    const n = document.createElement('div'); n.className = 'rn'; n.textContent = `${cleanName(r.name, 'Player')}'s room`;
+    const mins = Math.max(0, Math.round((now - Number(r.at)) / 60000));
+    const d = document.createElement('div'); d.className = 'rm'; d.textContent = `${MODE_NAME[r.mode] || '8-ball'}, ${mins < 1 ? 'just opened' : mins + ' min waiting'}`;
+    info.append(n, d);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Join';
+    b.addEventListener('click', () => { ensureAudio(); sfx('ui'); startOnline(cleanCode(r.code)); });
+    row.append(info, b); el.appendChild(row);
+  }
+}
+
 $('#netCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#bJoin').click(); });
 $('#bLobbyCancel').addEventListener('click', () => { sfx('ui'); toMenu(); });
 $('#bCopyLink').addEventListener('click', async () => {
