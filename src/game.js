@@ -8,6 +8,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
+const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -1252,7 +1253,21 @@ function newCode(n = 5) { const a = new Uint32Array(n); crypto.getRandomValues(a
 const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const cleanName = (s, d = 'Friend') => String(s || '').replace(/[<>]/g, '').trim().slice(0, 14) || d;
 function getCid() { try { let c = sessionStorage.getItem('rr.cid'); if (!c) { c = newCode(12); sessionStorage.setItem('rr.cid', c); } return c; } catch (e) { return newCode(12); } }
+// "Duplicate tab" copies sessionStorage, player id included, and two tabs with one id fight over one seat.
+// An open page marks the id as in use until it closes, so a copy made while the original is still open
+// sees the mark and picks a fresh id. A reload clears the mark first, so it keeps its seat.
+try {
+  if (sessionStorage.getItem('rr.live') === '1') sessionStorage.removeItem('rr.cid');
+  sessionStorage.setItem('rr.live', '1');
+  const mark = v => { try { sessionStorage.setItem('rr.live', v); } catch (e) {} };
+  addEventListener('pagehide', () => mark('0'));
+  addEventListener('pageshow', e => { if (e.persisted) mark('1'); });
+  // phones may unload a background tab after freezing it, with no pagehide; coming back is then a reload, not a copy
+  document.addEventListener('freeze', () => mark('0'));
+  document.addEventListener('resume', () => mark('1'));
+} catch (e) {}
 function netSend(o) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(o)); }
+function sendHello() { netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n, v: BUILD }); }
 function netConnect() {
   let ws;
   const listQ = NET.list && !NET.started ? `&list=1&name=${encodeURIComponent(NET.myName)}&mode=${encodeURIComponent(M.mode)}` : '';
@@ -1276,25 +1291,38 @@ function onNet(m) {
     case 'welcome':
       NET.seat = m.seat === 1 ? 1 : 0; NET.peer = !!m.peer; NET.link = 'online'; updateNetBadge();
       lobbyStatus(NET.peer ? 'Connected. Starting…' : 'Waiting for your friend to join…');
-      if (NET.peer) netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n });
+      if (NET.peer) sendHello();
       if (state !== 'lobby') updateHUD();
       break;
     case 'full':
       leaveOnline(); toMenu(); menuNote('That room already has two players in it.'); break;
     case 'peer':
       NET.peer = !!m.on; updateNetBadge();
-      if (m.on) netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n });
+      if (m.on) sendHello();
       else if (NET.started) toast(`${NET.peerName} disconnected. Waiting for them to come back`, 'foul');
       else lobbyStatus('Waiting for your friend to join…');
       break;
     case 'hello':
       NET.peerName = cleanName(m.name); NET.peer = true; updateNetBadge();
+      // versions before this check sent no version, so a missing one means an older copy
+      NET.peerVer = typeof m.v === 'string' ? m.v.slice(0, 16) : '';
+      NET.verWarn = '';
+      if (NET.peerVer !== BUILD) {
+        const why = NET.peerVer ? `You and ${NET.peerName} have different versions of Retro Rack.` : `${NET.peerName} has an older version of Retro Rack.`;
+        if (!NET.started && !m.started) {   // nothing to lose yet, so don't start a game that might not match
+          lobbyStatus(`${why} ${NET.peerVer ? 'Both of you reload' : 'Ask them to reload'} it to get the latest (Ctrl+F5 on a computer, or close and reopen it on a phone), then come back to room ${NET.code}.`);
+          break;
+        }
+        // mid-game: carry on (the after-shot cross-check keeps the tables matched) but say so
+        NET.verWarn = `${why} If the tables stop matching, reload it (Ctrl+F5 on a computer, or close and reopen it on a phone) and come back to room ${NET.code}.`;
+        if (NET.started) toast(NET.verWarn, 'foul');   // a player rejoining sees it once the table is back (adoptState)
+      }
       if (NET.started) netSendState();
       else if (NET.seat === 0 && !m.started) hostStart();
       else lobbyStatus(`Connected to ${NET.peerName}. Starting…`);
       if (state !== 'lobby') updateHUD();
       break;
-    case 'setup': if (NET.seat === 1) startOnlineGame(m); break;
+    case 'setup': if (NET.seat === 1 && (NET.started || NET.peerVer === BUILD)) startOnlineGame(m); break;
     case 'state': adoptState(m); break;
     case 'aim': if (state === 'remote') NET.aimT = m; break;
     case 'shot': if (typeof m.n === 'number') { NET.queue.push(m); NET.queue.sort((a, b) => a.n - b.n); netProcessQueue(); } break;
@@ -1319,7 +1347,7 @@ function startOnline(code, listed = false) {
   if (!code || code.length < 4) { menuNote('Room codes are 5 letters and numbers.'); return; }
   NET.on = true; NET.code = code; NET.cid = getCid(); NET.myName = cleanName($('#netName').value, 'Player'); NET.peerName = 'Friend';
   try { localStorage.setItem('retroRack.name', NET.myName); } catch (e) {}
-  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, aimT: null, stateAfter: false, list: listed });
+  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed });
   matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote('');
   try { history.replaceState(null, '', '#room=' + code); } catch (e) {}
   state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false;
@@ -1389,6 +1417,7 @@ function adoptState(m) {
   applySnapshot(m);
   NET.n = m.n; NET.started = true; NET.queue = NET.queue.filter(q => q.n > m.n); NET.pendingSync = {};
   showGameUI(); toast(`Back in the game with ${NET.peerName}`, 'good');
+  if (NET.verWarn) toast(NET.verWarn, 'foul');
   if (game.over) { state = 'over'; updateHUD(); showOver(null, -1); } else beginTurn();
 }
 function netAfterShot(shooter) {
@@ -1578,6 +1607,16 @@ $('#bCopyLink').addEventListener('click', async () => {
   } catch (e) { const i = $('#lobbyLink'); i.focus(); i.select(); try { document.execCommand('copy'); lobbyStatus('Invite link copied.'); } catch (e2) { lobbyStatus('Copy the link below and send it to your friend.'); } }
 });
 try { $('#netName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) {}
+
+// ------------------------------------------------------------------ installable app
+// Only on a real web address: a downloaded copy opened from disk can't install or use a service worker.
+$('#ver').textContent = `Version ${BUILD}`;
+if (/^https?:$/.test(location.protocol)) {
+  const link = document.createElement('link'); link.rel = 'manifest'; link.href = 'manifest.webmanifest';
+  const icon = document.createElement('link'); icon.rel = 'apple-touch-icon'; icon.href = 'icons/icon-192.png';
+  document.head.append(link, icon);
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* the game works without it */ });
+}
 
 // ------------------------------------------------------------------ main loop
 let lastT = performance.now();

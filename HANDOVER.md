@@ -61,7 +61,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **The trust model is aimed at friendly games:**
   - Receivers accept only shot inputs and recompute the result themselves. Cue ball placement is validated, and the strike velocities are checked.
   - The shooter's `sync` is a cross-check; on a mismatch, the receiver warns and adopts the shooter's table.
-  - Known gaps: aiming aids on someone's own screen can't be detected. A modified client could stall a game by sending an illegal cue ball placement (honest clients can't do this). A duplicated browser tab shares the client id with the original tab, so the two fight over the seat.
+  - Known gaps: aiming aids on someone's own screen can't be detected. A modified client could stall a game by sending an illegal cue ball placement (honest clients can't do this). (A duplicated browser tab used to share the original tab's client id and fight over the seat; it now picks a fresh id.)
 
 **Rooms**
 - A listed room appears only while its creator waits, and disappears when a second player joins or the creator leaves. Nobody can join a game in progress or take a seat someone dropped out of.
@@ -147,9 +147,10 @@ Personal working preferences are kept in the Claude Code project's own instructi
 
 ---
 
-## 7. Ideas list (discussed, not built)
+## 7. Ideas list (discussed; the ones built since say so)
 
-- **Installable app (PWA):** the most wanted next feature, and the suggested first Claude Code job. It needs a manifest, icons and a service worker for offline CPU play. Version the cache so updates arrive; avoid people getting stuck on an old copy.
+- **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `CLAUDE.md`.
+- **A pulsing marker on your own balls:** chosen instead of colour-blind markings. A soft ring on the cloth under each ball you should be going for, shown only once groups are decided, with an on/off setting.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
 - **Small comforts:**
   - a "rejoin last game" menu button;
