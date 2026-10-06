@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<script>window.RETRO_RACK_RELAY = "";</script>
+<!-- Online play: the relay address lives in config.js, next to this file. -->
+<script src="config.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retro Rack: 3D pixel pool</title>
+<style>
+@font-face{font-family:'Press Start 2P';src:url(data:font/woff2;base64,__PS2P__) format('woff2');font-display:block}
+@font-face{font-family:'VT323';src:url(data:font/woff2;base64,__VT323__) format('woff2');font-display:block}
+:root{--night:#1a1433;--plum:#3a2452;--plum2:#4e3270;--lamp:#ffc56b;--baize:#1d8a74;--chalk:#6cb8ff;--rose:#ff6f8f;--paper:#f7ead2;--ink:#0d0a1c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night);color:var(--paper);font-family:'VT323',ui-monospace,monospace;font-size:22px;line-height:1.15;-webkit-user-select:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+#view{position:fixed;left:0;top:0;display:block;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
+#scan{position:fixed;inset:0;pointer-events:none;display:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+body.scan #scan{display:block}
+.panel{background:rgba(22,17,44,.9);border:3px solid var(--lamp);box-shadow:6px 6px 0 var(--ink)}
+.btn{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.35;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1);padding:9px 11px;cursor:pointer}
+.btn:hover{background:var(--plum2)}
+.btn:active{transform:translate(2px,2px)}
+.btn[aria-pressed="true"]{background:var(--lamp);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+button:focus-visible{outline:3px dashed var(--chalk);outline-offset:2px}
+kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--plum);border:2px solid var(--ink);padding:0 5px;margin:0 1px;color:var(--paper);box-shadow:inset -2px -2px 0 rgba(0,0,0,.35)}
+
+/* menu */
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:3vh 4vw;pointer-events:none}
+#menuPanel{pointer-events:auto;width:min(690px,94vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.menuScroll{overflow:auto;padding:24px 26px 6px;min-height:0}
+.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(26px,4.4vw,46px);line-height:1.15;color:var(--lamp);margin:0 0 12px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--plum2),9px 9px 0 var(--ink)}
+.tag{margin:0 0 16px;font-size:24px;max-width:36ch}
+.row{display:grid;grid-template-columns:104px 1fr;gap:6px 14px;align-items:start;margin:0 0 12px}
+.lbl{color:var(--lamp);font-size:22px;padding-top:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.note{grid-column:2;font-size:20px;opacity:.82;max-width:46ch}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:34px;height:34px;border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.3)}
+.swatch[aria-pressed="true"]{outline:3px solid var(--lamp);outline-offset:2px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px}
+#menuPanel .actions{flex:none;margin:0;padding:12px 26px 16px;border-top:3px solid var(--plum2)}
+#bStart{font-size:14px;padding:14px 20px;background:var(--rose);color:var(--ink)}
+#bStart:hover{background:#ff8ba5}
+.hint{margin:16px 0 0;font-size:19px;opacity:.72;max-width:52ch}
+
+/* in-game hud */
+#board{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:stretch;pointer-events:none}
+.pl,#mid{padding:6px 10px;background:rgba(22,17,44,.86);border:3px solid var(--plum2);box-shadow:5px 5px 0 var(--ink)}
+.pl{min-width:158px}
+.pl.active{border-color:var(--lamp)}
+.pname{font-family:'Press Start 2P',monospace;font-size:8px;margin-bottom:5px;white-space:nowrap}
+.pl.active .pname::before{content:'\25B6  ';color:var(--lamp)}
+.pgroup{font-size:17px;opacity:.85}
+.pballs,#rack{display:flex;gap:3px;margin-top:4px;min-height:14px}
+#rack{justify-content:center}
+#rack:empty{display:none}
+.bi{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);display:inline-block}
+.bi.gone{opacity:.2}
+.bi.ring{outline:2px solid var(--lamp);outline-offset:1px}
+#mid{text-align:center;min-width:150px}
+#modeName{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--lamp)}
+#turnLine{font-size:19px;margin-top:4px}
+#extra{font-size:17px;color:var(--chalk);margin-top:2px}
+#extra:empty{display:none}
+#score{font-size:16px;margin-top:3px;opacity:.8}
+#score:empty{display:none}
+#notices{position:fixed;top:calc(var(--bb,112px) + 10px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:max-content;max-width:94vw;z-index:5}
+.toast{padding:5px 12px;font-size:20px;background:var(--ink);border:3px solid var(--lamp);opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;text-align:center;max-width:94vw}
+.toast.show{opacity:1;transform:none}
+.toast[data-kind=foul]{border-color:var(--rose);color:#ffd8e0}
+.toast[data-kind=good]{border-color:var(--chalk)}
+#thinking{font-size:19px;padding:5px 10px;background:rgba(13,10,28,.8);border:3px solid var(--plum2)}
+#thinking::after{content:'...';display:inline-block;width:1.4em;text-align:left;animation:dots 1.2s steps(4) infinite;overflow:hidden;vertical-align:bottom}
+@keyframes dots{0%{width:0}100%{width:1.4em}}
+#tools{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+#practice{position:fixed;top:8px;left:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+#shot{position:fixed;right:10px;bottom:10px;display:grid;grid-template-columns:110px 64px;gap:8px 10px;padding:9px 10px;align-items:start;transition:opacity .2s}
+#shot.dim{opacity:.5}
+.spinWrap,.powWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+#spin{width:96px;height:96px;image-rendering:pixelated;cursor:crosshair;touch-action:none}
+#spinTxt{font-size:17px;line-height:1.05;height:2.1em;overflow:hidden;white-space:pre-line;text-align:center;width:110px}
+#pow{position:relative;width:24px;height:122px;background:var(--ink);border:3px solid var(--plum2);cursor:ns-resize;touch-action:none}
+#powFill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--chalk) 0 33%,var(--lamp) 33% 70%,var(--rose) 70% 100%);background-size:100% 116px;background-position:bottom}
+#powTxt{font-size:17px;white-space:nowrap;width:64px;text-align:center;font-variant-numeric:tabular-nums}
+#aimTxt{grid-column:1 / 3;text-align:center;font-size:17px;margin-bottom:-4px;font-variant-numeric:tabular-nums}
+#bShoot{grid-column:1 / 3;font-size:10px;padding:10px;background:var(--lamp);color:var(--ink)}
+#bShoot:hover{background:#ffd48e}
+#bihTip{font-size:19px;text-align:center;padding:5px 10px;background:rgba(13,10,28,.85);border:3px solid #7dffb0}
+#help{position:fixed;left:10px;bottom:10px;width:min(400px,92vw);max-height:80vh;overflow:auto;padding:12px 14px 10px;font-size:18px}
+#help h2,#pause h2{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;color:var(--lamp);margin:0 0 10px}
+#help dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px}
+#help dt{color:var(--lamp)}
+#help dd{margin:0}
+#help p{margin:0 0 8px;max-width:48ch}
+#bHelpClose{margin-top:4px}
+
+/* overlays */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(13,10,28,.35);padding:4vh 4vw}
+#pausePanel{width:min(560px,94vw);max-height:92vh;overflow:auto;padding:20px 22px}
+#overPanel{width:min(460px,92vw);padding:24px 24px 20px;text-align:left}
+#overTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:26px;color:var(--lamp);margin:0 0 14px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--ink)}
+#overWhy{font-size:24px;margin:0 0 6px}
+#overStats{font-size:20px;opacity:.8;margin:0}
+
+@media (max-width:760px){
+  html,body{font-size:19px}
+  .row{grid-template-columns:1fr}.note{grid-column:1}
+  #board{top:6px;gap:5px;transform:translateX(-50%) scale(.82);transform-origin:top center}
+  .pl{min-width:130px}
+  #shot{right:6px;bottom:6px;padding:7px;gap:5px 6px}
+  #shot{grid-template-columns:84px 56px}
+  #spin{width:64px;height:64px}#spinTxt{width:84px;font-size:15px}#powTxt{width:56px;font-size:15px}#aimTxt{font-size:15px}
+  #pow{height:92px}#powFill{background-size:100% 86px}
+  .toast{font-size:18px}#thinking,#bihTip{font-size:17px}
+  #tools{top:auto;bottom:8px;right:auto;left:8px;display:grid;grid-template-columns:1fr 1fr;max-width:44vw}
+  #tools .btn,#practice .btn{font-size:8px;padding:7px 6px}
+  #practice{top:auto;bottom:88px}
+  #help{bottom:auto;top:8px;max-height:70vh}
+}
+@media (prefers-reduced-motion:reduce){.toast,#shot{transition:none}#thinking::after{animation:none;width:1.4em}}
+#hud #tools .btn,#hud #practice .btn{font-size:8px;padding:7px 9px}
+input{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
+input:focus{border-color:var(--chalk)}
+.onl{display:flex;flex-direction:column;gap:8px}
+.onl .note{grid-column:auto}
+.field{display:flex;align-items:center;gap:10px;font-size:20px}
+#netName{width:170px}#netCode{width:140px;text-transform:uppercase;letter-spacing:2px}
+.note.warn{color:var(--rose)}.note.warn:empty{display:none}
+#lobbyPanel{width:min(460px,92vw);padding:20px 22px}
+#lobbyPanel h2{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;color:var(--lamp);margin:0 0 14px}
+#lobbyCode{font-family:'Press Start 2P',monospace;font-size:30px;letter-spacing:8px;color:var(--lamp);margin:6px 0 12px;text-shadow:3px 3px 0 var(--rose),5px 5px 0 var(--ink)}
+#lobbyStatus{font-size:22px;margin:0 0 10px}
+#lobbyLink{width:100%;font-size:17px}
+#lobbyPanel .note{grid-column:auto;margin:12px 0 0}
+#net{font-size:16px;margin-top:3px}#net:empty{display:none}
+#net::before{content:'\25CF  ';color:#7dffb0}#net[data-ok="0"]::before{color:var(--rose)}
+/* open rooms */
+.roomsHead{display:flex;justify-content:space-between;align-items:baseline;font-size:20px;color:var(--lamp);margin-top:4px}
+#roomsLive{font-size:17px;color:var(--chalk)}
+#roomList{display:flex;flex-direction:column;gap:6px;max-height:172px;overflow:auto;padding:6px;background:rgba(13,10,28,.55);border:3px solid var(--plum2)}
+#roomList .note{margin:2px 4px}
+.roomItem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;background:var(--plum);border:3px solid var(--ink)}
+.roomItem .rn{font-size:20px}.roomItem .rm{font-size:17px;opacity:.8}
+.roomItem .btn{flex:none}
+#chatPop{position:fixed;top:8px;right:118px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;z-index:6}
+.toast[data-kind=chat]{border-color:#7dffb0}
+#aimRow{grid-column:1 / 3;display:flex;align-items:center;justify-content:space-between;gap:6px}
+#aimRow .btn{padding:8px 12px;font-size:10px;touch-action:none}
+#trickInfo{padding:8px 10px;max-width:250px;font-size:17px}
+#trickTitle{font-family:'Press Start 2P',monospace;font-size:8px;line-height:1.5;color:var(--lamp);margin-bottom:4px}
+#trickGoal{margin-bottom:6px}
+#trickInfo .btn{font-size:8px;padding:7px 8px}
+#replayBar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:19px;z-index:6}
+.offerPanel{width:min(420px,92vw);padding:18px 20px}.offerPanel p{margin:0 0 6px;font-size:22px}
+@media (max-width:760px){#chatPop{top:auto;bottom:100px;right:auto;left:8px}#replayBar{bottom:auto;top:calc(var(--bb,90px) + 10px)}#trickInfo{max-width:44vw}#aimRow .btn{padding:7px 9px}}
+</style>
+</head>
+<body>
+<canvas id="view" aria-label="3D pool table"></canvas>
+<div id="scan"></div>
+
+<div id="hud" hidden>
+  <div id="board">
+    <div class="pl" id="p0"><div class="pname"></div><div class="pgroup"></div><div class="pballs"></div></div>
+    <div id="mid"><div id="modeName"></div><div id="turnLine"></div><div id="extra"></div><div id="net"></div><div id="rack"></div><div id="score"></div></div>
+    <div class="pl" id="p1"><div class="pname"></div><div class="pgroup"></div><div class="pballs"></div></div>
+  </div>
+  <div id="notices" role="status" aria-live="polite">
+    <div id="thinking" hidden>CPU is lining up a shot</div>
+    <div id="bihTip" hidden>Ball in hand: drag the cue ball to place it</div>
+  </div>
+  <div id="tools">
+    <button class="btn" id="bCam" aria-pressed="false" title="Cue view (C)">Cue view</button>
+    <button class="btn" id="bTop" aria-pressed="false" title="Overhead view (T)">Overhead</button>
+    <button class="btn" id="bHelp" title="Controls (H)">Controls</button>
+    <button class="btn" id="bPause" title="Pause (Esc)">Pause</button>
+    <button class="btn" id="bReplay" title="Replay the last shot (V)" hidden>Replay</button>
+    <button class="btn" id="bChat" title="Quick chat" hidden>Chat</button>
+  </div>
+  <div id="chatPop" class="panel" hidden></div>
+  <div id="practice" hidden>
+    <button class="btn" id="bRerack" title="R">Rerack</button>
+    <button class="btn" id="bUndo" title="U">Undo shot</button>
+    <button class="btn" id="bHand" aria-pressed="false" title="B">Ball in hand</button>
+    <button class="btn" id="bMove" aria-pressed="false">Move balls</button>
+    <button class="btn" id="bReturn" hidden>Return potted</button>
+    <button class="btn" id="bSave">Save layout</button>
+    <div id="trickInfo" class="panel" hidden>
+      <div id="trickTitle"></div><div id="trickGoal"></div>
+      <div class="seg"><button class="btn" id="bTrickPrev" aria-label="Previous trick">&lt;</button><button class="btn" id="bTrickNext" aria-label="Next trick">&gt;</button><button class="btn" id="bShowMe">Show me</button><button class="btn" id="bDelLayout">Delete</button></div>
+    </div>
+  </div>
+  <div id="shot" class="panel">
+    <div class="spinWrap"><canvas id="spin" width="32" height="32" aria-label="Cue tip position: drag to add spin"></canvas><div id="spinTxt">Centre ball</div></div>
+    <div class="powWrap"><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt">0 m/s</div></div>
+    <div id="aimRow"><button class="btn" id="bAimL" aria-label="Turn aim left">&lt;</button><div id="aimTxt">Aim 0.00°</div><button class="btn" id="bAimR" aria-label="Turn aim right">&gt;</button></div>
+    <button class="btn" id="bShoot">Shoot</button>
+  </div>
+  <div id="help" class="panel" hidden>
+    <h2>Controls</h2>
+    <dl>
+      <dt>Aim</dt><dd>Drag across the table and the cue points at your cursor. Double-click to aim at a spot.</dd>
+      <dt>Fine aim</dt><dd><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> turn 0.05° per press (holding does nothing more). Hold <kbd>Shift</kbd> with them to turn freely.</dd>
+      <dt>Power</dt><dd><kbd>↑</kbd><kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd>, or drag the bar.</dd>
+      <dt>Spin</dt><dd>Drag on the cue ball, or <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>. <kbd>O</kbd> resets.</dd>
+      <dt>Shoot</dt><dd><kbd>Space</kbd> or the Shoot button.</dd>
+      <dt>Camera</dt><dd>Right-drag (or <kbd>Alt</kbd>-drag) to orbit, wheel to zoom, middle-drag to pan, <kbd>Q</kbd><kbd>E</kbd> to turn.</dd>
+      <dt>Views</dt><dd><kbd>C</kbd> cue view, <kbd>T</kbd> overhead, <kbd>F</kbd> reset.</dd>
+      <dt>Touch</dt><dd>One finger aims. Two fingers orbit and pinch to zoom.</dd>
+      <dt>Replay</dt><dd><kbd>V</kbd> or the Replay button watches the last shot again, with slow motion. Orbit the camera while it plays.</dd>
+      <dt>Practice</dt><dd><kbd>R</kbd> rerack, <kbd>U</kbd> undo, <kbd>B</kbd> ball in hand. Move balls lets you drag any ball; Save layout keeps it under Trick shots.</dd>
+    </dl>
+    <p>8-ball: pot your group, then the 8. A scratch, hitting the wrong ball first, or no ball reaching a rail after contact is a foul and gives your opponent ball in hand.</p>
+    <p>9-ball: always hit the lowest ball first. Pot the 9 on a legal shot to win.</p>
+    <p>Reds &amp; yellows (British pub rules): pot your colour, then the black. Fouls are an in-off, missing every ball, hitting the wrong colour or the black first, or potting your opponent's colour. After a foul your opponent gets two visits, and the first is a free ball: they may hit any ball first. An in-off also gives ball in hand behind the baulk line. Potting the black early, or with a foul, loses the frame.</p>
+    <p>Side spin makes the cue ball squirt slightly off line. The Full and Ghost + line guides allow for it; the others don't.</p>
+    <button class="btn" id="bHelpClose">Close</button>
+  </div>
+</div>
+
+<div id="menu">
+  <div id="menuPanel" class="panel"><div class="menuScroll">
+    <h1 class="title">Retro<br>Rack</h1>
+    <p class="tag">Real-feel 3D pool, rendered in chunky pixels under a warm lamp.</p>
+    <div class="row"><div class="lbl">Game</div><div class="seg" id="mMode"></div><div class="note" id="modeTxt"></div></div>
+    <div class="row" id="rowOpp"><div class="lbl">Opponent</div><div class="seg" id="mOpp"></div></div>
+    <div class="row" id="rowDiff"><div class="lbl">Skill</div><div class="seg" id="mDiff"></div><div class="note" id="diffTxt"></div></div>
+    <div class="row" id="rowOnline"><div class="lbl">Online</div><div class="onl">
+      <label class="field">Your name <input id="netName" maxlength="14" placeholder="Player" autocomplete="nickname"></label>
+      <div class="roomsHead"><span>Open rooms</span><span id="roomsLive"></span></div>
+      <div id="roomList"></div>
+      <div class="field">New room <div class="seg" id="mListed"></div></div>
+      <div class="note" id="listedTxt"></div>
+      <div class="seg"><input id="netCode" maxlength="8" placeholder="Room code" autocomplete="off" spellcheck="false" aria-label="Room code"><button class="btn" id="bJoin" type="button">Join with code</button></div>
+      <div class="note warn" id="netNote" role="status"></div>
+    </div></div>
+    <div class="row" id="rowMatch"><div class="lbl">Match</div><div class="seg" id="mRace"></div></div>
+    <div class="row" id="rowRack"><div class="lbl">Rack</div><div class="seg" id="mRack"></div></div>
+    <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="mGuide"></div><div class="note" id="guideTxt"></div></div>
+    <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="mCloth"></div></div>
+    <p class="hint">Drag to aim, right-drag to orbit, Space to shoot. Press H in game for all controls.</p>
+    </div>
+    <div class="actions"><button class="btn" id="bStart">Rack 'em up</button><button class="btn" id="bMenuSettings">Display and sound</button></div>
+  </div>
+</div>
+
+<div id="pause" class="overlay" hidden>
+  <div id="pausePanel" class="panel" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="row" id="rowSGuide"><div class="lbl">Aim guide</div><div class="seg" id="sGuide"></div><div class="note" id="sGuideTxt"></div></div>
+    <div class="row"><div class="lbl">Pixel size</div><div class="seg" id="sPixel"></div></div>
+    <div class="row"><div class="lbl">Colours</div><div class="seg" id="sLevels"></div><div class="note">Shades per colour channel. Lower is more retro.</div></div>
+    <div class="row"><div class="lbl">Dither</div><div class="seg"><button class="btn" id="sDither"></button></div></div>
+    <div class="row"><div class="lbl">Outlines</div><div class="seg"><button class="btn" id="sOutline"></button></div></div>
+    <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
+    <div class="row"><div class="lbl">Sound</div><div class="seg"><button class="btn" id="sSound"></button></div></div>
+    <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div></div>
+    <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
+  </div>
+</div>
+
+<div id="replayBar" class="panel" hidden><span>Replaying the last shot</span><button class="btn" id="bSlow">Slow motion</button><button class="btn" id="bSkip">Skip</button></div>
+
+<div id="offer" class="overlay" hidden>
+  <div class="panel offerPanel" role="dialog" aria-labelledby="offerTxt">
+    <p id="offerTxt"></p>
+    <div class="actions"><button class="btn" id="bOfferYes">Accept</button><button class="btn" id="bOfferNo">Decline</button></div>
+  </div>
+</div>
+
+<div id="lobby" class="overlay" hidden>
+  <div id="lobbyPanel" class="panel" role="dialog" aria-labelledby="lobbyTitle">
+    <h2 id="lobbyTitle">Online game</h2>
+    <div class="lbl">Room code</div>
+    <div id="lobbyCode">-----</div>
+    <p id="lobbyStatus" role="status">Connecting…</p>
+    <input id="lobbyLink" readonly aria-label="Invite link">
+    <div class="actions"><button class="btn" id="bCopyLink">Copy invite link</button><button class="btn" id="bLobbyCancel">Cancel</button></div>
+    <p class="note" id="lobbyNote"></p>
+  </div>
+</div>
+
+<div id="over" class="overlay" hidden>
+  <div id="overPanel" class="panel" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle"></h2>
+    <p id="overWhy"></p>
+    <p id="overStats"></p>
+    <div class="actions"><button class="btn" id="bAgain">Play again</button><button class="btn" id="bOverReplay">Watch replay</button><button class="btn" id="bOverMenu">Main menu</button></div>
+  </div>
+</div>
+
+<script type="module">__BUNDLE__</script>
+</body>
+</html>

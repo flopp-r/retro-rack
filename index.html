@@ -144,6 +144,17 @@ input:focus{border-color:var(--chalk)}
 .roomItem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;background:var(--plum);border:3px solid var(--ink)}
 .roomItem .rn{font-size:20px}.roomItem .rm{font-size:17px;opacity:.8}
 .roomItem .btn{flex:none}
+#chatPop{position:fixed;top:8px;right:118px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;z-index:6}
+.toast[data-kind=chat]{border-color:#7dffb0}
+#aimRow{grid-column:1 / 3;display:flex;align-items:center;justify-content:space-between;gap:6px}
+#aimRow .btn{padding:8px 12px;font-size:10px;touch-action:none}
+#trickInfo{padding:8px 10px;max-width:250px;font-size:17px}
+#trickTitle{font-family:'Press Start 2P',monospace;font-size:8px;line-height:1.5;color:var(--lamp);margin-bottom:4px}
+#trickGoal{margin-bottom:6px}
+#trickInfo .btn{font-size:8px;padding:7px 8px}
+#replayBar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:19px;z-index:6}
+.offerPanel{width:min(420px,92vw);padding:18px 20px}.offerPanel p{margin:0 0 6px;font-size:22px}
+@media (max-width:760px){#chatPop{top:auto;bottom:100px;right:auto;left:8px}#replayBar{bottom:auto;top:calc(var(--bb,90px) + 10px)}#trickInfo{max-width:44vw}#aimRow .btn{padding:7px 9px}}
 </style>
 </head>
 <body>
@@ -165,16 +176,26 @@ input:focus{border-color:var(--chalk)}
     <button class="btn" id="bTop" aria-pressed="false" title="Overhead view (T)">Overhead</button>
     <button class="btn" id="bHelp" title="Controls (H)">Controls</button>
     <button class="btn" id="bPause" title="Pause (Esc)">Pause</button>
+    <button class="btn" id="bReplay" title="Replay the last shot (V)" hidden>Replay</button>
+    <button class="btn" id="bChat" title="Quick chat" hidden>Chat</button>
   </div>
+  <div id="chatPop" class="panel" hidden></div>
   <div id="practice" hidden>
     <button class="btn" id="bRerack" title="R">Rerack</button>
     <button class="btn" id="bUndo" title="U">Undo shot</button>
     <button class="btn" id="bHand" aria-pressed="false" title="B">Ball in hand</button>
+    <button class="btn" id="bMove" aria-pressed="false">Move balls</button>
+    <button class="btn" id="bReturn" hidden>Return potted</button>
+    <button class="btn" id="bSave">Save layout</button>
+    <div id="trickInfo" class="panel" hidden>
+      <div id="trickTitle"></div><div id="trickGoal"></div>
+      <div class="seg"><button class="btn" id="bTrickPrev" aria-label="Previous trick">&lt;</button><button class="btn" id="bTrickNext" aria-label="Next trick">&gt;</button><button class="btn" id="bShowMe">Show me</button><button class="btn" id="bDelLayout">Delete</button></div>
+    </div>
   </div>
   <div id="shot" class="panel">
     <div class="spinWrap"><canvas id="spin" width="32" height="32" aria-label="Cue tip position: drag to add spin"></canvas><div id="spinTxt">Centre ball</div></div>
     <div class="powWrap"><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt">0 m/s</div></div>
-    <div id="aimTxt">Aim 0.00°</div>
+    <div id="aimRow"><button class="btn" id="bAimL" aria-label="Turn aim left">&lt;</button><div id="aimTxt">Aim 0.00°</div><button class="btn" id="bAimR" aria-label="Turn aim right">&gt;</button></div>
     <button class="btn" id="bShoot">Shoot</button>
   </div>
   <div id="help" class="panel" hidden>
@@ -188,7 +209,8 @@ input:focus{border-color:var(--chalk)}
       <dt>Camera</dt><dd>Right-drag (or <kbd>Alt</kbd>-drag) to orbit, wheel to zoom, middle-drag to pan, <kbd>Q</kbd><kbd>E</kbd> to turn.</dd>
       <dt>Views</dt><dd><kbd>C</kbd> cue view, <kbd>T</kbd> overhead, <kbd>F</kbd> reset.</dd>
       <dt>Touch</dt><dd>One finger aims. Two fingers orbit and pinch to zoom.</dd>
-      <dt>Practice</dt><dd><kbd>R</kbd> rerack, <kbd>U</kbd> undo, <kbd>B</kbd> ball in hand.</dd>
+      <dt>Replay</dt><dd><kbd>V</kbd> or the Replay button watches the last shot again, with slow motion. Orbit the camera while it plays.</dd>
+      <dt>Practice</dt><dd><kbd>R</kbd> rerack, <kbd>U</kbd> undo, <kbd>B</kbd> ball in hand. Move balls lets you drag any ball; Save layout keeps it under Trick shots.</dd>
     </dl>
     <p>8-ball: pot your group, then the 8. A scratch, hitting the wrong ball first, or no ball reaching a rail after contact is a foul and gives your opponent ball in hand.</p>
     <p>9-ball: always hit the lowest ball first. Pot the 9 on a legal shot to win.</p>
@@ -214,6 +236,7 @@ input:focus{border-color:var(--chalk)}
       <div class="seg"><input id="netCode" maxlength="8" placeholder="Room code" autocomplete="off" spellcheck="false" aria-label="Room code"><button class="btn" id="bJoin" type="button">Join with code</button></div>
       <div class="note warn" id="netNote" role="status"></div>
     </div></div>
+    <div class="row" id="rowMatch"><div class="lbl">Match</div><div class="seg" id="mRace"></div></div>
     <div class="row" id="rowRack"><div class="lbl">Rack</div><div class="seg" id="mRack"></div></div>
     <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="mGuide"></div><div class="note" id="guideTxt"></div></div>
     <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="mCloth"></div></div>
@@ -234,7 +257,16 @@ input:focus{border-color:var(--chalk)}
     <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
     <div class="row"><div class="lbl">Sound</div><div class="seg"><button class="btn" id="sSound"></button></div></div>
     <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div></div>
-    <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Restart rack</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
+    <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
+  </div>
+</div>
+
+<div id="replayBar" class="panel" hidden><span>Replaying the last shot</span><button class="btn" id="bSlow">Slow motion</button><button class="btn" id="bSkip">Skip</button></div>
+
+<div id="offer" class="overlay" hidden>
+  <div class="panel offerPanel" role="dialog" aria-labelledby="offerTxt">
+    <p id="offerTxt"></p>
+    <div class="actions"><button class="btn" id="bOfferYes">Accept</button><button class="btn" id="bOfferNo">Decline</button></div>
   </div>
 </div>
 
@@ -255,7 +287,7 @@ input:focus{border-color:var(--chalk)}
     <h2 id="overTitle"></h2>
     <p id="overWhy"></p>
     <p id="overStats"></p>
-    <div class="actions"><button class="btn" id="bAgain">Play again</button><button class="btn" id="bOverMenu">Main menu</button></div>
+    <div class="actions"><button class="btn" id="bAgain">Play again</button><button class="btn" id="bOverReplay">Watch replay</button><button class="btn" id="bOverMenu">Main menu</button></div>
   </div>
 </div>
 
@@ -1087,7 +1119,7 @@ const S = { ...DEFAULTS };
 try { Object.assign(S, JSON.parse(localStorage.getItem('retroRack.settings') || '{}')); } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
-const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true };
+const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
 const saveM = () => { try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
@@ -1399,6 +1431,14 @@ function applyTable(key) {
   for (let id = 0; id <= 15; id++) { BM[id].scale.setScalar(k); SH[id].scale.setScalar(k); BM[id].material.map = ballTex(id, uk); BM[id].material.needsUpdate = true; }
   return true;
 }
+// trick shots: preset layouts (demo shots found by searching with the real physics) plus your saved layouts
+const TRICKS = [{"name": "Warm-up cut", "goal": "Cut the 3 into the top corner.", "pot": [3], "balls": [[0, -0.35, 0.05], [3, 0.75, 0.4]], "demo": {"phi": 0.30558, "power": 0.7, "sx": 0, "sy": 0}}, {"name": "Combination", "goal": "Pot the 9 by hitting the 1 into it.", "pot": [9], "balls": [[0, -0.55, -0.15], [1, 0.55, 0.22], [9, 0.92, 0.43]], "demo": {"phi": 0.30175, "power": 0.85, "sx": -0.6, "sy": 0}}, {"name": "Side bank", "goal": "Bank the 5 off the bottom cushion into the top side pocket.", "pot": [5], "balls": [[0, -0.7, -0.05], [5, 0.12, -0.42]], "demo": {"phi": -0.44136, "power": 0.42, "sx": 0, "sy": 0}}, {"name": "Kick shot", "goal": "The 2 is hidden behind a wall of balls. Find a way to pot it.", "pot": [2], "balls": [[0, -0.2, -0.05], [2, 1.05, -0.48], [11, 0.25, -0.2], [12, 0.25, -0.1], [13, 0.25, 0]], "demo": {"phi": -0.2502, "power": 0.7, "sx": 0, "sy": 0.6}}, {"name": "Double trouble", "goal": "Pot the 4 and the 12 in one shot.", "pot": [4, 12], "balls": [[0, 0.25, 0], [4, 1.05, 0.42], [12, 1.05, -0.44]], "demo": {"phi": 0.51191, "power": 0.9, "sx": 0, "sy": 0}}, {"name": "Thread the needle", "goal": "Squeeze through the gap and pot the 8.", "pot": [8], "balls": [[0, -0.9, 0], [8, 0.95, 0.3], [6, -0.25, 0.032075], [14, -0.25, -0.032075]], "demo": {"phi": 0.14052, "power": 0.55, "sx": 0, "sy": 0}}];
+const loadLayouts = () => { try { const l = JSON.parse(localStorage.getItem('retroRack.layouts') || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } };
+const saveLayouts = l => { try { localStorage.setItem('retroRack.layouts', JSON.stringify(l)); } catch (e) {} };
+const trickList = () => [...TRICKS, ...loadLayouts().map((l, i) => ({ name: l.name, goal: 'Pot every object ball in one shot.', pot: null, balls: l.balls, custom: i }))];
+const TRK = { fresh: false, demo: false };
+const raceTo = () => NET.on ? (NET.raceTo || 0) : (M.mode === 'practice' ? 0 : (M.race || 0));
+const matchDone = () => raceTo() > 0 && Math.max(...matchWins) >= raceTo();
 const tableKeyFor = () => (M.mode === 'uk8' || (M.mode === 'practice' && M.rack === 'uk')) ? 'uk7' : 'us9';
 applyTable('us9');
 const qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vY = new THREE.Vector3(0, 1, 0), vZ = new THREE.Vector3(0, 0, 1);
@@ -1465,7 +1505,7 @@ let world = C.makeWorld(C.rack8()), game = C.newGame('8ball');
 let state = 'menu', paused = false;
 const aim = { phi: 0, power: 0.35, sx: 0, sy: 0 };
 let shotBefore = null, undoStack = [], shots = [0, 0], matchWins = [0, 0], breaker = 0, potAnims = [], acc = 0;
-let remoteStrike = null, movingT = 0, aimDirty = true, lastPreview = 0, stroke = null, bot = null, botAim = null, lastRes = null;
+let lastShot = null, replay = null, EDIT = false, touchTurn = { dir: 0, t: 0 }, remoteStrike = null, movingT = 0, aimDirty = true, lastPreview = 0, stroke = null, bot = null, botAim = null, lastRes = null;
 const isBot = pl => !NET.on && M.mode !== 'practice' && M.opp === 'bot' && pl === 1;
 const humanTurn = () => NET.on ? game.turn === NET.seat : !isBot(game.turn);
 const pname = i => NET.on ? (i === NET.seat ? 'You' : NET.peerName) : M.mode === 'practice' ? 'You' : M.opp === 'bot' ? (i === 0 ? 'You' : 'CPU') : `Player ${i + 1}`;
@@ -1484,18 +1524,26 @@ function aimAtNearest() {
   return Math.atan2(t[0].z - cue.z, t[0].x - cue.x);
 }
 
-function startGame(rematch) {
+function trickRack() {
+  const list = trickList(); M.trick = (((M.trick | 0) % list.length) + list.length) % list.length;
+  return list[M.trick].balls.map(([id, x, z]) => C.newBall(id, x, z));
+}
+function startGame(rematch, rerack = false) {
   const mode = M.mode;
   applyTable(tableKeyFor());
-  const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter }[M.rack] || C.rack8) : C.rack8;
+  const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter, trick: trickRack }[M.rack] || C.rack8) : C.rack8;
   world = C.makeWorld(rack()); world.ev = [];
   game = C.newGame(mode);
-  if (!rematch) { matchWins = [0, 0]; breaker = 0; } else breaker = 1 - breaker;
+  if (rerack) { /* same breaker, score unchanged */ }
+  else if (!rematch) { matchWins = [0, 0]; breaker = 0; }
+  else { breaker = 1 - breaker; if (matchDone()) matchWins = [0, 0]; }
   game.turn = mode === 'practice' ? 0 : breaker;
-  if (mode === 'practice') { game.ballInHand = true; game.kitchen = false; game.breakShot = false; }
+  if (mode === 'practice') { game.ballInHand = M.rack !== 'trick'; game.kitchen = false; game.breakShot = false; }
+  lastShot = null; endReplayNow(); TRK.fresh = mode === 'practice' && M.rack === 'trick'; TRK.demo = false; EDIT = false;
   shots = [0, 0]; undoStack = []; potAnims = []; acc = 0; stroke = null; bot = null; botAim = null; lastRes = null;
   syncBallMeshes();
-  aim.sx = aim.sy = 0; aim.power = mode === 'practice' && M.rack === 'scatter' ? 0.35 : 0.88;
+  aim.sx = aim.sy = 0; aim.power = mode === 'practice' && (M.rack === 'scatter' || M.rack === 'trick') ? 0.45 : 0.88;
+  updateTrickUI();
   $('#menu').hidden = true; $('#over').hidden = true; $('#hud').hidden = false;
   $('#practice').hidden = mode !== 'practice';
   if (cam.mode === 'attract') { cam.mode = 'free'; cam.free.dist = 3.1 * Math.pow(P.L / 2.54, 0.9); }
@@ -1529,6 +1577,7 @@ function executeShot() {
   if (remoteStrike) { [cue.vx, cue.vz, cue.wx, cue.wy, cue.wz] = remoteStrike; remoteStrike = null; }
   else C.strike(cue, shot);
   if (NET.on) NET.n++;
+  lastShot = { balls: C.cloneBalls(shotBefore), v: [cue.vx, cue.vz, cue.wx, cue.wy, cue.wz] };
   sfx('cue', Math.hypot(cue.vx, cue.vz));
   shots[game.turn]++;
   game.ballInHand = false;
@@ -1557,7 +1606,8 @@ function endShot() {
     return;
   }
   if (M.mode === 'practice') {
-    if (!world.balls.some(b => b.id !== 0 && !b.potted)) toast(`Table cleared in ${shots[0]} shots. Press R to rerack.`, 'good');
+    if (M.rack === 'trick') trickResult(res);
+    else if (!world.balls.some(b => b.id !== 0 && !b.potted)) toast(`Table cleared in ${shots[0]} shots. Press R to rerack.`, 'good');
   } else if (M.mode === 'uk8' && res.foul) {
     const who = game.turn;
     toast(`${pname(who)} ${isYou(who) ? 'get' : 'gets'} two visits and a free ball${game.ballInHand ? ', from behind the baulk line' : ''}`, 'foul');
@@ -1570,18 +1620,31 @@ function endShot() {
   if (NET.on) netAfterShot(pl);
 }
 
+function trickResult(res) {
+  if (!TRK.fresh) return;
+  TRK.fresh = false;
+  const t = trickList()[M.trick], ids = t.pot || world.balls.filter(b => b.id).map(b => b.id);
+  const made = !res.foul && ids.every(id => { const b = ballById(id); return b && b.potted; });
+  if (made) { toast(TRK.demo ? "That's how it's done. Press R to try it yourself" : 'Trick shot made!', 'good'); sfx('win'); }
+  else toast(TRK.demo ? 'The demo missed this time. Press R to reset' : 'Not quite. Press R to set it up again', 'info');
+  TRK.demo = false;
+}
+function matchText() {
+  return NET.on ? `you ${matchWins[NET.seat]}, ${NET.peerName} ${matchWins[1 - NET.seat]}` : `${pname(0)} ${matchWins[0]}, ${pname(1)} ${matchWins[1]}`;
+}
 function showOver(res, shooter) {
   const w = game.winner;
-  const win = NET.on ? (w === NET.seat ? 'You win' : `${NET.peerName} wins`) : M.opp === 'bot' ? (w === 0 ? 'You win' : 'CPU wins') : `Player ${w + 1} wins`;
-  $('#overTitle').textContent = win;
+  const rt = raceTo(), done = matchDone(), what = rt ? (done ? ' the match' : ' the frame') : '';
+  const wn = NET.on ? (w === NET.seat ? null : NET.peerName) : M.opp === 'bot' ? (w === 0 ? null : 'CPU') : `Player ${w + 1}`;
+  $('#overTitle').textContent = wn === null ? `You win${what}` : `${wn} wins${what}`;
   const who = shooter >= 0 ? pname(shooter) : '', why = ((res && res.reason2) || '').replace(/^./, c => c.toLowerCase());
   $('#overWhy').textContent = why ? `${who} ${why}.` : '';
-  $('#overStats').textContent = NET.on
-    ? `Shots taken: you ${shots[NET.seat]}, ${NET.peerName} ${shots[1 - NET.seat]}. Racks won: you ${matchWins[NET.seat]}, ${NET.peerName} ${matchWins[1 - NET.seat]}.`
-    : `Shots taken: ${pname(0)} ${shots[0]}, ${pname(1)} ${shots[1]}. Match: ${matchWins[0]}–${matchWins[1]}.`;
+  const sh = NET.on ? `you ${shots[NET.seat]}, ${NET.peerName} ${shots[1 - NET.seat]}` : `${pname(0)} ${shots[0]}, ${pname(1)} ${shots[1]}`;
+  $('#overStats').textContent = `Shots taken: ${sh}. ${rt ? `Match, first to ${rt}: ${matchText()}.` : `Racks won: ${matchText()}.`}`;
+  $('#bOverReplay').hidden = !lastShot;
   $('#over').hidden = false;
   if (NET.on) { NET.again = [false, false]; updateAgainBtn(); }
-  else $('#bAgain').textContent = 'Play again';
+  else $('#bAgain').textContent = done ? 'New match' : rt ? 'Next frame' : 'Play again';
   if (NET.on ? w === NET.seat : (M.opp !== 'bot' || w === 0)) sfx('win'); else sfx('foul');
   $('#bAgain').focus();
 }
@@ -1659,7 +1722,7 @@ const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
 function physicsTick(dt) {
   movingT += dt;
   if (movingT > 45) for (const b of world.balls) { b.vx = b.vz = b.wx = b.wy = b.wz = 0; }
-  acc += dt; let n = 0;
+  acc += dt * (replay ? replay.speed : 1); let n = 0;
   while (acc >= P.dt && n < 60) {
     C.step(world, P.dt);
     for (const b of world.balls) if (!b.potted) { const r = ROT[b.id]; r.x += b.wx * P.dt; r.y += b.wy * P.dt; r.z += b.wz * P.dt; }
@@ -1672,8 +1735,33 @@ function physicsTick(dt) {
     else if (e.t === 'pot') { const b = ballById(e.id); potAnims.push({ id: e.id, t: 0, x0: b.x, z0: b.z, p: T.pockets[e.p] }); sfx('pot'); SH[e.id].visible = false; }
   }
   world.ev.length = 0;
-  if (C.allStopped(world) && !potAnims.length) { acc = 0; endShot(); }
+  if (C.allStopped(world) && !potAnims.length) { acc = 0; if (replay) endReplay(); else endShot(); }
 }
+// instant replay: the physics is deterministic, so re-running the last shot reproduces it exactly
+const canReplay = () => !!lastShot && !replay && !paused && ['aim', 'remote', 'botThink', 'over'].includes(state);
+function startReplay() {
+  if (!canReplay()) return;
+  replay = { prev: state, saved: world, speed: 1, over: !$('#over').hidden, thinking: !$('#thinking').hidden };
+  $('#over').hidden = true; $('#thinking').hidden = true; $('#bihTip').hidden = true;
+  world = C.makeWorld(C.cloneBalls(lastShot.balls)); world.ev = [];
+  const cue = world.balls[0]; [cue.vx, cue.vz, cue.wx, cue.wy, cue.wz] = lastShot.v;
+  potAnims = []; syncBallMeshes(); hideGuides();
+  state = 'moving'; acc = 0; movingT = 0;
+  $('#bSlow').textContent = 'Slow motion'; $('#replayBar').hidden = false; sfx('cue', Math.hypot(cue.vx, cue.vz));
+  updateHUD();
+}
+function endReplay() {
+  if (!replay) return;
+  const r = replay; replay = null;
+  world = r.saved; state = r.prev; potAnims = []; syncBallMeshes();
+  $('#replayBar').hidden = true;
+  if (r.over) $('#over').hidden = false;
+  if (r.thinking) $('#thinking').hidden = false;
+  aimDirty = true; updateHUD();
+  if (NET.on) { netCheckSync(); netProcessQueue(); }
+}
+function endReplayNow() { if (replay) { replay = null; $('#replayBar').hidden = true; } }
+
 function potAnimTick(dt) {
   for (let i = potAnims.length - 1; i >= 0; i--) {
     const a = potAnims[i]; a.t += dt; const k = clamp(a.t / 0.32, 0, 1), m = BM[a.id];
@@ -1833,6 +1921,11 @@ function tablePoint(e) {
   return ray.ray.intersectPlane(plane, hitV) ? [hitV.x, hitV.z] : null;
 }
 function aimAtPoint(p) { const cue = world.balls[0]; if (!p) return; if (Math.hypot(p[0] - cue.x, p[1] - cue.z) < 0.03) return; aim.phi = Math.atan2(p[1] - cue.z, p[0] - cue.x); aimDirty = true; }
+function moveBall(b, p) {
+  if (!p || !b) return;
+  const x = clamp(p[0], -T.hl + R + 0.002, T.hl - R - 0.002), z = clamp(p[1], -T.hw + R + 0.002, T.hw - R - 0.002);
+  if (C.validSpot(world.balls, x, z, b.id, false)) { b.x = x; b.z = z; aimDirty = true; TRK.fresh = false; }
+}
 function placeCue(p) {
   if (!p) return; const cue = world.balls[0];
   let x = clamp(p[0], -T.hl + R + 0.002, T.hl - R - 0.002), z = clamp(p[1], -T.hw + R + 0.002, T.hw - R - 0.002);
@@ -1855,7 +1948,9 @@ canvas.addEventListener('pointerdown', e => {
   else if (e.button === 1) { ptr.mode = 'pan'; e.preventDefault(); }
   else if (humanAim) {
     const p = tablePoint(e), cue = world.balls[0];
-    if (game.ballInHand && p && Math.hypot(p[0] - cue.x, p[1] - cue.z) < R * 2.6) ptr.mode = 'hand';
+    const near = EDIT && p ? world.balls.filter(b => !b.potted).map(b => [b, Math.hypot(p[0] - b.x, p[1] - b.z)]).sort((a, b) => a[1] - b[1])[0] : null;
+    if (near && near[1] < R * 1.8) { ptr.mode = 'moveBall'; ptr.ball = near[0]; }
+    else if (game.ballInHand && p && Math.hypot(p[0] - cue.x, p[1] - cue.z) < R * 2.6) ptr.mode = 'hand';
     else if (cam.mode === 'aim' || e.shiftKey) ptr.mode = 'aimRel';
     else ptr.mode = 'point';
   } else ptr.mode = 'orbit';
@@ -1873,6 +1968,7 @@ canvas.addEventListener('pointermove', e => {
   else if (ptr.mode === 'point') { if (ptr.moved > 3) aimAtPoint(tablePoint(e)); }
   else if (ptr.mode === 'aimRel') { aim.phi = wrapA(aim.phi + dx * (e.shiftKey ? 0.015 : 0.2) * DEG); aimDirty = true; }
   else if (ptr.mode === 'hand') placeCue(tablePoint(e));
+  else if (ptr.mode === 'moveBall') moveBall(ptr.ball, tablePoint(e));
 });
 const endPtr = e => {
   touches.delete(e.pointerId);
@@ -1898,6 +1994,7 @@ addEventListener('keydown', e => {
     if (state !== 'menu' && state !== 'over') togglePause(true);
     return;
   }
+  if (k === 'KeyV' && !e.repeat && state !== 'menu' && state !== 'lobby') { if (replay) endReplay(); else startReplay(); return; }
   if (state === 'menu' || state === 'lobby' || paused || state === 'over') return;
   if (e.repeat && !['KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(k)) { keys.add(k); return; }
   keys.add(k);
@@ -1933,6 +2030,10 @@ function handleKeys(dt) {
     const rate = 10 + Math.min(30, Math.max(0, holdT - 0.45) * 60);   // 10°/s, easing up to 40°/s
     aim.phi = wrapA(aim.phi + (r ? 1 : -1) * rate * DEG * dt); aimDirty = true;
   } else holdT = 0;
+  if (touchTurn.dir) {
+    touchTurn.t += dt;
+    if (touchTurn.t > 0.35) { const rate = 10 + Math.min(30, Math.max(0, touchTurn.t - 0.8) * 60); aim.phi = wrapA(aim.phi + touchTurn.dir * rate * DEG * dt); aimDirty = true; }
+  }
   const up = has('ArrowUp') || has('KeyW'), dn = has('ArrowDown') || has('KeyS');
   if (up || dn) { aim.power = clamp(aim.power + (up ? 1 : -1) * (shift ? 0.06 : 0.35) * dt, 0.02, 1); aimDirty = true; updateShotPanel(); }
 }
@@ -2020,7 +2121,11 @@ function updateHUD() {
     if (game.ballInHand && !game.breakShot) line += ', ball in hand';
   }
   $('#turnLine').textContent = line;
-  $('#score').textContent = mode === 'practice' ? '' : NET.on ? `You ${matchWins[NET.seat]}, ${NET.peerName} ${matchWins[1 - NET.seat]}` : `Racks won ${matchWins[0]}–${matchWins[1]}`;
+  const mt = matchText().replace(/^./, c => c.toUpperCase()), rt = raceTo();
+  $('#score').textContent = mode === 'practice' ? '' : rt ? `First to ${rt}: ${mt}` : NET.on ? mt : `Racks won ${matchWins[0]}–${matchWins[1]}`;
+  $('#bReplay').hidden = !lastShot || mode === undefined;
+  $('#bReplay').disabled = !canReplay();
+  $('#bChat').hidden = !(NET.on && NET.started);
   updateNetBadge();
   for (let i = 0; i < 2; i++) {
     const el = $('#p' + i);
@@ -2120,7 +2225,9 @@ function refreshMenus() {
   $('#bStart').textContent = M.opp === 'online' && M.mode !== 'practice' ? 'Create room' : "Rack 'em up";
   segControl($('#mDiff'), [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert']], () => M.diff, v => M.diff = v);
   segControl($('#mGuide'), GUIDES, () => M.guide, v => M.guide = v);
-  segControl($('#mRack'), [['8ball', '8-ball rack'], ['9ball', '9-ball rack'], ['uk', 'Reds & yellows'], ['scatter', 'Scatter']], () => M.rack, v => M.rack = v);
+  segControl($('#mRack'), [['8ball', '8-ball rack'], ['9ball', '9-ball rack'], ['uk', 'Reds & yellows'], ['scatter', 'Scatter'], ['trick', 'Trick shots']], () => M.rack, v => M.rack = v);
+  segControl($('#mRace'), [[0, 'Single frames'], [3, 'First to 3'], [5, 'First to 5'], [7, 'First to 7']], () => M.race || 0, v => M.race = v);
+  $('#rowMatch').hidden = M.mode === 'practice';
   $('#modeTxt').textContent = MODE_TXT[M.mode];
   if (state === 'menu' && applyTable(tableKeyFor())) { world = C.makeWorld(C.rack8()); syncBallMeshes(); }
   swatches($('#mCloth'));
@@ -2147,13 +2254,15 @@ function togglePause(force) {
   $('#pause').hidden = !paused;
   const inMenu = state === 'menu';
   $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on; $('#bRestart').hidden = NET.on;
+  $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
+  $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
   if (paused) { refreshMenus(); $('#bResume').focus(); } else aimDirty = true;
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online' && M.mode !== 'practice') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
-$('#bRestart').addEventListener('click', () => { togglePause(false); startGame(false); });
+$('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode === 'practice') startGame(false); else { startGame(true, true); toast("Re-racked. The last frame doesn't count", 'info'); } });
 $('#bQuit').addEventListener('click', () => { togglePause(false); toMenu(); });
 $('#bAgain').addEventListener('click', () => {
   sfx('ui');
@@ -2168,9 +2277,59 @@ $('#bHelpClose').addEventListener('click', () => { $('#help').hidden = true; });
 $('#bPause').addEventListener('click', () => togglePause(true));
 $('#bRerack').addEventListener('click', () => { if (state === 'aim') startGame(false); });
 $('#bUndo').addEventListener('click', undo);
+for (const [id, dir] of [['#bAimL', -1], ['#bAimR', 1]]) {
+  const b = $(id);
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); ensureAudio();
+    if (state !== 'aim' || !humanTurn()) return;
+    aim.phi = wrapA(aim.phi + dir * AIM_STEP); aimDirty = true; touchTurn = { dir, t: 0 };
+    try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => { touchTurn = { dir: 0, t: 0 }; });
+}
+$('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else startReplay(); });
+$('#bOverReplay').addEventListener('click', startReplay);
+$('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; $('#bSlow').textContent = replay.speed < 1 ? 'Normal speed' : 'Slow motion'; });
+$('#bSkip').addEventListener('click', () => endReplay());
+$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag any ball to move it. Click Move balls again when done', 'info'); });
+$('#bReturn').addEventListener('click', () => {
+  if (M.mode !== 'practice' || state !== 'aim') return;
+  for (const b of world.balls) if (b.id && b.potted) { b.potted = false; C.spotBall(world.balls, b); }
+  syncBallMeshes(); aimDirty = true; updateHUD();
+});
+$('#bSave').addEventListener('click', () => {
+  if (M.mode !== 'practice' || state !== 'aim') return;
+  const l = loadLayouts(); if (l.length >= 12) { toast('You can keep 12 layouts. Delete one under Trick shots first', 'foul'); return; }
+  let n = 1; while (l.some(x => x.name === `My layout ${n}`)) n++;
+  l.push({ name: `My layout ${n}`, balls: world.balls.filter(b => !b.potted).map(b => [b.id, +b.x.toFixed(5), +b.z.toFixed(5)]) });
+  saveLayouts(l); toast(`Saved as My layout ${n}. Find it under Trick shots`, 'good');
+});
+$('#bTrickPrev').addEventListener('click', () => { M.trick = (M.trick | 0) - 1; saveM(); startGame(false); });
+$('#bTrickNext').addEventListener('click', () => { M.trick = (M.trick | 0) + 1; saveM(); startGame(false); });
+$('#bShowMe').addEventListener('click', () => {
+  const t = trickList()[M.trick]; if (!t || !t.demo) return;
+  startGame(false);
+  setTimeout(() => { if (state !== 'aim') return; Object.assign(aim, t.demo); aimDirty = true; updateShotPanel(); TRK.demo = true; setTimeout(beginStroke, 900); }, 350);
+});
+$('#bDelLayout').addEventListener('click', () => {
+  const t = trickList()[M.trick]; if (!t || t.custom === undefined) return;
+  const l = loadLayouts(); l.splice(t.custom, 1); saveLayouts(l); M.trick = 0; saveM(); startGame(false); toast('Layout deleted', 'info');
+});
+function updateTrickUI() {
+  const on = M.mode === 'practice' && M.rack === 'trick';
+  $('#trickInfo').hidden = !on;
+  $('#bMove').setAttribute('aria-pressed', String(EDIT));
+  $('#bReturn').hidden = !EDIT;
+  $('#bRerack').textContent = on ? 'Retry (R)' : 'Rerack';
+  if (!on) return;
+  const list = trickList(), t = list[M.trick] || list[0];
+  $('#trickTitle').textContent = `Trick ${M.trick + 1} of ${list.length}: ${t.name}`;
+  $('#trickGoal').textContent = t.goal;
+  $('#bShowMe').hidden = !t.demo; $('#bDelLayout').hidden = t.custom === undefined;
+}
 $('#bHand').addEventListener('click', () => { if (M.mode === 'practice' && state === 'aim') { game.ballInHand = !game.ballInHand; updateHUD(); } });
 function toMenu() {
-  leaveOnline();
+  leaveOnline(); endReplayNow(); lastShot = null; EDIT = false; $('#offer').hidden = true; $('#chatPop').hidden = true;
   state = 'menu'; bot = null; stroke = null;
   world = C.makeWorld(C.rack8()); game = C.newGame('8ball'); syncBallMeshes();
   $('#hud').hidden = true; $('#over').hidden = true; $('#menu').hidden = false; $('#thinking').hidden = true;
@@ -2245,6 +2404,14 @@ function onNet(m) {
     case 'sync': if (typeof m.n === 'number' && Array.isArray(m.balls) && m.game) { NET.pendingSync[m.n] = m; netCheckSync(); } break;
     case 'again': NET.again[1 - NET.seat] = true; tryRematch(); break;
     case 'bye': NET.peer = false; updateNetBadge(); toast(`${NET.peerName} left the game`, 'foul'); break;
+    case 'chat': if (Number.isInteger(m.i) && CHAT[m.i]) { toast(`${NET.peerName}: ${CHAT[m.i]}`, 'chat'); sfx('ui'); } break;
+    case 'concede':
+      if (state === 'moving' || state === 'stroke') NET.pendingConcede = m.from === 1 ? 1 : 0;
+      else concedeFrame(true, m.from === 1 ? 1 : 0);
+      break;
+    case 'rerackOffer': if (!game.over) { $('#offerTxt').textContent = `${NET.peerName} offers a re-rack. This frame won't count.`; $('#offer').hidden = false; } break;
+    case 'rerackYes': toast(`${NET.peerName} accepted the re-rack`, 'good'); if (NET.seat === 0) hostStart(); break;
+    case 'rerackNo': toast(`${NET.peerName} declined the re-rack`, 'info'); break;
   }
 }
 function menuNote(t) { $('#netNote').textContent = t; }
@@ -2283,7 +2450,7 @@ function hostStart() {
   applyTable(tableKeyFor());
   const balls = (M.mode === '9ball' ? C.rack9 : C.rack8)();
   const setup = { t: 'setup', mode: M.mode, guide: M.guide === 'auto' ? 'ghost' : M.guide,
-    balls: balls.map(b => [b.id, b.x, b.z]), breaker: NET.games % 2, wins: [...matchWins] };
+    balls: balls.map(b => [b.id, b.x, b.z]), breaker: NET.games % 2, wins: matchDone() ? [0, 0] : [...matchWins], raceTo: M.race || 0 };
   netSend(setup); startOnlineGame(setup);
 }
 function startOnlineGame(m) {
@@ -2293,6 +2460,8 @@ function startOnlineGame(m) {
   world = C.makeWorld(m.balls.map(([id, x, z]) => C.newBall(id, x, z))); world.ev = [];
   game = C.newGame(m.mode); game.turn = m.breaker === 1 ? 1 : 0;
   matchWins = Array.isArray(m.wins) ? [...m.wins] : [0, 0];
+  NET.raceTo = [0, 3, 5, 7].includes(m.raceTo) ? m.raceTo : 0;
+  lastShot = null; endReplayNow(); $('#offer').hidden = true;
   shots = [0, 0]; undoStack = []; potAnims = []; acc = 0; stroke = null; bot = null; botAim = null; remoteStrike = null;
   Object.assign(NET, { n: 0, started: true, queue: [], pendingSync: {}, again: [false, false], aimT: null });
   syncBallMeshes(); aim.sx = aim.sy = 0; aim.power = 0.88;
@@ -2312,18 +2481,21 @@ function applySnapshot(m) {
 }
 function netSendState() {
   if (state === 'moving' || state === 'stroke') { NET.stateAfter = true; return; }
-  netSend({ t: 'state', n: NET.n, mode: M.mode, guide: NET.guide, ...snapshot() });
+  netSend({ t: 'state', n: NET.n, mode: M.mode, guide: NET.guide, raceTo: NET.raceTo || 0, ...snapshot() });
 }
 function adoptState(m) {
   if (NET.started && !(m.n > NET.n)) return;
   if (!['8ball', '9ball', 'uk8'].includes(m.mode) || !Array.isArray(m.balls) || !m.game) return;
   M.mode = m.mode; NET.guide = GUIDE_TXT[m.guide] ? m.guide : NET.guide; applyTable(tableKeyFor());
+  if ([0, 3, 5, 7].includes(m.raceTo)) NET.raceTo = m.raceTo;
+  endReplayNow();
   applySnapshot(m);
   NET.n = m.n; NET.started = true; NET.queue = NET.queue.filter(q => q.n > m.n); NET.pendingSync = {};
   showGameUI(); toast(`Back in the game with ${NET.peerName}`, 'good');
   if (game.over) { state = 'over'; updateHUD(); showOver(null, -1); } else beginTurn();
 }
 function netAfterShot(shooter) {
+  if (NET.pendingConcede === 0 || NET.pendingConcede === 1) { const l = NET.pendingConcede; NET.pendingConcede = null; setTimeout(() => concedeFrame(true, l), 0); }
   if (shooter === NET.seat) netSend({ t: 'sync', n: NET.n, ...snapshot() });
   else netCheckSync();
   if (NET.stateAfter) { NET.stateAfter = false; netSendState(); }
@@ -2405,9 +2577,37 @@ function updateNetBadge() {
   el.textContent = NET.link !== 'online' ? 'Reconnecting to the relay…' : ok ? `${NET.peerName} is connected` : `${NET.peerName} is not connected`;
   el.dataset.ok = ok ? '1' : '0';
 }
+// quick chat: preset messages only, so there's nothing to moderate in listed rooms
+const CHAT = ['Nice shot!', 'Unlucky', 'Good luck', 'Good game', 'Thanks!', 'Oops!', 'Wow!', 'One more?'];
+let lastChat = 0;
+function sendChat(i) {
+  if (!NET.on || performance.now() - lastChat < 1200) return;
+  lastChat = performance.now(); netSend({ t: 'chat', i }); toast(`You: ${CHAT[i]}`, 'chat'); $('#chatPop').hidden = true;
+}
+CHAT.forEach((txt, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = txt; b.addEventListener('click', () => sendChat(i)); $('#chatPop').appendChild(b); });
+$('#bChat').addEventListener('click', () => { $('#chatPop').hidden = !$('#chatPop').hidden; });
+function concedeFrame(fromRemote, loser) {
+  if (game.over || M.mode === 'practice') return false;
+  if (state === 'moving' || state === 'stroke' || state === 'botAim') { if (!fromRemote) toast('Wait for the balls to stop first', 'info'); return false; }
+  if (loser !== 0 && loser !== 1) loser = NET.on ? NET.seat : (M.opp === 'bot' ? 0 : game.turn);
+  const w = 1 - loser;
+  game = { ...game, over: true, winner: w }; matchWins[w]++;
+  state = 'over'; bot = null; $('#thinking').hidden = true; $('#offer').hidden = true; updateHUD();
+  showOver({ reason2: 'Conceded the frame' }, loser);
+  return true;
+}
+$('#bConcede').addEventListener('click', () => { togglePause(false); if (concedeFrame(false) && NET.on) netSend({ t: 'concede' }); });
+$('#bOfferRerack').addEventListener('click', () => {
+  togglePause(false);
+  if (!NET.on || game.over) return;
+  netSend({ t: 'rerackOffer' }); toast(`Re-rack offered. Waiting for ${NET.peerName}`, 'info');
+});
+$('#bOfferYes').addEventListener('click', () => { $('#offer').hidden = true; netSend({ t: 'rerackYes' }); if (NET.seat === 0) hostStart(); });
+$('#bOfferNo').addEventListener('click', () => { $('#offer').hidden = true; netSend({ t: 'rerackNo' }); });
 function updateAgainBtn() {
   const b = $('#bAgain');
-  b.textContent = NET.again[NET.seat] ? `Waiting for ${NET.peerName}…` : NET.again[1 - NET.seat] ? 'Accept rematch' : 'Play again';
+  const base = matchDone() ? 'New match' : raceTo() ? 'Next frame' : 'Play again';
+  b.textContent = NET.again[NET.seat] ? `Waiting for ${NET.peerName}…` : NET.again[1 - NET.seat] ? `${base}: accept` : base;
 }
 function tryRematch() {
   if (!NET.on) return;
@@ -2511,7 +2711,9 @@ requestAnimationFrame(frame);
   const m = /#room=([A-Za-z0-9]+)/.exec(location.hash);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else menuNote('This is an invite link, but online play needs the relay address in config.js first.'); }
 }
-window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam };
+window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
+  get matchWins() { return matchWins; },
+  ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam };
 })();
 </script>
 </body>

@@ -9,6 +9,8 @@
 | `index.html` | The game. It works on its own for offline play. |
 | `config.js` | One setting: your relay address, so online play knows where to connect. |
 | `relay/` | A tiny Cloudflare Worker that passes messages between the two players. |
+| `src/`, `vendor/`, `tools/`, `tests/` | The source code, the 3D engine and fonts, the build tool and the tests. `index.html` is built from these. |
+| `CLAUDE.md`, `HANDOVER.md` | Notes that tell Claude Code how the project fits together, and its history. |
 
 Everything here runs on free plans. You need a GitHub account and a Cloudflare account, and everything is done in your web browser.
 
@@ -66,9 +68,20 @@ The player who creates the room chooses the game and the aim guide, and those se
 
 **Cost.** Cloudflare's free plan covers this comfortably. If the daily free allowance were ever used up, online play would simply stop working until the allowance resets at midnight UTC. You can't be charged unless you upgrade the plan yourself.
 
+
+## Features worth knowing
+
+- **Replay:** press **V** or the **Replay** button to watch the last shot again. Use slow motion and orbit the camera while it plays.
+- **Matches:** under **Match** in the menu, choose first to 3, 5 or 7 racks, for CPU, same-device and online games.
+- **Concede or re-rack:** both are in the **Pause** menu. Online, a re-rack is offered to your opponent, who can accept or decline.
+- **Quick chat:** in online games, the **Chat** button sends a short preset message.
+- **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Move balls** lets you set up your own layout, and **Save layout** adds it to the list.
+- **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.
+
 ## Updating later
 
-- **New version of the game:** on GitHub, use **Add file**, then **Upload files**, and drop in the new `index.html`. A file with the same name replaces the old one. Commit, and the site updates in a minute or two.
+- **New version of the game:** on GitHub, use **Add file**, then **Upload files**, and drop in the new files. Files with the same name replace the old ones. Commit, and the site updates in a minute or two.
+- **With Claude Code:** open this repository in Claude Code and describe the change. It reads `CLAUDE.md` to learn how the project works, edits the source in `src/`, rebuilds `index.html`, runs the tests, and pushes. The site and relay then update by themselves.
 - **New version of the relay:** upload the changed files into the `relay` folder the same way. Cloudflare rebuilds and redeploys it automatically.
 
 ## If something isn't working

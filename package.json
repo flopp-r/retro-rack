@@ -1,0 +1,10 @@
+{
+  "name": "retro-rack",
+  "private": true,
+  "description": "Retro Rack: 3D pixel-art pool with online play",
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node tests/physics.test.js",
+    "find-demos": "node tools/find-trick-demos.js"
+  }
+}
