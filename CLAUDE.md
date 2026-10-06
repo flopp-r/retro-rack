@@ -80,6 +80,7 @@ The CPU (`planBot`) is a generator, so its search can be spread across frames. I
 - **States:** `menu`, `lobby`, `aim`, `stroke`, `moving`, `remote` (waiting for the online opponent), `botThink`, `botAim` and `over`.
 - **Replay:** stores the table before the last shot plus the cue ball's initial velocities, then re-simulates.
 - **Trick shots:** the `TRICKS` list sits near the top of `game.js`. Saved layouts are kept in localStorage.
+- **Markers:** `markedBalls()` picks the balls the shooter is on (their group, then the black; the lowest ball in 9-ball; nothing on the break, an open table or in practice). `updateMarkers()` draws a camera-facing halo (a sprite) round each one, only while a local human is aiming. Display only: nothing is sent online. Switch: `S.markers`.
 
 ### Online play
 - The browser in each seat runs the full game; the relay only forwards messages.

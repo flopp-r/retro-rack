@@ -89,6 +89,7 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 - **Concede or re-rack:** both are in the **Pause** menu. Online, a re-rack is offered to your opponent, who can accept or decline.
 - **Quick chat:** in online games, the **Chat** button sends a short preset message.
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Move balls** lets you set up your own layout, and **Save layout** adds it to the list.
+- **Markers:** a pulsing gold halo shows the balls you're on once you have a colour (in 9-ball, the lowest ball). Turn it off under **Pause**, **Markers**.
 - **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.
 
 ## Updating later
