@@ -12,9 +12,14 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, sound: true, cloth: 'teal', markers: true };
+const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', markers: true, vibrate: true };
 const S = { ...DEFAULTS };
-try { Object.assign(S, JSON.parse(localStorage.getItem('retroRack.settings') || '{}')); } catch (e) {}
+try {
+  const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
+  Object.assign(S, saved);
+  if (!('volume' in saved) && saved.sound === false) S.volume = 0;   // the old Sound: Off carries over
+  delete S.sound;
+} catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
 const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
@@ -373,15 +378,16 @@ const allGuides = [G_CUE, G_CUE2, G_OBJ, G_GHOST, G_HAND, G_KITCHEN];
 // ------------------------------------------------------------------ audio
 const AU = { ctx: null, noise: null, lastT: 0, burst: 0 };
 function ensureAudio() {
-  if (!S.sound) return;
+  if (!S.volume) return;
   if (!AU.ctx) {
     try {
       AU.ctx = new (window.AudioContext || window.webkitAudioContext)();
       const len = Math.floor(AU.ctx.sampleRate * 0.4), buf = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      AU.noise = buf; AU.master = AU.ctx.createGain(); AU.master.gain.value = 0.7; AU.master.connect(AU.ctx.destination);
+      AU.noise = buf; AU.master = AU.ctx.createGain(); AU.master.connect(AU.ctx.destination);
     } catch (e) { AU.ctx = null; }
   }
+  if (AU.master) AU.master.gain.value = 0.7 * S.volume / 0.75;   // 75% is the original loudness
   if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
 }
 function blip(f, dur, vol, type = 'sine', f2 = 0, delay = 0) {
@@ -397,7 +403,7 @@ function hiss(dur, vol, fc, q, type = 'bandpass', delay = 0) {
   s.connect(f); f.connect(g); g.connect(AU.master); s.start(t, Math.random() * 0.2); s.stop(t + dur + 0.02);
 }
 function sfx(kind, v = 1) {
-  if (!S.sound || !AU.ctx) return;
+  if (!S.volume || !AU.ctx) return;
   const now = AU.ctx.currentTime;
   if (kind === 'bb' || kind === 'cush') { if (now - AU.lastT < 0.015) { if (++AU.burst > 3) return; } else AU.burst = 0; AU.lastT = now; }
   try {
@@ -507,7 +513,7 @@ function endShot() {
   syncBallMeshes();
   const wasBreak = game.breakShot;
   game = C.nextGame(game, res, pl);
-  if (res.foul) { toast(`Foul: ${res.reason}`, 'foul'); sfx('foul'); }
+  if (res.foul) { toast(`Foul: ${res.reason}`, 'foul'); sfx('foul'); if (NET.on ? pl === NET.seat : !isBot(pl)) buzz([70, 60, 70]); }
   if (res.assign) toast(`${pname(res.assign.player)} ${isYou(res.assign.player) ? 'are' : 'is'} ${C.groupName(M.mode, res.assign.group)}`, 'good');
   res.msgs.forEach(m => toast(m, 'info'));
   if (game.over) {
@@ -643,7 +649,10 @@ function physicsTick(dt) {
   for (const e of world.ev) {
     if (e.t === 'bb') sfx('bb', e.v);
     else if (e.t === 'cush') sfx('cush', e.v);
-    else if (e.t === 'pot') { const b = ballById(e.id); potAnims.push({ id: e.id, t: 0, x0: b.x, z0: b.z, p: T.pockets[e.p] }); sfx('pot'); SH[e.id].visible = false; }
+    else if (e.t === 'pot') {
+      const b = ballById(e.id); potAnims.push({ id: e.id, t: 0, x0: b.x, z0: b.z, p: T.pockets[e.p] }); sfx('pot'); SH[e.id].visible = false;
+      if (e.id !== 0 && humanTurn()) buzz(30);   // your own pot (game.turn is the shooter while balls move)
+    }
   }
   world.ev.length = 0;
   if (C.allStopped(world) && !potAnims.length) { acc = 0; if (replay) endReplay(); else endShot(); }
@@ -1172,14 +1181,15 @@ function refreshMenus() {
   // settings panel
   segControl($('#sGuide'), GUIDES, () => M.guide, v => { M.guide = v; aimDirty = true; });
   segControl($('#sLevels'), [[4, '4'], [6, '6'], [8, '8'], [12, '12'], [256, 'Full']], () => S.levels, v => { S.levels = v; saveS(); applyLook(); });
+  segControl($('#sVolume'), [[0, 'Off'], [0.25, '25%'], [0.5, '50%'], [0.75, '75%'], [1, '100%']], () => S.volume, v => { S.volume = v; saveS(); ensureAudio(); });
   segControl($('#sPixel'), [[1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
-  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound'], ['#sMarkers', 'markers']]) {
+  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
   swatches($('#sCloth'));
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
-for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound'], ['#sMarkers', 'markers']]) {
+for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
 function togglePause(force) {
@@ -1652,6 +1662,42 @@ if (/^https?:$/.test(location.protocol)) {
   document.head.append(link, icon);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* the game works without it */ });
 }
+
+// ------------------------------------------------------------------ phone and screen comforts
+// Vibration: only Android lets web pages vibrate, so the setting only shows on touch screens that offer it.
+const canVibrate = 'vibrate' in navigator && matchMedia('(pointer: coarse)').matches;
+function buzz(pattern) {
+  if (!canVibrate || !S.vibrate || replay || TRK.demo) return;
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;   // refused (with a console warning) before the first tap
+  try { navigator.vibrate(pattern); } catch (e) {}
+}
+$('#rowVibrate').hidden = !canVibrate;
+
+// Fullscreen: iPhones don't allow it for web pages, so the buttons only show where the browser does
+const canFull = !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+function toggleFull() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+}
+function updateFullBtns() {
+  for (const b of [$('#bFull'), $('#bMenuFull')]) {
+    b.hidden = !canFull; b.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+    b.setAttribute('aria-pressed', String(!!document.fullscreenElement));
+  }
+}
+$('#bFull').addEventListener('click', () => { sfx('ui'); toggleFull(); });
+$('#bMenuFull').addEventListener('click', () => { ensureAudio(); sfx('ui'); toggleFull(); });
+document.addEventListener('fullscreenchange', updateFullBtns);
+updateFullBtns();
+
+// "Turn your phone sideways": only on a phone held upright; goes when it's rotated, and OK hides it for good
+const portraitPhone = matchMedia('(pointer: coarse) and (orientation: portrait) and (max-width: 600px)');
+let rotateOff = false;
+try { rotateOff = localStorage.getItem('retroRack.rotateHint') === 'off'; } catch (e) {}
+function updateRotateHint() { $('#rotate').hidden = rotateOff || !portraitPhone.matches; }
+portraitPhone.addEventListener('change', updateRotateHint);
+$('#bRotateOk').addEventListener('click', () => { rotateOff = true; try { localStorage.setItem('retroRack.rotateHint', 'off'); } catch (e) {} updateRotateHint(); });
+updateRotateHint();
 
 // ------------------------------------------------------------------ main loop
 let lastT = performance.now();
