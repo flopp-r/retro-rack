@@ -456,6 +456,7 @@ function trickRack() {
 }
 function startGame(rematch, rerack = false) {
   const mode = M.mode;
+  M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide }; saveM(); NAV.lastOnline = false; armBack();
   applyTable(tableKeyFor());
   const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter, trick: trickRack }[M.rack] || C.rack8) : C.rack8;
   world = C.makeWorld(rack()); world.ev = [];
@@ -942,7 +943,8 @@ addEventListener('keydown', e => {
   if (k === 'Escape') {
     if (!$('#help').hidden) { $('#help').hidden = true; return; }
     if (paused) { togglePause(false); return; }
-    if (state !== 'menu' && state !== 'over') togglePause(true);
+    if (state === 'menu') { menuBack(); return; }
+    if (state !== 'over') togglePause(true);
     return;
   }
   if (k === 'KeyV' && !e.repeat && state !== 'menu' && state !== 'lobby') { if (replay) endReplay(); else startReplay(); return; }
@@ -1165,26 +1167,154 @@ const MODE_TXT = {
   practice: 'Free play with undo, rerack and ball in hand whenever you like.',
 };
 const GUIDES = [['auto', 'Match skill'], ['full', 'Full paths'], ['line', 'Ghost + line'], ['ghost', 'Ghost only'], ['min', 'Cue line only']];
+// ------------------------------------------------------------------ menu screens
+// The menu is a stack of screens: home > single player / multiplayer > a game > its setup. Each choice slides to
+// the next screen. Back (the button, Esc, or the phone's back gesture) slides back. While away from the home screen
+// one browser history entry is kept "armed", so a phone's back gesture goes back a screen (or, in a game, opens
+// Pause) instead of leaving the page.
+const NAV = { stack: ['home'], armed: false, skipPop: false, wantArm: false, lastOnline: false };
+const menuScreen = () => NAV.stack[NAV.stack.length - 1];
+function menuTitle(id) {
+  const mode = MODE_NAME[M.mode] || '8-ball';
+  if (id === 'setup') return M.opp === 'bot' ? `${mode} v computer` : M.opp === 'online' ? `New room: ${mode}` : `${mode}, same device`;
+  if (id === 'game') return M.opp === 'online' ? 'New room: choose a game' : 'Choose a game';
+  return $('#sc-' + id).dataset.title || '';
+}
+function showScreen(id, from, dir) {
+  const next = $('#sc-' + id), prev = from && from !== id ? $('#sc-' + from) : null;
+  for (const s of document.querySelectorAll('.mScreen')) if (s !== next && s !== prev) { s.hidden = true; s.className = 'mScreen'; }
+  next.hidden = false; next.className = 'mScreen' + (dir > 0 ? ' inFwd' : dir < 0 ? ' inBack' : '');
+  if (prev) {
+    if (dir && !reduceMotion) {
+      prev.className = 'mScreen ' + (dir > 0 ? 'outFwd' : 'outBack');
+      clearTimeout(prev._t); prev._t = setTimeout(() => { if (menuScreen() !== from) { prev.hidden = true; prev.className = 'mScreen'; } }, 210);
+    } else { prev.hidden = true; prev.className = 'mScreen'; }
+  }
+  $('#mTop').hidden = NAV.stack.length < 2; $('#mTitle').textContent = menuTitle(id); $('#mStage').scrollTop = 0;
+  $('#bStart').hidden = id !== 'setup'; $('#bCreate').hidden = id !== 'online';
+  if (cam.mode === 'attract') { const deep = NAV.stack.length > 1; cam.free.dist = deep ? 3.0 : 3.6; cam.free.pitch = deep ? 0.5 : 0.62; }   // the camera swoops in
+  refreshMenus();
+  if (dir) { const f = next.querySelector('.card, #bStart'); if (f) f.focus({ preventScroll: true }); }
+}
+function menuGo(id) { const from = menuScreen(); NAV.stack.push(id); showScreen(id, from, 1); armBack(); }
+function menuBack(fromHistory) {
+  if (NAV.stack.length < 2) return false;
+  const from = NAV.stack.pop(); showScreen(menuScreen(), from, -1);
+  if (!fromHistory && NAV.stack.length < 2) disarm();
+  return true;
+}
+function menuReset(stack) {
+  NAV.stack = stack.slice(); showScreen(menuScreen(), null, 0);
+  if (NAV.stack.length > 1) armBack(); else disarm();
+}
+function armBack() {
+  if (NAV.armed) return;
+  if (NAV.skipPop) { NAV.wantArm = true; return; }   // a disarm is still on its way: arm once it has landed
+  try { history.pushState({ rr: 1 }, ''); NAV.armed = true; } catch (e) {}
+}
+function disarm() { NAV.wantArm = false; if (!NAV.armed) return; NAV.armed = false; NAV.skipPop = true; history.back(); }
+addEventListener('popstate', () => {
+  if (NAV.skipPop) { NAV.skipPop = false; if (NAV.wantArm) { NAV.wantArm = false; armBack(); } return; }
+  NAV.armed = false;
+  if (!$('#help').hidden) $('#help').hidden = true;
+  else if (paused) togglePause(false);
+  else if (state === 'menu') menuBack(true);
+  else if (state === 'lobby') $('#bLobbyCancel').click();
+  else if (state !== 'over') togglePause(true);
+  if (state !== 'menu' || NAV.stack.length > 1) armBack();
+});
+// the table behind the menu follows the choice: the 7 ft table for reds & yellows, a diamond rack for 9-ball
+function menuTable() {
+  if (state !== 'menu') return;
+  const nine = M.mode === '9ball' || (M.mode === 'practice' && M.rack === '9ball'), key = tableKeyFor() + (nine ? '9' : '8');
+  if (applyTable(tableKeyFor()) || world.menuKey !== key) { world = C.makeWorld((nine ? C.rack9 : C.rack8)()); world.menuKey = key; syncBallMeshes(); }
+}
+// "Play again": the last game started from the menu (not online), in one tap
+const RACK_NAME = { '8ball': '8-ball rack', '9ball': '9-ball rack', uk: 'reds & yellows', scatter: 'scatter', trick: 'trick shots' };
+function quickLabel(l) {
+  if (l.mode === 'practice') return `Practice, ${RACK_NAME[l.rack] || RACK_NAME['8ball']}`;
+  const mode = MODE_NAME[l.mode] || '8-ball', d = String(l.diff || 'medium');
+  return l.opp === 'bot' ? `${mode} v computer (${d[0].toUpperCase() + d.slice(1)})` : `${mode}, same device`;
+}
+function updateQuick() {
+  const l = M.last, b = $('#bQuick');
+  b.hidden = !l || !(l.mode === 'practice' || l.opp === 'bot' || l.opp === 'friend');
+  if (!b.hidden) b.textContent = 'Play again: ' + quickLabel(l);
+}
+$('#bQuick').addEventListener('click', () => { ensureAudio(); sfx('ui'); Object.assign(M, M.last); startGame(false); });
+$('#mBack').addEventListener('click', () => { sfx('ui'); menuBack(); });
+$('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp = 'online'; menuGo('game'); });
+
+// card pictures: balls drawn as pixel art, using the same colours as the 3D balls
+const DIGITS = { 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
+  6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111' };
+function hexMul(hex, f) { const n = parseInt(hex.slice(1), 16), c = s => Math.round(clamp(((n >> s) & 255) * f, 0, 255)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
+function drawBall2D(g, cx, cy, id, uk) {
+  const Rb = 9, base = id === 0 ? '#f6f1e2' : uk ? (id === 8 ? UK_COL.black : C.isSolid(id) ? UK_COL.red : UK_COL.yellow) : BALL_COL[id > 8 ? id - 8 : id];
+  const stripe = !uk && id > 8, numbered = !uk && id > 0;
+  for (let y = -Rb - 2; y <= Rb + 1; y++) for (let x = -Rb - 2; x <= Rb + 1; x++) {
+    const dx = x + 0.5, dy = y + 0.5, d = Math.hypot(dx, dy);
+    let col = null;
+    if (d <= Rb) {
+      col = stripe && Math.abs(dy) > 4 ? '#f6f1e2' : base;
+      const light = (-dx - dy) / (1.41 * Rb);
+      if (light > 0.5) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 1.3); else if (light < -0.4) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 0.68);
+      if (numbered && Math.hypot(dx + 0.5, dy + 0.5) <= 3.9) col = '#f6f1e2';
+      if (Math.hypot(dx + 4.5, dy + 4.5) < 1.3) col = '#ffffff';
+    } else if (d <= Rb + 1.05) col = '#0d0a1c';
+    if (col) { g.fillStyle = col; g.fillRect(cx + x, cy + y, 1, 1); }
+  }
+  const dg = numbered && DIGITS[id > 9 ? id % 10 || 1 : id];
+  if (dg) { g.fillStyle = '#0d0a1c'; for (let i = 0; i < 15; i++) if (dg[i] === '1') g.fillRect(cx - 2 + (i % 3), cy - 3 + Math.floor(i / 3), 1, 1); }
+}
+const ART = {
+  single: [[0]], multi: [[0], [0]], cpu: [[0], [8]], practice: [[1], [2], [3]], online: [[0]], local: [[1], [2]],
+  '8ball': [[8]], '9ball': [[9]], uk8: [[1, 1], [9, 1]],
+  r8: [[1], [8], [9]], r9: [[1], [9], [2]], ruk: [[1, 1], [8, 1], [9, 1]], scatter: [[3], [11], [6]], trick: [[0]],
+};
+function drawArt(name) {
+  const balls = ART[name]; if (!balls) return null;
+  const extra = name === 'online' ? 13 : name === 'trick' ? 34 : 0;
+  const c = document.createElement('canvas'); c.width = balls.length * 21 + extra + 1; c.height = 21;
+  c.className = 'cardArt'; c.setAttribute('aria-hidden', 'true');
+  const g = c.getContext('2d');
+  balls.forEach(([id, uk], i) => drawBall2D(g, 10 + i * 21, 10, id, !!uk));
+  g.fillStyle = '#ffc56b';
+  if (name === 'online') for (const r of [4, 7, 10]) for (let a = -0.75; a <= 0.75; a += 0.08) g.fillRect(Math.round(21 + Math.cos(a) * r), Math.round(10 + Math.sin(a) * r), 1, 1);
+  if (name === 'trick') { for (let x = 22; x < 34; x += 3) g.fillRect(x, 10, 2, 1); drawBall2D(g, 45, 10, 3, false); }
+  return c;
+}
+for (const c of document.querySelectorAll('#menu .card')) {
+  const body = document.createElement('span'); body.className = 'cardBody';
+  body.append(...c.querySelectorAll('.cardName, .cardTxt'));
+  const art = drawArt(c.dataset.art); if (art) c.append(art);
+  c.append(body);
+  c.addEventListener('click', () => {
+    ensureAudio(); sfx('ui');
+    if (c.dataset.opp) M.opp = c.dataset.opp;
+    if (c.dataset.rack) { M.mode = 'practice'; M.rack = c.dataset.rack; startGame(false); return; }
+    if (c.dataset.mode) { M.mode = c.dataset.mode; menuGo('setup'); return; }
+    if (c.dataset.go === 'practice') M.mode = 'practice';
+    else if (c.dataset.go === 'game' && M.mode === 'practice') M.mode = '8ball';
+    menuGo(c.dataset.go);
+  });
+}
+
 function refreshMenus() {
   saveM();
-  segControl($('#mMode'), [['8ball', '8-ball'], ['9ball', '9-ball'], ['uk8', 'Reds & yellows'], ['practice', 'Practice']], () => M.mode, v => M.mode = v);
-  segControl($('#mOpp'), [['bot', 'Computer'], ['friend', 'Same device'], ['online', 'Online friend']], () => M.opp, v => M.opp = v);
-  $('#rowOnline').hidden = M.mode === 'practice' || M.opp !== 'online';
   segControl($('#mListed'), [[true, 'Listed'], [false, 'Private']], () => M.listed !== false, v => M.listed = v);
   $('#listedTxt').textContent = M.listed !== false ? 'Listed rooms show up in Open rooms for anyone who opens this game page.' : 'Private rooms can only be joined with the code or invite link.';
   updateLobbyWatch();
-  $('#bStart').textContent = M.opp === 'online' && M.mode !== 'practice' ? 'Create room' : "Rack 'em up";
+  $('#bStart').textContent = M.opp === 'online' ? 'Create room' : "Rack 'em up";
   segControl($('#mDiff'), [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert']], () => M.diff, v => M.diff = v);
   segControl($('#mGuide'), GUIDES, () => M.guide, v => M.guide = v);
-  segControl($('#mRack'), [['8ball', '8-ball rack'], ['9ball', '9-ball rack'], ['uk', 'Reds & yellows'], ['scatter', 'Scatter'], ['trick', 'Trick shots']], () => M.rack, v => M.rack = v);
   segControl($('#mRace'), [[0, 'Single frames'], [3, 'First to 3'], [5, 'First to 5'], [7, 'First to 7']], () => M.race || 0, v => M.race = v);
   $('#rowMatch').hidden = M.mode === 'practice';
-  $('#modeTxt').textContent = MODE_TXT[M.mode];
-  if (state === 'menu' && applyTable(tableKeyFor())) { world = C.makeWorld(C.rack8()); syncBallMeshes(); }
-  swatches($('#mCloth'));
-  $('#rowOpp').hidden = M.mode === 'practice';
-  $('#rowDiff').hidden = M.mode === 'practice' || M.opp !== 'bot';
-  $('#rowRack').hidden = M.mode !== 'practice';
+  menuTable();
+  $('#rowDiff').hidden = M.opp !== 'bot';
+  $('#rowRoom').hidden = M.opp !== 'online';
+  for (const c of document.querySelectorAll('#sc-game .card')) { c.setAttribute('aria-pressed', String(c.dataset.mode === M.mode)); c.querySelector('.cardTxt').textContent = MODE_TXT[c.dataset.mode]; }
+  updateQuick();
   $('#diffTxt').textContent = DIFF_TXT[M.diff];
   $('#guideTxt').textContent = GUIDE_TXT[guideLevel()];
   // settings panel
@@ -1209,9 +1339,9 @@ function togglePause(force) {
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus(); } else aimDirty = true;
+  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); } else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
-$('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online' && M.mode !== 'practice') startOnline(newCode(), M.listed !== false); else startGame(false); });
+$('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
 $('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode === 'practice') startGame(false); else { startGame(true, true); toast("Re-racked. The last frame doesn't count", 'info'); } });
@@ -1286,6 +1416,7 @@ function toMenu() {
   world = C.makeWorld(C.rack8()); game = C.newGame('8ball'); syncBallMeshes();
   $('#hud').hidden = true; $('#over').hidden = true; $('#menu').hidden = false; $('#thinking').hidden = true;
   cam.mode = 'attract'; cam.free = { yaw: cam.cur.yaw, pitch: 0.62, dist: 3.6, tx: 0, tz: 0 };
+  menuReset(NAV.lastOnline ? ['home', 'multi', 'online'] : ['home']);
   hideGuides(); refreshMenus(); updateCamButtons();
 }
 
@@ -1402,9 +1533,9 @@ function startOnline(code, listed = false) {
   NET.on = true; NET.code = code; NET.cid = getCid(); NET.myName = cleanName($('#netName').value, 'Player'); NET.peerName = 'Friend';
   try { localStorage.setItem('retroRack.name', NET.myName); } catch (e) {}
   Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed });
-  matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote('');
+  matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote(''); NAV.lastOnline = true;
   try { history.replaceState(null, '', '#room=' + code); } catch (e) {}
-  state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false;
+  state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false; armBack();
   $('#lobbyCode').textContent = code; $('#lobbyLink').value = inviteLink();
   $('#lobbyNote').textContent = listed
     ? 'Your room is listed under Open rooms, so friends can join from there. They can also use the link or the code.'
@@ -1420,6 +1551,7 @@ function leaveOnline() {
   $('#lobby').hidden = true; $('#thinking').hidden = true; updateNetBadge();
 }
 function showGameUI() {
+  armBack();
   $('#menu').hidden = true; $('#over').hidden = true; $('#lobby').hidden = true; $('#hud').hidden = false; $('#practice').hidden = true;
   if (cam.mode === 'attract') { cam.mode = 'free'; cam.free.dist = 3.1 * Math.pow(P.L / 2.54, 0.9); }
   toastClear();
@@ -1599,7 +1731,7 @@ $('#bJoin').addEventListener('click', () => { ensureAudio(); sfx('ui'); startOnl
 const LW = { ws: null, rooms: [], off: 0, retry: 0, timer: 0, want: false, failed: false, loaded: false };
 const MODE_NAME = { '8ball': '8-ball', '9ball': '9-ball', uk8: 'Reds & yellows' };
 function updateLobbyWatch() {
-  const want = state === 'menu' && !NET.on && M.opp === 'online' && M.mode !== 'practice' && !!relayBase() && document.visibilityState === 'visible';
+  const want = state === 'menu' && !NET.on && menuScreen() === 'online' && !!relayBase() && document.visibilityState === 'visible';
   LW.want = want;
   // short delay, so opening an invite link (which jumps straight into a room) never starts a list connection
   if (want && !LW.ws && !LW.pending) LW.pending = setTimeout(() => { LW.pending = 0; if (LW.want && !LW.ws) lobbyConnect(); }, 300);
@@ -1736,7 +1868,7 @@ resize(); applyLook(); syncBallMeshes(); refreshMenus(); updateCamButtons();
 requestAnimationFrame(frame);
 { // opening an invite link joins the room straight away
   const m = /#room=([A-Za-z0-9]+)/.exec(location.hash);
-  if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else menuNote('This is an invite link, but online play needs the relay address in config.js first.'); }
+  if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; },

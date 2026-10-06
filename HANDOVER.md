@@ -152,6 +152,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `CLAUDE.md`.
 - **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
+- **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built. Still to do: a "rejoin last game" menu button.
 - **A rules option:** "lose the second visit when on the black", for reds & yellows.
 - **Possibly:** a colour-blind-friendly marking option for reds and yellows.

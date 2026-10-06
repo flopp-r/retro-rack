@@ -57,9 +57,9 @@ That's it.
 
 ## Playing online
 
-1. Open your game address, choose a game, set **Opponent** to **Online friend**, and type your name.
+1. Open your game address, choose **Multiplayer**, then **Online**, and type your name.
 2. To join a friend, pick their room from **Open rooms** and click **Join**, or type their code into **Join with code**.
-3. To host, choose **Listed** or **Private** under **New room**, then click **Create room**. You get a five-character room code and an invite link.
+3. To host, click **Create a room**, choose the game, pick **Listed** or **Private**, then click **Create room**. You get a five-character room code and an invite link.
    - **Listed** rooms appear in Open rooms for anyone who opens your game page, until a second player joins.
    - **Private** rooms never appear in the list; they can only be joined with the code or link.
 
@@ -85,12 +85,13 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 ## Features worth knowing
 
 - **Replay:** press **V** or the **Replay** button to watch the last shot again. Use slow motion and orbit the camera while it plays.
-- **Matches:** under **Match** in the menu, choose first to 3, 5 or 7 racks, for CPU, same-device and online games.
+- **Menus:** **Single player** leads to games against the computer and to practice; **Multiplayer** to online and same-device games. Back (or Esc, or a phone's back gesture) returns a screen. **Play again** on the home screen starts your last setup in one tap.
+- **Matches:** on a game's setup screen, under **Match**, choose first to 3, 5 or 7 racks, for CPU, same-device and online games.
 - **Concede or re-rack:** both are in the **Pause** menu. Online, a re-rack is offered to your opponent, who can accept or decline.
 - **Quick chat:** in online games, the **Chat** button sends a short preset message.
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Move balls** lets you set up your own layout, and **Save layout** adds it to the list.
 - **Markers:** a pulsing gold halo shows the balls you're on once you have a colour (in 9-ball, the lowest ball). Turn it off under **Pause**, **Markers**.
-- **Sound and fullscreen:** **Display and sound** sets the volume (Off to 100%). The **Fullscreen** button, in the menu and in game, hides the browser's bars where the browser allows it (not on iPhone, where installing the app does the same job).
+- **Sound and fullscreen:** **Settings** sets the volume (Off to 100%). The **Fullscreen** button, in the menu and in game, hides the browser's bars where the browser allows it (not on iPhone, where installing the app does the same job).
 - **Phones:** held upright, the game suggests turning sideways (tap OK to stop the hint). On Android, your pots give a short buzz and fouls a longer one; switch it off under **Vibration**.
 - **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.
 
