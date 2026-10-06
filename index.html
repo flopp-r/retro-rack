@@ -28,54 +28,58 @@ body.scan #scan{display:block}
 button:focus-visible{outline:3px dashed var(--chalk);outline-offset:2px}
 kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--plum);border:2px solid var(--ink);padding:0 5px;margin:0 1px;color:var(--paper);box-shadow:inset -2px -2px 0 rgba(0,0,0,.35)}
 
-/* menu: a stack of screens; each choice slides to the next one */
-#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:3vh 4vw;pointer-events:none}
-#menuPanel{pointer-events:auto;width:min(690px,94vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
-.mTop{display:flex;align-items:center;gap:14px;padding:16px 22px 0;flex:none}
-#mTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:13px;line-height:1.4;color:var(--lamp);margin:0}
-#mStage{display:grid;overflow:auto;min-height:0;padding:18px 22px 14px}
+/* shared by the menus and the panels (settings, game over, waiting room, offers) */
+.row{display:grid;grid-template-columns:104px 1fr;gap:6px 14px;align-items:start;margin:0 0 12px}
+.lbl{color:var(--lamp);font-size:22px;padding-top:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.note{grid-column:2;font-size:20px;opacity:.82;max-width:46ch}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:34px;height:34px;border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.3)}
+.swatch[aria-pressed="true"]{outline:3px solid var(--lamp);outline-offset:2px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px}
+/* menu: a stack of screens. Moving between them, the whole panel glides across the screen: the old one
+   leaves one side as the new one arrives from the other, like slides on a strip (see menuSlide in game.js) */
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:3vh 4vw;pointer-events:none;overflow:hidden}
+#menuPanel{pointer-events:auto;width:min(660px,94vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.mGhost{position:fixed;z-index:3;pointer-events:none;margin:0}
+.mTop{display:flex;align-items:center;gap:14px;padding:14px 20px 0;flex:none}
+#mTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;line-height:1.4;color:var(--lamp);margin:0}
+#mStage{display:grid;overflow:auto;min-height:0;padding:16px 20px 14px}
 .mScreen{grid-area:1 / 1;min-width:0}
-.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(26px,4.4vw,46px);line-height:1.15;color:var(--lamp);margin:0 0 12px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--plum2),9px 9px 0 var(--ink)}
-.tag{margin:0 0 16px;font-size:24px;max-width:36ch}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.card{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;padding:12px 14px 14px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),5px 5px 0 var(--ink);transition:transform .12s,background .12s,border-color .12s}
-.card:hover{background:var(--plum2);border-color:var(--lamp);transform:translate(-2px,-3px)}
+.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(26px,4.2vw,42px);line-height:1.15;color:var(--lamp);margin:0 0 16px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--plum2),9px 9px 0 var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.card{display:flex;align-items:center;gap:12px;text-align:left;padding:10px 12px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),4px 4px 0 var(--ink);transition:transform .12s,background .12s,border-color .12s}
+.card:hover{background:var(--plum2);border-color:var(--lamp);transform:translate(-1px,-2px)}
 .card:active{transform:translate(2px,2px);box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),2px 2px 0 var(--ink)}
 .card[aria-pressed="true"]{border-color:var(--lamp)}
-.cardArt{height:63px;width:auto;image-rendering:pixelated;flex:none}
-.cardName{font-family:'Press Start 2P',monospace;font-size:12px;line-height:1.4;color:var(--lamp)}
-.cardTxt{font-size:19px;line-height:1.1;opacity:.85}
+.cardArt{height:32px;width:auto;image-rendering:pixelated;flex:none}
+.cardBody{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cardName{font-family:'Press Start 2P',monospace;font-size:11px;line-height:1.3;color:var(--lamp);white-space:nowrap}
+.cardTxt{font-size:18px;line-height:1;opacity:.72}
 .cardTxt:empty{display:none}
-.cardBody{display:flex;flex-direction:column;gap:7px;min-width:0}
-#bStart,#bQuick,#bCreate{font-size:13px;padding:13px 18px;background:var(--rose);color:var(--ink)}
+#bStart,#bQuick,#bCreate{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
 #bStart:hover,#bQuick:hover,#bCreate:hover{background:#ff8ba5}
-#bQuick{display:block;margin:0 0 14px;text-align:left}
+#bQuick{display:block;margin:0 0 12px;text-align:left}
 #bQuick[hidden]{display:none}
-.mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:12px 22px 16px;border-top:3px solid var(--plum2)}
+.mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
-.hint{margin:16px 0 0;font-size:19px;opacity:.72;max-width:52ch}
-#ver{margin:6px 0 0;font-size:16px;opacity:.5}
-@keyframes mInFwd{from{opacity:0;transform:translateX(48px)}to{opacity:1;transform:none}}
-@keyframes mInBack{from{opacity:0;transform:translateX(-48px)}to{opacity:1;transform:none}}
-@keyframes mOutFwd{to{opacity:0;transform:translateX(-48px)}}
-@keyframes mOutBack{to{opacity:0;transform:translateX(48px)}}
-@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
-.mScreen.inFwd{animation:mInFwd .28s cubic-bezier(.2,.8,.2,1)}
-.mScreen.inBack{animation:mInBack .28s cubic-bezier(.2,.8,.2,1)}
-.mScreen.outFwd{animation:mOutFwd .2s ease-in forwards;pointer-events:none}
-.mScreen.outBack{animation:mOutBack .2s ease-in forwards;pointer-events:none}
-.mScreen.inFwd .card,.mScreen.inBack .card{animation:cardIn .34s cubic-bezier(.2,.8,.2,1) backwards}
-.mScreen .card:nth-child(2){animation-delay:.05s}.mScreen .card:nth-child(3){animation-delay:.1s}.mScreen .card:nth-child(4){animation-delay:.15s}.mScreen .card:nth-child(5){animation-delay:.2s}
-@media (prefers-reduced-motion:reduce){.mScreen,.mScreen .card{animation:none!important}.card{transition:none}}
-/* short screens (a phone on its side): tighter cards with the picture beside the words */
+#ver{margin:12px 0 0;font-size:16px;opacity:.5}
+#sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
+/* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
-  .title{font-size:24px;margin-bottom:8px}.tag{display:none}
-  #mStage{padding:12px 16px 10px}.mTop{padding:10px 16px 0}.mFoot{padding:8px 16px 10px}
-  .cards{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
-  .card{flex-direction:row;align-items:center;gap:10px;padding:8px 10px}
-  .card .cardArt{height:42px}.card .cardTxt{font-size:17px}.cardName{font-size:10px}.cardBody{gap:4px}
-  .hint{display:none}#ver{display:block;margin-top:8px}
+  #menu{padding:2vh 3vw}
+  .title{font-size:22px;margin-bottom:10px}
+  #mStage{padding:10px 14px 8px}.mTop{padding:8px 14px 0}.mFoot{padding:6px 14px 8px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
+  .card{padding:6px 9px;gap:9px}.cardArt{height:26px}.cardName{font-size:9px}.cardTxt{font-size:16px}.cardBody{gap:4px}
+  #bStart,#bQuick,#bCreate{font-size:10px;padding:9px 12px}#bQuick{margin-bottom:8px}
+  #ver{margin-top:6px;font-size:15px}
+  #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
+  #sc-setup .note{font-size:15px}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
+  #sc-online .onl{gap:5px}#roomList{max-height:78px}#netName,#netCode{font-size:18px;padding:2px 6px}
+  .mFoot .btn{font-size:8px;padding:7px 9px}
 }
+
 
 /* in-game hud */
 #board{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:stretch;pointer-events:none}
@@ -262,25 +266,23 @@ input:focus{border-color:var(--chalk)}
     <div id="mStage">
       <section class="mScreen" id="sc-home">
         <h1 class="title">Retro Rack</h1>
-        <p class="tag">Real-feel 3D pool, rendered in chunky pixels under a warm lamp.</p>
         <button class="btn" id="bQuick" type="button" hidden></button>
         <div class="cards">
-          <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Play the computer, or practise and try trick shots.</span></button>
-          <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Play a friend online, or take turns on this device.</span></button>
+          <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Computer or practice</span></button>
+          <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Online or same device</span></button>
         </div>
-        <p class="hint">Drag to aim, right-drag to orbit, Space to shoot. Press H in game for all controls.</p>
-        <p class="hint" id="ver"></p>
+        <p id="ver"></p>
       </section>
       <section class="mScreen" id="sc-single" data-title="Single player" hidden>
         <div class="cards">
-          <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels, from relaxed to near-flawless.</span></button>
-          <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play with undo, trick shots and your own layouts.</span></button>
+          <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels</span></button>
+          <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play, trick shots</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-multi" data-title="Multiplayer" hidden>
         <div class="cards">
-          <button class="card" type="button" data-go="online" data-opp="online" data-art="online"><span class="cardName">Online</span><span class="cardTxt">Play a friend anywhere, with a room code or invite link.</span></button>
-          <button class="card" type="button" data-go="game" data-opp="friend" data-art="local"><span class="cardName">Same device</span><span class="cardTxt">Take turns on this screen.</span></button>
+          <button class="card" type="button" data-go="online" data-opp="online" data-art="online"><span class="cardName">Online</span><span class="cardTxt">Rooms and invite links</span></button>
+          <button class="card" type="button" data-go="game" data-opp="friend" data-art="local"><span class="cardName">Same device</span><span class="cardTxt">Take turns</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-game" data-title="Choose a game" hidden>
@@ -298,11 +300,11 @@ input:focus{border-color:var(--chalk)}
       </section>
       <section class="mScreen" id="sc-practice" data-title="Practice" hidden>
         <div class="cards">
-          <button class="card" type="button" data-rack="8ball" data-art="r8"><span class="cardName">8-ball rack</span><span class="cardTxt">Fifteen balls on the 9 ft table.</span></button>
-          <button class="card" type="button" data-rack="9ball" data-art="r9"><span class="cardName">9-ball rack</span><span class="cardTxt">The diamond rack, 1 to 9.</span></button>
-          <button class="card" type="button" data-rack="uk" data-art="ruk"><span class="cardName">Reds &amp; yellows</span><span class="cardTxt">The 7 ft table with tight pockets.</span></button>
-          <button class="card" type="button" data-rack="scatter" data-art="scatter"><span class="cardName">Scatter</span><span class="cardTxt">Balls spread out, ready to pot.</span></button>
-          <button class="card" type="button" data-rack="trick" data-art="trick"><span class="cardName">Trick shots</span><span class="cardTxt">Set pieces with a "Show me" demo.</span></button>
+          <button class="card" type="button" data-rack="8ball" data-art="r8"><span class="cardName">8-ball rack</span><span class="cardTxt">9 ft table</span></button>
+          <button class="card" type="button" data-rack="9ball" data-art="r9"><span class="cardName">9-ball rack</span><span class="cardTxt">Diamond, 1 to 9</span></button>
+          <button class="card" type="button" data-rack="uk" data-art="ruk"><span class="cardName">Reds &amp; yellows</span><span class="cardTxt">7 ft table</span></button>
+          <button class="card" type="button" data-rack="scatter" data-art="scatter"><span class="cardName">Scatter</span><span class="cardTxt">Balls spread out</span></button>
+          <button class="card" type="button" data-rack="trick" data-art="trick"><span class="cardName">Trick shots</span><span class="cardTxt">With demos</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-online" data-title="Online" hidden>
@@ -1188,7 +1190,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = 'ff47e0c2';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = 'c39a9ee4';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -2328,24 +2330,9 @@ function swatches(el) {
     el.appendChild(b);
   }
 }
-const DIFF_TXT = {
-  easy: 'A relaxed CPU that misses often and never plans position.',
-  medium: 'A steady CPU that corrects for throw and sometimes plays position.',
-  hard: 'A sharp CPU that plays position with spin and picks safe options.',
-  expert: 'A near-flawless CPU that plans ahead, uses side spin and plays safeties.',
-};
-const GUIDE_TXT = {
-  full: 'Full paths: predicted cue ball and object ball paths from the real physics.',
-  line: 'Ghost ball plus a short line showing where the object ball starts off.',
-  ghost: 'Ghost ball only. You judge the cut and where the cue ball goes.',
-  min: 'A short cue line only. Aim like you would on a real table.',
-};
-const MODE_TXT = {
-  '8ball': 'American 8-ball on a 9 ft table. Solids and stripes, then the 8.',
-  '9ball': 'American 9-ball on a 9 ft table. Hit the lowest ball first; pot the 9 to win.',
-  uk8: 'British pub pool on a 7 ft table with tight pockets. Two visits after a foul.',
-  practice: 'Free play with undo, rerack and ball in hand whenever you like.',
-};
+const DIFF_TXT = { easy: 'Misses often.', medium: 'Steady, some position play.', hard: 'Plays position and safeties.', expert: 'Near-flawless.' };
+const GUIDE_TXT = { full: 'Predicted paths for both balls.', line: 'Ghost ball and object-ball line.', ghost: 'Ghost ball only.', min: 'Short cue line only.' };
+const MODE_TXT = { '8ball': 'Solids and stripes, 9 ft', '9ball': 'Lowest ball first, 9 ft', uk8: 'Pub rules, 7 ft', practice: 'Free play' };
 const GUIDES = [['auto', 'Match skill'], ['full', 'Full paths'], ['line', 'Ghost + line'], ['ghost', 'Ghost only'], ['min', 'Cue line only']];
 // ------------------------------------------------------------------ menu screens
 // The menu is a stack of screens: home > single player / multiplayer > a game > its setup. Each choice slides to
@@ -2360,21 +2347,41 @@ function menuTitle(id) {
   if (id === 'game') return M.opp === 'online' ? 'New room: choose a game' : 'Choose a game';
   return $('#sc-' + id).dataset.title || '';
 }
+// Moving between screens, the whole panel glides across the screen: a copy of the old panel slides off one side
+// while the real panel, already showing the new screen, arrives from the other. Both travel the same distance with
+// the same easing, so they move together like slides on a strip, and the camera turns a little with them.
+let slideGhost = null;
+function menuSlide(dir, swap) {
+  const panel = $('#menuPanel');
+  if (slideGhost) { slideGhost.remove(); slideGhost = null; }
+  if (panel.getAnimations) for (const an of panel.getAnimations()) an.cancel();
+  if (!dir || reduceMotion || $('#menu').hidden || !panel.animate) { swap(); return; }
+  const r = panel.getBoundingClientRect(), ghost = panel.cloneNode(true);
+  // the copy keeps its ids so it looks identical; it sits after the real panel, so lookups still find the real one
+  const from = panel.querySelectorAll('input'), to = ghost.querySelectorAll('input'); from.forEach((el, i) => { to[i].value = el.value; });
+  ghost.classList.add('mGhost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+  Object.assign(ghost.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+  const stageScroll = $('#mStage').scrollTop;
+  $('#menu').appendChild(ghost); slideGhost = ghost;
+  const gs = ghost.children[1]; if (gs) gs.scrollTop = stageScroll;   // the copy's screen area keeps its scroll position
+  swap();
+  const D = innerWidth + 40, opts = { duration: 560, easing: 'cubic-bezier(.75,0,.25,1)' };
+  ghost.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * D}px)` }], { ...opts, fill: 'forwards' })
+    .onfinish = () => { if (slideGhost === ghost) slideGhost = null; ghost.remove(); };
+  panel.animate([{ transform: `translateX(${dir * D}px)` }, { transform: 'translateX(0)' }], opts);
+}
 function showScreen(id, from, dir) {
-  const next = $('#sc-' + id), prev = from && from !== id ? $('#sc-' + from) : null;
-  for (const s of document.querySelectorAll('.mScreen')) if (s !== next && s !== prev) { s.hidden = true; s.className = 'mScreen'; }
-  next.hidden = false; next.className = 'mScreen' + (dir > 0 ? ' inFwd' : dir < 0 ? ' inBack' : '');
-  if (prev) {
-    if (dir && !reduceMotion) {
-      prev.className = 'mScreen ' + (dir > 0 ? 'outFwd' : 'outBack');
-      clearTimeout(prev._t); prev._t = setTimeout(() => { if (menuScreen() !== from) { prev.hidden = true; prev.className = 'mScreen'; } }, 210);
-    } else { prev.hidden = true; prev.className = 'mScreen'; }
+  menuSlide(dir, () => {
+    for (const sc of $('#menuPanel').querySelectorAll('.mScreen')) sc.hidden = sc.id !== 'sc-' + id;   // not the sliding copy's
+    $('#mTop').hidden = NAV.stack.length < 2; $('#mTitle').textContent = menuTitle(id); $('#mStage').scrollTop = 0;
+    $('#bStart').hidden = id !== 'setup'; $('#bCreate').hidden = id !== 'online';
+    refreshMenus();
+  });
+  if (cam.mode === 'attract') {   // the camera swoops in a little deeper in the menus, and turns with each move
+    const deep = NAV.stack.length > 1; cam.free.dist = deep ? 3.0 : 3.6; cam.free.pitch = deep ? 0.5 : 0.62;
+    if (dir && !reduceMotion) cam.free.yaw += dir * 0.5;
   }
-  $('#mTop').hidden = NAV.stack.length < 2; $('#mTitle').textContent = menuTitle(id); $('#mStage').scrollTop = 0;
-  $('#bStart').hidden = id !== 'setup'; $('#bCreate').hidden = id !== 'online';
-  if (cam.mode === 'attract') { const deep = NAV.stack.length > 1; cam.free.dist = deep ? 3.0 : 3.6; cam.free.pitch = deep ? 0.5 : 0.62; }   // the camera swoops in
-  refreshMenus();
-  if (dir) { const f = next.querySelector('.card, #bStart'); if (f) f.focus({ preventScroll: true }); }
+  if (dir) { const f = $('#sc-' + id).querySelector('.card, #bStart'); if (f) f.focus({ preventScroll: true }); }
 }
 function menuGo(id) { const from = menuScreen(); NAV.stack.push(id); showScreen(id, from, 1); armBack(); }
 function menuBack(fromHistory) {
@@ -2425,44 +2432,60 @@ $('#bQuick').addEventListener('click', () => { ensureAudio(); sfx('ui'); Object.
 $('#mBack').addEventListener('click', () => { sfx('ui'); menuBack(); });
 $('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp = 'online'; menuGo('game'); });
 
-// card pictures: balls drawn as pixel art, using the same colours as the 3D balls
+// card pictures: tiny sprites in the style of early arcade "1 PLAYER / 2 PLAYERS" screens, and pixel balls in the
+// game's own colours. Drawn once at a few pixels per sprite and shown at 2x with hard pixel edges.
+const SPRITES = {
+  // a player: hair, face, shirt (s, coloured per player), trousers and shoes
+  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', '.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'],
+  // a computer with a face on its screen
+  cpu: ['........', '.mmmmmm.', '.mccccm.', '.mcecem.', '.mccccm.', '.mceecm.', '.mccccm.', '.mmmmmm.', '...mm...', '.mmmmmm.', 'kkkkkkkk', 'k.k.k.kk'],
+};
+const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6' };
+function drawSprite(g, name, x0, y0, shirt) {
+  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
+}
 const DIGITS = { 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
   6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111' };
 function hexMul(hex, f) { const n = parseInt(hex.slice(1), 16), c = s => Math.round(clamp(((n >> s) & 255) * f, 0, 255)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
 function drawBall2D(g, cx, cy, id, uk) {
-  const Rb = 9, base = id === 0 ? '#f6f1e2' : uk ? (id === 8 ? UK_COL.black : C.isSolid(id) ? UK_COL.red : UK_COL.yellow) : BALL_COL[id > 8 ? id - 8 : id];
+  const Rb = 6.5, base = id === 0 ? '#f6f1e2' : uk ? (id === 8 ? UK_COL.black : C.isSolid(id) ? UK_COL.red : UK_COL.yellow) : BALL_COL[id > 8 ? id - 8 : id];
   const stripe = !uk && id > 8, numbered = !uk && id > 0;
-  for (let y = -Rb - 2; y <= Rb + 1; y++) for (let x = -Rb - 2; x <= Rb + 1; x++) {
+  for (let y = -8; y <= 7; y++) for (let x = -8; x <= 7; x++) {
     const dx = x + 0.5, dy = y + 0.5, d = Math.hypot(dx, dy);
     let col = null;
     if (d <= Rb) {
-      col = stripe && Math.abs(dy) > 4 ? '#f6f1e2' : base;
-      const light = (-dx - dy) / (1.41 * Rb);
-      if (light > 0.5) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 1.3); else if (light < -0.4) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 0.68);
-      if (numbered && Math.hypot(dx + 0.5, dy + 0.5) <= 3.9) col = '#f6f1e2';
-      if (Math.hypot(dx + 4.5, dy + 4.5) < 1.3) col = '#ffffff';
+      const own = stripe && Math.abs(dy) > 3 ? '#f6f1e2' : base, light = (-dx - dy) / (1.41 * Rb);
+      col = light > 0.55 ? hexMul(own, 1.3) : light < -0.45 ? hexMul(own, 0.68) : own;
+      if (numbered && Math.hypot(dx + 0.5, dy + 0.5) <= 3.2) col = '#f6f1e2';
     } else if (d <= Rb + 1.05) col = '#0d0a1c';
     if (col) { g.fillStyle = col; g.fillRect(cx + x, cy + y, 1, 1); }
   }
   const dg = numbered && DIGITS[id > 9 ? id % 10 || 1 : id];
   if (dg) { g.fillStyle = '#0d0a1c'; for (let i = 0; i < 15; i++) if (dg[i] === '1') g.fillRect(cx - 2 + (i % 3), cy - 3 + Math.floor(i / 3), 1, 1); }
 }
+const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
 const ART = {
-  single: [[0]], multi: [[0], [0]], cpu: [[0], [8]], practice: [[1], [2], [3]], online: [[0]], local: [[1], [2]],
-  '8ball': [[8]], '9ball': [[9]], uk8: [[1, 1], [9, 1]],
-  r8: [[1], [8], [9]], r9: [[1], [9], [2]], ruk: [[1, 1], [8, 1], [9, 1]], scatter: [[3], [11], [6]], trick: [[0]],
+  single: [16, 14, g => drawSprite(g, 'man', 4, 1, P1)],
+  multi: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 13, 1, P2); }],
+  cpu: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'cpu', 13, 1); }],
+  practice: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); g.fillStyle = '#e3c68f'; for (let i = 0; i < 6; i++) g.fillRect(9 + i, 7 + (i >> 1), 1, 1); drawBall2D(g, 18, 10, 0); }],
+  online: [30, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 21, 1, P2); g.fillStyle = P1;
+    for (const [x, y] of [[11, 4], [12, 5], [12, 6], [11, 7], [17, 4], [16, 5], [16, 6], [17, 7], [14, 5], [14, 6]]) g.fillRect(x, y, 1, 1); }],
+  local: [30, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 21, 1, P2); g.fillStyle = '#5a2d1b'; g.fillRect(10, 8, 10, 4); g.fillStyle = '#1d8a74'; g.fillRect(11, 8, 8, 2); g.fillStyle = '#5a2d1b'; g.fillRect(11, 12, 1, 2); g.fillRect(18, 12, 1, 2); }],
 };
+const BALL_ART = { '8ball': [[8]], '9ball': [[9]], uk8: [[1, 1], [9, 1]], r8: [[1], [8], [9]], r9: [[1], [9], [2]], ruk: [[1, 1], [8, 1], [9, 1]], scatter: [[3], [11], [6]], trick: [[0], [3]] };
 function drawArt(name) {
-  const balls = ART[name]; if (!balls) return null;
-  const extra = name === 'online' ? 13 : name === 'trick' ? 34 : 0;
-  const c = document.createElement('canvas'); c.width = balls.length * 21 + extra + 1; c.height = 21;
-  c.className = 'cardArt'; c.setAttribute('aria-hidden', 'true');
-  const g = c.getContext('2d');
-  balls.forEach(([id, uk], i) => drawBall2D(g, 10 + i * 21, 10, id, !!uk));
-  g.fillStyle = '#ffc56b';
-  if (name === 'online') for (const r of [4, 7, 10]) for (let a = -0.75; a <= 0.75; a += 0.08) g.fillRect(Math.round(21 + Math.cos(a) * r), Math.round(10 + Math.sin(a) * r), 1, 1);
-  if (name === 'trick') { for (let x = 22; x < 34; x += 3) g.fillRect(x, 10, 2, 1); drawBall2D(g, 45, 10, 3, false); }
-  return c;
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  if (ART[name]) { const [w, h, draw] = ART[name]; c.width = w; c.height = h; draw(g); }
+  else if (BALL_ART[name]) {
+    const balls = BALL_ART[name], gap = name === 'trick' ? 10 : 0;
+    c.width = balls.length * 15 + gap + 1; c.height = 16;
+    balls.forEach(([id, uk], i) => drawBall2D(g, 8 + i * (15 + gap), 8, id, !!uk));
+    if (gap) { g.fillStyle = P1; for (let x = 17; x < 25; x += 3) g.fillRect(x, 8, 2, 1); }
+  } else return null;
+  // an image rather than the canvas itself, so the sliding copy of the panel (which can't copy canvases) keeps it
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'cardArt'; img.alt = ''; img.width = c.width * 2; img.height = c.height * 2;
+  return img;
 }
 for (const c of document.querySelectorAll('#menu .card')) {
   const body = document.createElement('span'); body.className = 'cardBody';
@@ -2483,7 +2506,7 @@ for (const c of document.querySelectorAll('#menu .card')) {
 function refreshMenus() {
   saveM();
   segControl($('#mListed'), [[true, 'Listed'], [false, 'Private']], () => M.listed !== false, v => M.listed = v);
-  $('#listedTxt').textContent = M.listed !== false ? 'Listed rooms show up in Open rooms for anyone who opens this game page.' : 'Private rooms can only be joined with the code or invite link.';
+  $('#listedTxt').textContent = M.listed !== false ? 'Shown in Open rooms.' : 'Code or link only.';
   updateLobbyWatch();
   $('#bStart').textContent = M.opp === 'online' ? 'Create room' : "Rack 'em up";
   segControl($('#mDiff'), [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert']], () => M.diff, v => M.diff = v);
