@@ -1148,24 +1148,9 @@ function swatches(el) {
     el.appendChild(b);
   }
 }
-const DIFF_TXT = {
-  easy: 'A relaxed CPU that misses often and never plans position.',
-  medium: 'A steady CPU that corrects for throw and sometimes plays position.',
-  hard: 'A sharp CPU that plays position with spin and picks safe options.',
-  expert: 'A near-flawless CPU that plans ahead, uses side spin and plays safeties.',
-};
-const GUIDE_TXT = {
-  full: 'Full paths: predicted cue ball and object ball paths from the real physics.',
-  line: 'Ghost ball plus a short line showing where the object ball starts off.',
-  ghost: 'Ghost ball only. You judge the cut and where the cue ball goes.',
-  min: 'A short cue line only. Aim like you would on a real table.',
-};
-const MODE_TXT = {
-  '8ball': 'American 8-ball on a 9 ft table. Solids and stripes, then the 8.',
-  '9ball': 'American 9-ball on a 9 ft table. Hit the lowest ball first; pot the 9 to win.',
-  uk8: 'British pub pool on a 7 ft table with tight pockets. Two visits after a foul.',
-  practice: 'Free play with undo, rerack and ball in hand whenever you like.',
-};
+const DIFF_TXT = { easy: 'Misses often.', medium: 'Steady, some position play.', hard: 'Plays position and safeties.', expert: 'Near-flawless.' };
+const GUIDE_TXT = { full: 'Predicted paths for both balls.', line: 'Ghost ball and object-ball line.', ghost: 'Ghost ball only.', min: 'Short cue line only.' };
+const MODE_TXT = { '8ball': 'Solids and stripes, 9 ft', '9ball': 'Lowest ball first, 9 ft', uk8: 'Pub rules, 7 ft', practice: 'Free play' };
 const GUIDES = [['auto', 'Match skill'], ['full', 'Full paths'], ['line', 'Ghost + line'], ['ghost', 'Ghost only'], ['min', 'Cue line only']];
 // ------------------------------------------------------------------ menu screens
 // The menu is a stack of screens: home > single player / multiplayer > a game > its setup. Each choice slides to
@@ -1180,21 +1165,41 @@ function menuTitle(id) {
   if (id === 'game') return M.opp === 'online' ? 'New room: choose a game' : 'Choose a game';
   return $('#sc-' + id).dataset.title || '';
 }
+// Moving between screens, the whole panel glides across the screen: a copy of the old panel slides off one side
+// while the real panel, already showing the new screen, arrives from the other. Both travel the same distance with
+// the same easing, so they move together like slides on a strip, and the camera turns a little with them.
+let slideGhost = null;
+function menuSlide(dir, swap) {
+  const panel = $('#menuPanel');
+  if (slideGhost) { slideGhost.remove(); slideGhost = null; }
+  if (panel.getAnimations) for (const an of panel.getAnimations()) an.cancel();
+  if (!dir || reduceMotion || $('#menu').hidden || !panel.animate) { swap(); return; }
+  const r = panel.getBoundingClientRect(), ghost = panel.cloneNode(true);
+  // the copy keeps its ids so it looks identical; it sits after the real panel, so lookups still find the real one
+  const from = panel.querySelectorAll('input'), to = ghost.querySelectorAll('input'); from.forEach((el, i) => { to[i].value = el.value; });
+  ghost.classList.add('mGhost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+  Object.assign(ghost.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+  const stageScroll = $('#mStage').scrollTop;
+  $('#menu').appendChild(ghost); slideGhost = ghost;
+  const gs = ghost.children[1]; if (gs) gs.scrollTop = stageScroll;   // the copy's screen area keeps its scroll position
+  swap();
+  const D = innerWidth + 40, opts = { duration: 560, easing: 'cubic-bezier(.75,0,.25,1)' };
+  ghost.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * D}px)` }], { ...opts, fill: 'forwards' })
+    .onfinish = () => { if (slideGhost === ghost) slideGhost = null; ghost.remove(); };
+  panel.animate([{ transform: `translateX(${dir * D}px)` }, { transform: 'translateX(0)' }], opts);
+}
 function showScreen(id, from, dir) {
-  const next = $('#sc-' + id), prev = from && from !== id ? $('#sc-' + from) : null;
-  for (const s of document.querySelectorAll('.mScreen')) if (s !== next && s !== prev) { s.hidden = true; s.className = 'mScreen'; }
-  next.hidden = false; next.className = 'mScreen' + (dir > 0 ? ' inFwd' : dir < 0 ? ' inBack' : '');
-  if (prev) {
-    if (dir && !reduceMotion) {
-      prev.className = 'mScreen ' + (dir > 0 ? 'outFwd' : 'outBack');
-      clearTimeout(prev._t); prev._t = setTimeout(() => { if (menuScreen() !== from) { prev.hidden = true; prev.className = 'mScreen'; } }, 210);
-    } else { prev.hidden = true; prev.className = 'mScreen'; }
+  menuSlide(dir, () => {
+    for (const sc of $('#menuPanel').querySelectorAll('.mScreen')) sc.hidden = sc.id !== 'sc-' + id;   // not the sliding copy's
+    $('#mTop').hidden = NAV.stack.length < 2; $('#mTitle').textContent = menuTitle(id); $('#mStage').scrollTop = 0;
+    $('#bStart').hidden = id !== 'setup'; $('#bCreate').hidden = id !== 'online';
+    refreshMenus();
+  });
+  if (cam.mode === 'attract') {   // the camera swoops in a little deeper in the menus, and turns with each move
+    const deep = NAV.stack.length > 1; cam.free.dist = deep ? 3.0 : 3.6; cam.free.pitch = deep ? 0.5 : 0.62;
+    if (dir && !reduceMotion) cam.free.yaw += dir * 0.5;
   }
-  $('#mTop').hidden = NAV.stack.length < 2; $('#mTitle').textContent = menuTitle(id); $('#mStage').scrollTop = 0;
-  $('#bStart').hidden = id !== 'setup'; $('#bCreate').hidden = id !== 'online';
-  if (cam.mode === 'attract') { const deep = NAV.stack.length > 1; cam.free.dist = deep ? 3.0 : 3.6; cam.free.pitch = deep ? 0.5 : 0.62; }   // the camera swoops in
-  refreshMenus();
-  if (dir) { const f = next.querySelector('.card, #bStart'); if (f) f.focus({ preventScroll: true }); }
+  if (dir) { const f = $('#sc-' + id).querySelector('.card, #bStart'); if (f) f.focus({ preventScroll: true }); }
 }
 function menuGo(id) { const from = menuScreen(); NAV.stack.push(id); showScreen(id, from, 1); armBack(); }
 function menuBack(fromHistory) {
@@ -1245,44 +1250,60 @@ $('#bQuick').addEventListener('click', () => { ensureAudio(); sfx('ui'); Object.
 $('#mBack').addEventListener('click', () => { sfx('ui'); menuBack(); });
 $('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp = 'online'; menuGo('game'); });
 
-// card pictures: balls drawn as pixel art, using the same colours as the 3D balls
+// card pictures: tiny sprites in the style of early arcade "1 PLAYER / 2 PLAYERS" screens, and pixel balls in the
+// game's own colours. Drawn once at a few pixels per sprite and shown at 2x with hard pixel edges.
+const SPRITES = {
+  // a player: hair, face, shirt (s, coloured per player), trousers and shoes
+  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', '.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'],
+  // a computer with a face on its screen
+  cpu: ['........', '.mmmmmm.', '.mccccm.', '.mcecem.', '.mccccm.', '.mceecm.', '.mccccm.', '.mmmmmm.', '...mm...', '.mmmmmm.', 'kkkkkkkk', 'k.k.k.kk'],
+};
+const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6' };
+function drawSprite(g, name, x0, y0, shirt) {
+  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
+}
 const DIGITS = { 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
   6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111' };
 function hexMul(hex, f) { const n = parseInt(hex.slice(1), 16), c = s => Math.round(clamp(((n >> s) & 255) * f, 0, 255)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
 function drawBall2D(g, cx, cy, id, uk) {
-  const Rb = 9, base = id === 0 ? '#f6f1e2' : uk ? (id === 8 ? UK_COL.black : C.isSolid(id) ? UK_COL.red : UK_COL.yellow) : BALL_COL[id > 8 ? id - 8 : id];
+  const Rb = 6.5, base = id === 0 ? '#f6f1e2' : uk ? (id === 8 ? UK_COL.black : C.isSolid(id) ? UK_COL.red : UK_COL.yellow) : BALL_COL[id > 8 ? id - 8 : id];
   const stripe = !uk && id > 8, numbered = !uk && id > 0;
-  for (let y = -Rb - 2; y <= Rb + 1; y++) for (let x = -Rb - 2; x <= Rb + 1; x++) {
+  for (let y = -8; y <= 7; y++) for (let x = -8; x <= 7; x++) {
     const dx = x + 0.5, dy = y + 0.5, d = Math.hypot(dx, dy);
     let col = null;
     if (d <= Rb) {
-      col = stripe && Math.abs(dy) > 4 ? '#f6f1e2' : base;
-      const light = (-dx - dy) / (1.41 * Rb);
-      if (light > 0.5) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 1.3); else if (light < -0.4) col = hexMul(col[0] === '#' ? col : '#f6f1e2', 0.68);
-      if (numbered && Math.hypot(dx + 0.5, dy + 0.5) <= 3.9) col = '#f6f1e2';
-      if (Math.hypot(dx + 4.5, dy + 4.5) < 1.3) col = '#ffffff';
+      const own = stripe && Math.abs(dy) > 3 ? '#f6f1e2' : base, light = (-dx - dy) / (1.41 * Rb);
+      col = light > 0.55 ? hexMul(own, 1.3) : light < -0.45 ? hexMul(own, 0.68) : own;
+      if (numbered && Math.hypot(dx + 0.5, dy + 0.5) <= 3.2) col = '#f6f1e2';
     } else if (d <= Rb + 1.05) col = '#0d0a1c';
     if (col) { g.fillStyle = col; g.fillRect(cx + x, cy + y, 1, 1); }
   }
   const dg = numbered && DIGITS[id > 9 ? id % 10 || 1 : id];
   if (dg) { g.fillStyle = '#0d0a1c'; for (let i = 0; i < 15; i++) if (dg[i] === '1') g.fillRect(cx - 2 + (i % 3), cy - 3 + Math.floor(i / 3), 1, 1); }
 }
+const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
 const ART = {
-  single: [[0]], multi: [[0], [0]], cpu: [[0], [8]], practice: [[1], [2], [3]], online: [[0]], local: [[1], [2]],
-  '8ball': [[8]], '9ball': [[9]], uk8: [[1, 1], [9, 1]],
-  r8: [[1], [8], [9]], r9: [[1], [9], [2]], ruk: [[1, 1], [8, 1], [9, 1]], scatter: [[3], [11], [6]], trick: [[0]],
+  single: [16, 14, g => drawSprite(g, 'man', 4, 1, P1)],
+  multi: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 13, 1, P2); }],
+  cpu: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'cpu', 13, 1); }],
+  practice: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); g.fillStyle = '#e3c68f'; for (let i = 0; i < 6; i++) g.fillRect(9 + i, 7 + (i >> 1), 1, 1); drawBall2D(g, 18, 10, 0); }],
+  online: [30, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 21, 1, P2); g.fillStyle = P1;
+    for (const [x, y] of [[11, 4], [12, 5], [12, 6], [11, 7], [17, 4], [16, 5], [16, 6], [17, 7], [14, 5], [14, 6]]) g.fillRect(x, y, 1, 1); }],
+  local: [30, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 21, 1, P2); g.fillStyle = '#5a2d1b'; g.fillRect(10, 8, 10, 4); g.fillStyle = '#1d8a74'; g.fillRect(11, 8, 8, 2); g.fillStyle = '#5a2d1b'; g.fillRect(11, 12, 1, 2); g.fillRect(18, 12, 1, 2); }],
 };
+const BALL_ART = { '8ball': [[8]], '9ball': [[9]], uk8: [[1, 1], [9, 1]], r8: [[1], [8], [9]], r9: [[1], [9], [2]], ruk: [[1, 1], [8, 1], [9, 1]], scatter: [[3], [11], [6]], trick: [[0], [3]] };
 function drawArt(name) {
-  const balls = ART[name]; if (!balls) return null;
-  const extra = name === 'online' ? 13 : name === 'trick' ? 34 : 0;
-  const c = document.createElement('canvas'); c.width = balls.length * 21 + extra + 1; c.height = 21;
-  c.className = 'cardArt'; c.setAttribute('aria-hidden', 'true');
-  const g = c.getContext('2d');
-  balls.forEach(([id, uk], i) => drawBall2D(g, 10 + i * 21, 10, id, !!uk));
-  g.fillStyle = '#ffc56b';
-  if (name === 'online') for (const r of [4, 7, 10]) for (let a = -0.75; a <= 0.75; a += 0.08) g.fillRect(Math.round(21 + Math.cos(a) * r), Math.round(10 + Math.sin(a) * r), 1, 1);
-  if (name === 'trick') { for (let x = 22; x < 34; x += 3) g.fillRect(x, 10, 2, 1); drawBall2D(g, 45, 10, 3, false); }
-  return c;
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  if (ART[name]) { const [w, h, draw] = ART[name]; c.width = w; c.height = h; draw(g); }
+  else if (BALL_ART[name]) {
+    const balls = BALL_ART[name], gap = name === 'trick' ? 10 : 0;
+    c.width = balls.length * 15 + gap + 1; c.height = 16;
+    balls.forEach(([id, uk], i) => drawBall2D(g, 8 + i * (15 + gap), 8, id, !!uk));
+    if (gap) { g.fillStyle = P1; for (let x = 17; x < 25; x += 3) g.fillRect(x, 8, 2, 1); }
+  } else return null;
+  // an image rather than the canvas itself, so the sliding copy of the panel (which can't copy canvases) keeps it
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'cardArt'; img.alt = ''; img.width = c.width * 2; img.height = c.height * 2;
+  return img;
 }
 for (const c of document.querySelectorAll('#menu .card')) {
   const body = document.createElement('span'); body.className = 'cardBody';
@@ -1303,7 +1324,7 @@ for (const c of document.querySelectorAll('#menu .card')) {
 function refreshMenus() {
   saveM();
   segControl($('#mListed'), [[true, 'Listed'], [false, 'Private']], () => M.listed !== false, v => M.listed = v);
-  $('#listedTxt').textContent = M.listed !== false ? 'Listed rooms show up in Open rooms for anyone who opens this game page.' : 'Private rooms can only be joined with the code or invite link.';
+  $('#listedTxt').textContent = M.listed !== false ? 'Shown in Open rooms.' : 'Code or link only.';
   updateLobbyWatch();
   $('#bStart').textContent = M.opp === 'online' ? 'Create room' : "Rack 'em up";
   segControl($('#mDiff'), [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard'], ['expert', 'Expert']], () => M.diff, v => M.diff = v);

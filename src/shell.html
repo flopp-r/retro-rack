@@ -28,54 +28,58 @@ body.scan #scan{display:block}
 button:focus-visible{outline:3px dashed var(--chalk);outline-offset:2px}
 kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--plum);border:2px solid var(--ink);padding:0 5px;margin:0 1px;color:var(--paper);box-shadow:inset -2px -2px 0 rgba(0,0,0,.35)}
 
-/* menu: a stack of screens; each choice slides to the next one */
-#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:3vh 4vw;pointer-events:none}
-#menuPanel{pointer-events:auto;width:min(690px,94vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
-.mTop{display:flex;align-items:center;gap:14px;padding:16px 22px 0;flex:none}
-#mTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:13px;line-height:1.4;color:var(--lamp);margin:0}
-#mStage{display:grid;overflow:auto;min-height:0;padding:18px 22px 14px}
+/* shared by the menus and the panels (settings, game over, waiting room, offers) */
+.row{display:grid;grid-template-columns:104px 1fr;gap:6px 14px;align-items:start;margin:0 0 12px}
+.lbl{color:var(--lamp);font-size:22px;padding-top:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.note{grid-column:2;font-size:20px;opacity:.82;max-width:46ch}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:34px;height:34px;border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.3)}
+.swatch[aria-pressed="true"]{outline:3px solid var(--lamp);outline-offset:2px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px}
+/* menu: a stack of screens. Moving between them, the whole panel glides across the screen: the old one
+   leaves one side as the new one arrives from the other, like slides on a strip (see menuSlide in game.js) */
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:3vh 4vw;pointer-events:none;overflow:hidden}
+#menuPanel{pointer-events:auto;width:min(660px,94vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.mGhost{position:fixed;z-index:3;pointer-events:none;margin:0}
+.mTop{display:flex;align-items:center;gap:14px;padding:14px 20px 0;flex:none}
+#mTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;line-height:1.4;color:var(--lamp);margin:0}
+#mStage{display:grid;overflow:auto;min-height:0;padding:16px 20px 14px}
 .mScreen{grid-area:1 / 1;min-width:0}
-.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(26px,4.4vw,46px);line-height:1.15;color:var(--lamp);margin:0 0 12px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--plum2),9px 9px 0 var(--ink)}
-.tag{margin:0 0 16px;font-size:24px;max-width:36ch}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.card{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;padding:12px 14px 14px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),5px 5px 0 var(--ink);transition:transform .12s,background .12s,border-color .12s}
-.card:hover{background:var(--plum2);border-color:var(--lamp);transform:translate(-2px,-3px)}
+.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(26px,4.2vw,42px);line-height:1.15;color:var(--lamp);margin:0 0 16px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--plum2),9px 9px 0 var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.card{display:flex;align-items:center;gap:12px;text-align:left;padding:10px 12px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),4px 4px 0 var(--ink);transition:transform .12s,background .12s,border-color .12s}
+.card:hover{background:var(--plum2);border-color:var(--lamp);transform:translate(-1px,-2px)}
 .card:active{transform:translate(2px,2px);box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),2px 2px 0 var(--ink)}
 .card[aria-pressed="true"]{border-color:var(--lamp)}
-.cardArt{height:63px;width:auto;image-rendering:pixelated;flex:none}
-.cardName{font-family:'Press Start 2P',monospace;font-size:12px;line-height:1.4;color:var(--lamp)}
-.cardTxt{font-size:19px;line-height:1.1;opacity:.85}
+.cardArt{height:32px;width:auto;image-rendering:pixelated;flex:none}
+.cardBody{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cardName{font-family:'Press Start 2P',monospace;font-size:11px;line-height:1.3;color:var(--lamp);white-space:nowrap}
+.cardTxt{font-size:18px;line-height:1;opacity:.72}
 .cardTxt:empty{display:none}
-.cardBody{display:flex;flex-direction:column;gap:7px;min-width:0}
-#bStart,#bQuick,#bCreate{font-size:13px;padding:13px 18px;background:var(--rose);color:var(--ink)}
+#bStart,#bQuick,#bCreate{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
 #bStart:hover,#bQuick:hover,#bCreate:hover{background:#ff8ba5}
-#bQuick{display:block;margin:0 0 14px;text-align:left}
+#bQuick{display:block;margin:0 0 12px;text-align:left}
 #bQuick[hidden]{display:none}
-.mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:12px 22px 16px;border-top:3px solid var(--plum2)}
+.mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
-.hint{margin:16px 0 0;font-size:19px;opacity:.72;max-width:52ch}
-#ver{margin:6px 0 0;font-size:16px;opacity:.5}
-@keyframes mInFwd{from{opacity:0;transform:translateX(48px)}to{opacity:1;transform:none}}
-@keyframes mInBack{from{opacity:0;transform:translateX(-48px)}to{opacity:1;transform:none}}
-@keyframes mOutFwd{to{opacity:0;transform:translateX(-48px)}}
-@keyframes mOutBack{to{opacity:0;transform:translateX(48px)}}
-@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
-.mScreen.inFwd{animation:mInFwd .28s cubic-bezier(.2,.8,.2,1)}
-.mScreen.inBack{animation:mInBack .28s cubic-bezier(.2,.8,.2,1)}
-.mScreen.outFwd{animation:mOutFwd .2s ease-in forwards;pointer-events:none}
-.mScreen.outBack{animation:mOutBack .2s ease-in forwards;pointer-events:none}
-.mScreen.inFwd .card,.mScreen.inBack .card{animation:cardIn .34s cubic-bezier(.2,.8,.2,1) backwards}
-.mScreen .card:nth-child(2){animation-delay:.05s}.mScreen .card:nth-child(3){animation-delay:.1s}.mScreen .card:nth-child(4){animation-delay:.15s}.mScreen .card:nth-child(5){animation-delay:.2s}
-@media (prefers-reduced-motion:reduce){.mScreen,.mScreen .card{animation:none!important}.card{transition:none}}
-/* short screens (a phone on its side): tighter cards with the picture beside the words */
+#ver{margin:12px 0 0;font-size:16px;opacity:.5}
+#sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
+/* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
-  .title{font-size:24px;margin-bottom:8px}.tag{display:none}
-  #mStage{padding:12px 16px 10px}.mTop{padding:10px 16px 0}.mFoot{padding:8px 16px 10px}
-  .cards{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
-  .card{flex-direction:row;align-items:center;gap:10px;padding:8px 10px}
-  .card .cardArt{height:42px}.card .cardTxt{font-size:17px}.cardName{font-size:10px}.cardBody{gap:4px}
-  .hint{display:none}#ver{display:block;margin-top:8px}
+  #menu{padding:2vh 3vw}
+  .title{font-size:22px;margin-bottom:10px}
+  #mStage{padding:10px 14px 8px}.mTop{padding:8px 14px 0}.mFoot{padding:6px 14px 8px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
+  .card{padding:6px 9px;gap:9px}.cardArt{height:26px}.cardName{font-size:9px}.cardTxt{font-size:16px}.cardBody{gap:4px}
+  #bStart,#bQuick,#bCreate{font-size:10px;padding:9px 12px}#bQuick{margin-bottom:8px}
+  #ver{margin-top:6px;font-size:15px}
+  #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
+  #sc-setup .note{font-size:15px}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
+  #sc-online .onl{gap:5px}#roomList{max-height:78px}#netName,#netCode{font-size:18px;padding:2px 6px}
+  .mFoot .btn{font-size:8px;padding:7px 9px}
 }
+
 
 /* in-game hud */
 #board{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:stretch;pointer-events:none}
@@ -262,25 +266,23 @@ input:focus{border-color:var(--chalk)}
     <div id="mStage">
       <section class="mScreen" id="sc-home">
         <h1 class="title">Retro Rack</h1>
-        <p class="tag">Real-feel 3D pool, rendered in chunky pixels under a warm lamp.</p>
         <button class="btn" id="bQuick" type="button" hidden></button>
         <div class="cards">
-          <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Play the computer, or practise and try trick shots.</span></button>
-          <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Play a friend online, or take turns on this device.</span></button>
+          <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Computer or practice</span></button>
+          <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Online or same device</span></button>
         </div>
-        <p class="hint">Drag to aim, right-drag to orbit, Space to shoot. Press H in game for all controls.</p>
-        <p class="hint" id="ver"></p>
+        <p id="ver"></p>
       </section>
       <section class="mScreen" id="sc-single" data-title="Single player" hidden>
         <div class="cards">
-          <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels, from relaxed to near-flawless.</span></button>
-          <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play with undo, trick shots and your own layouts.</span></button>
+          <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels</span></button>
+          <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play, trick shots</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-multi" data-title="Multiplayer" hidden>
         <div class="cards">
-          <button class="card" type="button" data-go="online" data-opp="online" data-art="online"><span class="cardName">Online</span><span class="cardTxt">Play a friend anywhere, with a room code or invite link.</span></button>
-          <button class="card" type="button" data-go="game" data-opp="friend" data-art="local"><span class="cardName">Same device</span><span class="cardTxt">Take turns on this screen.</span></button>
+          <button class="card" type="button" data-go="online" data-opp="online" data-art="online"><span class="cardName">Online</span><span class="cardTxt">Rooms and invite links</span></button>
+          <button class="card" type="button" data-go="game" data-opp="friend" data-art="local"><span class="cardName">Same device</span><span class="cardTxt">Take turns</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-game" data-title="Choose a game" hidden>
@@ -298,11 +300,11 @@ input:focus{border-color:var(--chalk)}
       </section>
       <section class="mScreen" id="sc-practice" data-title="Practice" hidden>
         <div class="cards">
-          <button class="card" type="button" data-rack="8ball" data-art="r8"><span class="cardName">8-ball rack</span><span class="cardTxt">Fifteen balls on the 9 ft table.</span></button>
-          <button class="card" type="button" data-rack="9ball" data-art="r9"><span class="cardName">9-ball rack</span><span class="cardTxt">The diamond rack, 1 to 9.</span></button>
-          <button class="card" type="button" data-rack="uk" data-art="ruk"><span class="cardName">Reds &amp; yellows</span><span class="cardTxt">The 7 ft table with tight pockets.</span></button>
-          <button class="card" type="button" data-rack="scatter" data-art="scatter"><span class="cardName">Scatter</span><span class="cardTxt">Balls spread out, ready to pot.</span></button>
-          <button class="card" type="button" data-rack="trick" data-art="trick"><span class="cardName">Trick shots</span><span class="cardTxt">Set pieces with a "Show me" demo.</span></button>
+          <button class="card" type="button" data-rack="8ball" data-art="r8"><span class="cardName">8-ball rack</span><span class="cardTxt">9 ft table</span></button>
+          <button class="card" type="button" data-rack="9ball" data-art="r9"><span class="cardName">9-ball rack</span><span class="cardTxt">Diamond, 1 to 9</span></button>
+          <button class="card" type="button" data-rack="uk" data-art="ruk"><span class="cardName">Reds &amp; yellows</span><span class="cardTxt">7 ft table</span></button>
+          <button class="card" type="button" data-rack="scatter" data-art="scatter"><span class="cardName">Scatter</span><span class="cardTxt">Balls spread out</span></button>
+          <button class="card" type="button" data-rack="trick" data-art="trick"><span class="cardName">Trick shots</span><span class="cardTxt">With demos</span></button>
         </div>
       </section>
       <section class="mScreen" id="sc-online" data-title="Online" hidden>
