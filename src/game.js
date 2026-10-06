@@ -90,6 +90,14 @@ const postScene = new THREE.Scene();
 postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat));
 const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 let rt = null, VW = 1, VH = 1;
+// --bb: where the scoreboard ends (notices sit below it). --tb: how far the button grid reaches up from the bottom
+// in the phone layout, so the practice buttons and the chat menu can stack above it whatever buttons are showing.
+function hudVars() {
+  const st = document.documentElement.style, bb = $('#board').getBoundingClientRect(), tb = $('#tools').getBoundingClientRect();
+  st.setProperty('--bb', Math.round(bb.bottom) + 'px');
+  st.setProperty('--tb', Math.round(innerHeight - tb.top) + 'px');
+}
+if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); ro.observe($('#tools')); ro.observe($('#board')); }
 function resize() {
   const px = clamp(Math.round(S.pixel), 1, 6);
   VW = Math.max(80, Math.ceil(innerWidth / px)); VH = Math.max(60, Math.ceil(innerHeight / px));
@@ -101,6 +109,7 @@ function resize() {
   rt.depthTexture = new THREE.DepthTexture(VW, VH); rt.depthTexture.type = THREE.UnsignedIntType;
   postMat.uniforms.tColor.value = rt.texture; postMat.uniforms.tDepth.value = rt.depthTexture;
   postMat.uniforms.uRes.value.set(VW, VH);
+  requestAnimationFrame(hudVars);
 }
 function applyLook() {
   postMat.uniforms.uLevels.value = S.levels;
@@ -1096,7 +1105,7 @@ function updateHUD() {
     for (let id = 1; id <= 9; id++) rack.appendChild(ballIcon(id, !on.includes(id), id === low));
   }
   $('#bHand').setAttribute('aria-pressed', !!game.ballInHand);
-  requestAnimationFrame(() => { const bb = $('#board').getBoundingClientRect(); document.documentElement.style.setProperty('--bb', Math.round(bb.bottom) + 'px'); });
+  requestAnimationFrame(hudVars);
   $('#bihTip').hidden = !(state === 'aim' && humanTurn() && game.ballInHand);
   updateShotPanel();
 }
