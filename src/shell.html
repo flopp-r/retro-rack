@@ -156,6 +156,8 @@ input:focus{border-color:var(--chalk)}
 #trickGoal{margin-bottom:6px}
 #trickInfo .btn{font-size:8px;padding:7px 8px}
 #replayBar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:19px;z-index:6}
+#rotate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,86vw);padding:14px 16px 16px;text-align:center;z-index:8}
+#rotate p{margin:0 0 12px;font-size:22px}
 .offerPanel{width:min(420px,92vw);padding:18px 20px}.offerPanel p{margin:0 0 6px;font-size:22px}
 @media (max-width:760px){#chatPop{top:auto;bottom:100px;right:auto;left:8px}#replayBar{bottom:auto;top:calc(var(--bb,90px) + 10px)}#trickInfo{max-width:44vw}#aimRow .btn{padding:7px 9px}}
 </style>
@@ -179,6 +181,7 @@ input:focus{border-color:var(--chalk)}
     <button class="btn" id="bTop" aria-pressed="false" title="Overhead view (T)">Overhead</button>
     <button class="btn" id="bHelp" title="Controls (H)">Controls</button>
     <button class="btn" id="bPause" title="Pause (Esc)">Pause</button>
+    <button class="btn" id="bFull" aria-pressed="false" hidden>Fullscreen</button>
     <button class="btn" id="bReplay" title="Replay the last shot (V)" hidden>Replay</button>
     <button class="btn" id="bChat" title="Quick chat" hidden>Chat</button>
   </div>
@@ -246,7 +249,7 @@ input:focus{border-color:var(--chalk)}
     <p class="hint">Drag to aim, right-drag to orbit, Space to shoot. Press H in game for all controls.</p>
     <p class="hint" id="ver"></p>
     </div>
-    <div class="actions"><button class="btn" id="bStart">Rack 'em up</button><button class="btn" id="bMenuSettings">Display and sound</button></div>
+    <div class="actions"><button class="btn" id="bStart">Rack 'em up</button><button class="btn" id="bMenuSettings">Display and sound</button><button class="btn" id="bMenuFull" aria-pressed="false" hidden>Fullscreen</button></div>
   </div>
 </div>
 
@@ -260,11 +263,14 @@ input:focus{border-color:var(--chalk)}
     <div class="row"><div class="lbl">Dither</div><div class="seg"><button class="btn" id="sDither"></button></div></div>
     <div class="row"><div class="lbl">Outlines</div><div class="seg"><button class="btn" id="sOutline"></button></div></div>
     <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
-    <div class="row"><div class="lbl">Sound</div><div class="seg"><button class="btn" id="sSound"></button></div></div>
+    <div class="row"><div class="lbl">Sound</div><div class="seg" id="sVolume"></div></div>
+    <div class="row" id="rowVibrate"><div class="lbl">Vibration</div><div class="seg"><button class="btn" id="sVibrate"></button></div><div class="note">A short buzz when you pot a ball, a longer one on a foul.</div></div>
     <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div></div>
     <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
   </div>
 </div>
+
+<div id="rotate" class="panel" role="status" hidden><p>Turn your phone sideways for a bigger table.</p><button class="btn" id="bRotateOk">OK</button></div>
 
 <div id="replayBar" class="panel" hidden><span>Replaying the last shot</span><button class="btn" id="bSlow">Slow motion</button><button class="btn" id="bSkip">Skip</button></div>
 

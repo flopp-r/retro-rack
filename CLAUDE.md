@@ -80,6 +80,7 @@ The CPU (`planBot`) is a generator, so its search can be spread across frames. I
 - **States:** `menu`, `lobby`, `aim`, `stroke`, `moving`, `remote` (waiting for the online opponent), `botThink`, `botAim` and `over`.
 - **Replay:** stores the table before the last shot plus the cue ball's initial velocities, then re-simulates.
 - **Trick shots:** the `TRICKS` list sits near the top of `game.js`. Saved layouts are kept in localStorage.
+- **Settings:** `S` in localStorage (`retroRack.settings`). `S.volume` (0 to 1, 0.75 being the original loudness) replaced the old `S.sound` switch, which is carried over on load. `S.vibrate` buzzes for the local shooter's pots and fouls, only on touch devices with `navigator.vibrate`. The fullscreen buttons and the sideways hint are set up in the "phone and screen comforts" section of `game.js`.
 - **Markers:** `markedBalls()` picks the balls the shooter is on (their group, then the black; the lowest ball in 9-ball; nothing on the break, an open table or in practice). `updateMarkers()` draws a camera-facing halo (a sprite) round each one, only while a local human is aiming. Display only: nothing is sent online. Switch: `S.markers`.
 
 ### Online play

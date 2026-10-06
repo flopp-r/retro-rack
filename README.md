@@ -90,6 +90,8 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 - **Quick chat:** in online games, the **Chat** button sends a short preset message.
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Move balls** lets you set up your own layout, and **Save layout** adds it to the list.
 - **Markers:** a pulsing gold halo shows the balls you're on once you have a colour (in 9-ball, the lowest ball). Turn it off under **Pause**, **Markers**.
+- **Sound and fullscreen:** **Display and sound** sets the volume (Off to 100%). The **Fullscreen** button, in the menu and in game, hides the browser's bars where the browser allows it (not on iPhone, where installing the app does the same job).
+- **Phones:** held upright, the game suggests turning sideways (tap OK to stop the hint). On Android, your pots give a short buzz and fouls a longer one; switch it off under **Vibration**.
 - **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.
 
 ## Updating later
