@@ -8,6 +8,7 @@
 |---|---|
 | `index.html` | The game. It works on its own for offline play. |
 | `config.js` | One setting: your relay address, so online play knows where to connect. |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Let people install the game as an app and play it offline. |
 | `relay/` | A tiny Cloudflare Worker that passes messages between the two players. |
 | `src/`, `vendor/`, `tools/`, `tests/` | The source code, the 3D engine and fonts, the build tool and the tests. `index.html` is built from these. |
 | `CLAUDE.md`, `HANDOVER.md` | Notes that tell Claude Code how the project fits together, and its history. |
@@ -69,6 +70,18 @@ The player who creates the room chooses the game and the aim guide, and those se
 **Cost.** Cloudflare's free plan covers this comfortably. If the daily free allowance were ever used up, online play would simply stop working until the allowance resets at midnight UTC. You can't be charged unless you upgrade the plan yourself.
 
 
+## Installing it as an app
+
+Open your game address, then:
+
+- **Edge or Chrome on a computer:** click the **App available** (install) icon at the right of the address bar, then **Install**.
+- **Android:** open the browser menu (**⋮**) and choose **Install app** or **Add to Home screen**.
+- **iPhone or iPad:** in Safari, tap **Share**, then **Add to Home Screen**.
+
+The app opens in its own window. Once installed and opened once, it starts without internet for games against the computer, on one device, and practice. Online play still needs a connection.
+
+Updates arrive by themselves: whenever there's a connection, the app fetches the latest version, and the saved copy is only used offline. The version is shown at the bottom of the menu.
+
 ## Features worth knowing
 
 - **Replay:** press **V** or the **Replay** button to watch the last shot again. Use slow motion and orbit the camera while it plays.
@@ -90,3 +103,4 @@ The player who creates the room chooses the game and the aim guide, and those se
 - **Cloudflare build fails mentioning the name:** make sure the Worker is called `retro-rack-relay`, or change `"name"` in `relay/wrangler.jsonc` to match your Worker's name.
 - **GitHub Pages shows a 404:** give it a few more minutes, and make sure `index.html` sits at the top level of the repository, not inside another folder.
 - **"That room already has two players in it":** someone else is in that room. Create a new one.
+- **"…different versions of Retro Rack" or "…an older version":** online players must have the same version. Reload (Ctrl+F5 on a computer, or close and reopen the app on a phone), then come back to the room. The version is shown at the bottom of the menu, so you can compare.

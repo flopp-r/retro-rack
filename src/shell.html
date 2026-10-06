@@ -7,6 +7,8 @@
 <script src="config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Retro Rack: 3D pixel pool</title>
+<meta name="theme-color" content="#1a1433">
+<link rel="icon" type="image/png" href="data:image/png;base64,__FAVICON__">
 <style>
 @font-face{font-family:'Press Start 2P';src:url(data:font/woff2;base64,__PS2P__) format('woff2');font-display:block}
 @font-face{font-family:'VT323';src:url(data:font/woff2;base64,__VT323__) format('woff2');font-display:block}
@@ -44,6 +46,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #bStart{font-size:14px;padding:14px 20px;background:var(--rose);color:var(--ink)}
 #bStart:hover{background:#ff8ba5}
 .hint{margin:16px 0 0;font-size:19px;opacity:.72;max-width:52ch}
+#ver{margin:6px 0 0;font-size:16px;opacity:.5}
 
 /* in-game hud */
 #board{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:stretch;pointer-events:none}
@@ -241,6 +244,7 @@ input:focus{border-color:var(--chalk)}
     <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="mGuide"></div><div class="note" id="guideTxt"></div></div>
     <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="mCloth"></div></div>
     <p class="hint">Drag to aim, right-drag to orbit, Space to shoot. Press H in game for all controls.</p>
+    <p class="hint" id="ver"></p>
     </div>
     <div class="actions"><button class="btn" id="bStart">Rack 'em up</button><button class="btn" id="bMenuSettings">Display and sound</button></div>
   </div>
