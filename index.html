@@ -254,6 +254,7 @@ input:focus{border-color:var(--chalk)}
   <div id="pausePanel" class="panel" role="dialog" aria-label="Settings">
     <h2>Settings</h2>
     <div class="row" id="rowSGuide"><div class="lbl">Aim guide</div><div class="seg" id="sGuide"></div><div class="note" id="sGuideTxt"></div></div>
+    <div class="row"><div class="lbl">Markers</div><div class="seg"><button class="btn" id="sMarkers"></button></div><div class="note">A pulsing gold halo round the balls you're on, once you have a colour. In 9-ball, the lowest ball.</div></div>
     <div class="row"><div class="lbl">Pixel size</div><div class="seg" id="sPixel"></div></div>
     <div class="row"><div class="lbl">Colours</div><div class="seg" id="sLevels"></div><div class="note">Shades per colour channel. Lower is more retro.</div></div>
     <div class="row"><div class="lbl">Dither</div><div class="seg"><button class="btn" id="sDither"></button></div></div>
@@ -1115,11 +1116,11 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '2880b44b';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '4f7f829c';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, sound: true, cloth: 'teal' };
+const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, sound: true, cloth: 'teal', markers: true };
 const S = { ...DEFAULTS };
 try { Object.assign(S, JSON.parse(localStorage.getItem('retroRack.settings') || '{}')); } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
@@ -1408,6 +1409,19 @@ for (let id = 0; id <= 15; id++) {
   const s = new THREE.Mesh(shadowGeo, shadowMat); s.visible = false; s.renderOrder = 1; scene.add(s); SH.push(s);
   ROT.push(new THREE.Vector3());
 }
+// "you're on" markers: a pulsing halo round each ball the player at the table is going for. It always faces
+// the camera, so it reads from the cue view as well as from overhead (a ring flat on the cloth vanishes low down).
+const markTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(0.56, 'rgba(255,255,255,1)');
+  g.addColorStop(0.78, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const markMat = new THREE.SpriteMaterial({ map: markTex, color: '#ffc56b', transparent: true, depthWrite: false, fog: false });
+const MK = [];
+for (let id = 0; id <= 15; id++) { const k = new THREE.Sprite(markMat); k.visible = false; k.renderOrder = 2; scene.add(k); MK.push(k); }
 
 // ------------------------------------------------------------------ cue stick
 const cueMesh = new THREE.Group();
@@ -1799,6 +1813,28 @@ function updateCue(dt) {
   cueMesh.quaternion.copy(qA).multiply(qB);
 }
 function hideGuides() { for (const g of allGuides) g.visible = false; }
+// The balls the shooter is on: their group, or the black once it's cleared; the lowest ball in 9-ball.
+// Nothing on the break, on an open table or in practice. A free ball or ball in hand doesn't change it:
+// the player still has to pot their own colour.
+function markedBalls() {
+  if (game.mode === 'practice' || game.breakShot || game.over) return [];
+  const on = world.balls.filter(b => !b.potted && b.id !== 0);
+  if (game.mode === '9ball') return on.length ? [Math.min(...on.map(b => b.id))] : [];
+  const g = game.groups[game.turn];
+  if (!g) return [];
+  const mine = on.filter(b => C.groupOf(b.id) === g).map(b => b.id);
+  return mine.length ? mine : on.some(b => b.id === 8) ? [8] : [];
+}
+function updateMarkers(now) {
+  const ids = S.markers && state === 'aim' && humanTurn() && !paused ? markedBalls() : [];
+  const pulse = reduceMotion ? 0.75 : 0.5 + 0.5 * Math.sin(now / 1000 * 2 * Math.PI / 1.3);   // one pulse every 1.3 s
+  markMat.opacity = 0.55 + 0.45 * pulse;
+  for (let id = 0; id <= 15; id++) {
+    const k = MK[id], b = ids.includes(id) ? ballById(id) : null;
+    k.visible = !!b; if (!b) continue;
+    k.position.set(b.x, R, b.z); k.scale.setScalar(R * 4 * (1 + 0.08 * pulse));   // the halo's bright band starts just outside the ball
+  }
+}
 function previewPaths(shot) {
   const w = C.makeWorld(C.cloneBalls(world.balls));
   C.strike(w.balls[0], shot);
@@ -2245,13 +2281,13 @@ function refreshMenus() {
   segControl($('#sGuide'), GUIDES, () => M.guide, v => { M.guide = v; aimDirty = true; });
   segControl($('#sLevels'), [[4, '4'], [6, '6'], [8, '8'], [12, '12'], [256, 'Full']], () => S.levels, v => { S.levels = v; saveS(); applyLook(); });
   segControl($('#sPixel'), [[1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
-  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound']]) {
+  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound'], ['#sMarkers', 'markers']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
   swatches($('#sCloth'));
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
-for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound']]) {
+for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sSound', 'sound'], ['#sMarkers', 'markers']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
 function togglePause(force) {
@@ -2742,6 +2778,7 @@ function frame(now) {
   updateCue(paused ? 0 : dt);
   if (aimDirty) updateAimTxt();
   updateGuides(now);
+  updateMarkers(now);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
   cam.update(dt);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
@@ -2756,7 +2793,8 @@ requestAnimationFrame(frame);
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; },
-  ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam };
+  ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
+  marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();
 </script>
 </body>

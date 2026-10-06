@@ -150,7 +150,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 ## 7. Ideas list (discussed; the ones built since say so)
 
 - **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `CLAUDE.md`.
-- **A pulsing marker on your own balls:** chosen instead of colour-blind markings. A soft ring on the cloth under each ball you should be going for, shown only once groups are decided, with an on/off setting.
+- **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
 - **Small comforts:**
   - a "rejoin last game" menu button;
