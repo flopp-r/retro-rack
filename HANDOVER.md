@@ -83,7 +83,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
   - An in-off gives ball in hand behind the baulk line.
   - Potting the opponent's colour is a foul.
   - The black on the break is re-spotted, not re-racked.
-  - "Lose the second visit when on the black" was deliberately left out because pubs differ; it could become an option.
+  - "Lose the second visit when on the black" is an option on the setup screen ("On black: Two visits / One visit"), off by default because pubs differ.
 - **Physics limitation:** the cue is always level, so there are no jump or massé shots.
 
 **Trick shots**
@@ -154,7 +154,8 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built. Still to do: a "rejoin last game" menu button.
-- **A rules option:** "lose the second visit when on the black", for reds & yellows.
+- **A rules option:** "lose the second visit when on the black", for reds & yellows: built as "On black: One visit".
+- **Adding balls to trick shots:** built ("Add balls" while moving balls).
 - **Possibly:** a colour-blind-friendly marking option for reds and yellows.
 - **Discussed and set aside:** spectators (needs a lot of relay work), turn timers (annoying between friends) and achievements.
 

@@ -96,8 +96,13 @@ function hudVars() {
   const st = document.documentElement.style, bb = $('#board').getBoundingClientRect(), tb = $('#tools').getBoundingClientRect();
   st.setProperty('--bb', Math.round(bb.bottom) + 'px');
   st.setProperty('--tb', Math.round(innerHeight - tb.top) + 'px');
+  // --lw / --sw: the right edge of the left-hand buttons and the width of the spin panel, so on a phone on its
+  // side the ball picker can sit in the gap between them
+  const right = s => { const el = $(s); return el && !el.closest('[hidden]') ? el.getBoundingClientRect().right : 0; };
+  st.setProperty('--lw', Math.round(Math.max(right('#practice'), right('#tools'))) + 'px');
+  st.setProperty('--sw', Math.round(innerWidth - $('#shot').getBoundingClientRect().left) + 'px');
 }
-if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); ro.observe($('#tools')); ro.observe($('#board')); }
+if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); for (const s of ['#tools', '#board', '#practice', '#shot']) ro.observe($(s)); }
 function resize() {
   const px = clamp(Math.round(S.pixel), 1, 6);
   VW = Math.max(80, Math.ceil(innerWidth / px)); VH = Math.max(60, Math.ceil(innerHeight / px));
@@ -456,11 +461,11 @@ function trickRack() {
 }
 function startGame(rematch, rerack = false) {
   const mode = M.mode;
-  M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide }; saveM(); NAV.lastOnline = false; armBack();
+  M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide, blackOne: !!M.blackOne }; saveM(); NAV.lastOnline = false; armBack();
   applyTable(tableKeyFor());
   const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter, trick: trickRack }[M.rack] || C.rack8) : C.rack8;
   world = C.makeWorld(rack()); world.ev = [];
-  game = C.newGame(mode);
+  game = C.newGame(mode); if (mode === 'uk8') game.oneVisitOnBlack = !!M.blackOne;
   if (rerack) { /* same breaker, score unchanged */ }
   else if (!rematch) { matchWins = [0, 0]; breaker = 0; }
   else { breaker = 1 - breaker; if (matchDone()) matchWins = [0, 0]; }
@@ -521,8 +526,8 @@ function endShot() {
   const cue = world.balls[0];
   if (cue.potted) { cue.potted = false; C.placeCueHead(world.balls, cue); }
   syncBallMeshes();
-  const wasBreak = game.breakShot;
-  game = C.nextGame(game, res, pl);
+  const wasBreak = game.breakShot, hadVisits = game.visits || 1;
+  game = C.nextGame(game, res, pl, world.balls);
   if (res.foul) { toast(`Foul: ${res.reason}`, 'foul'); sfx('foul'); if (NET.on ? pl === NET.seat : !isBot(pl)) buzz([70, 60, 70]); }
   if (res.assign) toast(`${pname(res.assign.player)} ${isYou(res.assign.player) ? 'are' : 'is'} ${C.groupName(M.mode, res.assign.group)}`, 'good');
   res.msgs.forEach(m => toast(m, 'info'));
@@ -537,7 +542,9 @@ function endShot() {
     else if (!world.balls.some(b => b.id !== 0 && !b.potted)) toast(`Table cleared in ${shots[0]} shots. Press R to rerack.`, 'good');
   } else if (M.mode === 'uk8' && res.foul) {
     const who = game.turn;
-    toast(`${pname(who)} ${isYou(who) ? 'get' : 'gets'} two visits and a free ball${game.ballInHand ? ', from behind the baulk line' : ''}`, 'foul');
+    toast(`${pname(who)} ${isYou(who) ? 'get' : 'gets'} ${game.visits > 1 ? 'two visits and a free ball' : 'a free ball, one visit (on the black)'}${game.ballInHand ? ', from behind the baulk line' : ''}`, 'foul');
+  } else if (M.mode === 'uk8' && res.keepTurn && hadVisits > 1 && game.visits === 1) {
+    toast(`On the black: ${isYou(pl) ? 'your' : pname(pl) + "'s"} second visit is lost`, 'info');
   } else if (M.mode === 'uk8' && !res.keepTurn && game.turn === pl) {
     toast(isYou(pl) ? 'Your second visit' : `${pname(pl)}'s second visit`, 'info');
   } else if (game.turn !== pl) {
@@ -1334,6 +1341,8 @@ function refreshMenus() {
   menuTable();
   $('#rowDiff').hidden = M.opp !== 'bot';
   $('#rowRoom').hidden = M.opp !== 'online';
+  $('#rowBlack').hidden = M.mode !== 'uk8';
+  segControl($('#mBlack'), [[false, 'Two visits'], [true, 'One visit']], () => !!M.blackOne, v => M.blackOne = v);
   for (const c of document.querySelectorAll('#sc-game .card')) { c.setAttribute('aria-pressed', String(c.dataset.mode === M.mode)); c.querySelector('.cardTxt').textContent = MODE_TXT[c.dataset.mode]; }
   updateQuick();
   $('#diffTxt').textContent = DIFF_TXT[M.diff];
@@ -1360,7 +1369,7 @@ function togglePause(force) {
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); } else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
+  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
@@ -1394,12 +1403,39 @@ $('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else st
 $('#bOverReplay').addEventListener('click', startReplay);
 $('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; $('#bSlow').textContent = replay.speed < 1 ? 'Normal speed' : 'Slow motion'; });
 $('#bSkip').addEventListener('click', () => endReplay());
-$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag any ball to move it. Click Move balls again when done', 'info'); });
+$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag any ball to move it. Add balls puts more on the table', 'info'); });
 $('#bReturn').addEventListener('click', () => {
   if (M.mode !== 'practice' || state !== 'aim') return;
   for (const b of world.balls) if (b.id && b.potted) { b.potted = false; C.spotBall(world.balls, b); }
-  syncBallMeshes(); aimDirty = true; updateHUD();
+  syncBallMeshes(); aimDirty = true; updateHUD(); renderBallPick();
 });
+// "Add balls" (while moving balls in practice): every object ball, lit if it's on the table; tap to add or take off
+function renderBallPick() {
+  const grid = $('#ballGrid'); grid.innerHTML = '';
+  for (let id = 1; id <= 15; id++) {
+    const on = world.balls.some(b => b.id === id && !b.potted);
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bp';
+    btn.setAttribute('aria-pressed', String(on)); btn.setAttribute('aria-label', `${on ? 'Take off' : 'Add'} ball ${id}`);
+    const c = document.createElement('canvas'); c.width = c.height = 16; drawBall2D(c.getContext('2d'), 8, 8, id, ukStyle());
+    btn.appendChild(c); btn.addEventListener('click', () => toggleBall(id)); grid.appendChild(btn);
+  }
+}
+function toggleBall(id) {
+  if (M.mode !== 'practice' || state !== 'aim') return;
+  const i = world.balls.findIndex(b => b.id === id), on = i >= 0 && !world.balls[i].potted;
+  if (i >= 0) world.balls.splice(i, 1);
+  if (!on) {   // a new ball goes on the nearest free spot to the middle of the table, ready to be dragged
+    const nb = C.newBall(id, 0, 0);
+    find: for (let r = 0; r < 0.8; r += 0.01) for (let a = 0; a < 6.3; a += 0.3) {
+      const x = Math.cos(a) * r * 1.8, z = Math.sin(a) * r * 0.9;
+      if (C.validSpot(world.balls, x, z, id)) { nb.x = x; nb.z = z; break find; }
+    }
+    world.balls.push(nb); world.balls.sort((a, b) => a.id - b.id);
+  }
+  syncBallMeshes(); aimDirty = true; updateHUD(); renderBallPick(); sfx('ui');
+}
+$('#bBalls').addEventListener('click', () => { const p = $('#ballPick'); p.hidden = !p.hidden; if (!p.hidden) renderBallPick(); updateTrickUI(); });
+$('#bPickDone').addEventListener('click', () => { $('#ballPick').hidden = true; updateTrickUI(); });
 $('#bSave').addEventListener('click', () => {
   if (M.mode !== 'practice' || state !== 'aim') return;
   const l = loadLayouts(); if (l.length >= 12) { toast('You can keep 12 layouts. Delete one under Trick shots first', 'foul'); return; }
@@ -1422,7 +1458,8 @@ function updateTrickUI() {
   const on = M.mode === 'practice' && M.rack === 'trick';
   $('#trickInfo').hidden = !on;
   $('#bMove').setAttribute('aria-pressed', String(EDIT));
-  $('#bReturn').hidden = !EDIT;
+  $('#bBalls').hidden = !EDIT; if (!EDIT) $('#ballPick').hidden = true;
+  $('#bBalls').setAttribute('aria-pressed', String(!$('#ballPick').hidden));
   $('#bRerack').textContent = on ? 'Retry (R)' : 'Rerack';
   if (!on) return;
   const list = trickList(), t = list[M.trick] || list[0];
@@ -1432,7 +1469,7 @@ function updateTrickUI() {
 }
 $('#bHand').addEventListener('click', () => { if (M.mode === 'practice' && state === 'aim') { game.ballInHand = !game.ballInHand; updateHUD(); } });
 function toMenu() {
-  leaveOnline(); endReplayNow(); lastShot = null; EDIT = false; $('#offer').hidden = true; $('#chatPop').hidden = true;
+  leaveOnline(); endReplayNow(); lastShot = null; EDIT = false; $('#offer').hidden = true; $('#chatPop').hidden = true; $('#ballPick').hidden = true;
   state = 'menu'; bot = null; stroke = null;
   world = C.makeWorld(C.rack8()); game = C.newGame('8ball'); syncBallMeshes();
   $('#hud').hidden = true; $('#over').hidden = true; $('#menu').hidden = false; $('#thinking').hidden = true;
@@ -1582,7 +1619,7 @@ function hostStart() {
   applyTable(tableKeyFor());
   const balls = (M.mode === '9ball' ? C.rack9 : C.rack8)();
   const setup = { t: 'setup', mode: M.mode, guide: M.guide === 'auto' ? 'ghost' : M.guide,
-    balls: balls.map(b => [b.id, b.x, b.z]), breaker: NET.games % 2, wins: matchDone() ? [0, 0] : [...matchWins], raceTo: M.race || 0 };
+    balls: balls.map(b => [b.id, b.x, b.z]), breaker: NET.games % 2, wins: matchDone() ? [0, 0] : [...matchWins], raceTo: M.race || 0, blackOne: !!M.blackOne };
   netSend(setup); startOnlineGame(setup);
 }
 function startOnlineGame(m) {
@@ -1590,7 +1627,7 @@ function startOnlineGame(m) {
   M.mode = m.mode; NET.guide = GUIDE_TXT[m.guide] ? m.guide : 'ghost';
   applyTable(tableKeyFor());
   world = C.makeWorld(m.balls.map(([id, x, z]) => C.newBall(id, x, z))); world.ev = [];
-  game = C.newGame(m.mode); game.turn = m.breaker === 1 ? 1 : 0;
+  game = C.newGame(m.mode); game.turn = m.breaker === 1 ? 1 : 0; if (m.mode === 'uk8') game.oneVisitOnBlack = !!m.blackOne;
   matchWins = Array.isArray(m.wins) ? [...m.wins] : [0, 0];
   NET.raceTo = [0, 3, 5, 7].includes(m.raceTo) ? m.raceTo : 0;
   lastShot = null; endReplayNow(); $('#offer').hidden = true;

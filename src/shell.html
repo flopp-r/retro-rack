@@ -65,6 +65,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
+@media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
   #menu{padding:2vh 3vw}
@@ -75,7 +76,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #bStart,#bQuick,#bCreate{font-size:10px;padding:9px 12px}#bQuick{margin-bottom:8px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
-  #sc-setup .note{font-size:15px}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
+  #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
   #sc-online .onl{gap:5px}#roomList{max-height:78px}#netName,#netCode{font-size:18px;padding:2px 6px}
   .mFoot .btn{font-size:8px;padding:7px 9px}
 }
@@ -190,6 +191,15 @@ input:focus{border-color:var(--chalk)}
 #trickGoal{margin-bottom:6px}
 #trickInfo .btn{font-size:8px;padding:7px 8px}
 #replayBar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:19px;z-index:6}
+#ballPick{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);width:min(300px,60vw);padding:10px 12px 12px;z-index:6}
+#ballPick p{margin:0 0 8px;font-size:18px;line-height:1.1}
+#ballPick .actions{margin-top:10px}
+#ballGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.bp{padding:3px;background:var(--ink);border:2px solid var(--plum2);cursor:pointer;line-height:0;opacity:.45}
+.bp canvas{width:100%;height:auto;image-rendering:pixelated}
+.bp[aria-pressed="true"]{opacity:1;border-color:var(--lamp)}
+@media (max-width:760px) and (orientation:portrait){#ballPick{bottom:auto;top:calc(var(--bb,90px) + 10px);width:min(300px,90vw)}}   /* upright phones: no room at the bottom */
+@media (max-height:500px){#ballPick{bottom:6px;padding:6px 8px 8px;left:calc(var(--lw,40vw) + 8px);right:calc(var(--sw,180px) + 8px);width:auto;transform:none}#ballGrid{grid-template-columns:repeat(5,1fr)}#ballPick p{font-size:15px;margin-bottom:5px}#ballPick .actions{margin-top:6px}#ballPick .btn{font-size:8px;padding:6px 8px}}
 #rotate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,86vw);padding:14px 16px 16px;text-align:center;z-index:8}
 #rotate p{margin:0 0 12px;font-size:22px}
 .offerPanel{width:min(420px,92vw);padding:18px 20px}.offerPanel p{margin:0 0 6px;font-size:22px}
@@ -225,7 +235,7 @@ input:focus{border-color:var(--chalk)}
     <button class="btn" id="bUndo" title="U">Undo shot</button>
     <button class="btn" id="bHand" aria-pressed="false" title="B">Ball in hand</button>
     <button class="btn" id="bMove" aria-pressed="false">Move balls</button>
-    <button class="btn" id="bReturn" hidden>Return potted</button>
+    <button class="btn" id="bBalls" aria-pressed="false" hidden>Add balls</button>
     <button class="btn" id="bSave">Save layout</button>
     <div id="trickInfo" class="panel" hidden>
       <div id="trickTitle"></div><div id="trickGoal"></div>
@@ -295,6 +305,7 @@ input:focus{border-color:var(--chalk)}
       <section class="mScreen" id="sc-setup" hidden>
         <div class="row" id="rowDiff"><div class="lbl">Skill</div><div class="seg" id="mDiff"></div><div class="note" id="diffTxt"></div></div>
         <div class="row" id="rowRoom"><div class="lbl">Room</div><div class="seg" id="mListed"></div><div class="note" id="listedTxt"></div></div>
+        <div class="row" id="rowBlack"><div class="lbl">On black</div><div class="seg" id="mBlack" title="Visits after a foul for a player on the black"></div></div>
         <div class="row" id="rowMatch"><div class="lbl">Match</div><div class="seg" id="mRace"></div></div>
         <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="mGuide"></div><div class="note" id="guideTxt"></div></div>
       </section>
@@ -339,6 +350,12 @@ input:focus{border-color:var(--chalk)}
 </div>
 
 <div id="rotate" class="panel" role="status" hidden><p>Turn your phone sideways for a bigger table.</p><button class="btn" id="bRotateOk">OK</button></div>
+
+<div id="ballPick" class="panel" hidden>
+  <p>Tap a ball to add it or take it off. Then drag it into place.</p>
+  <div id="ballGrid"></div>
+  <div class="actions"><button class="btn" id="bReturn" type="button">Return potted</button><button class="btn" id="bPickDone" type="button">Done</button></div>
+</div>
 
 <div id="replayBar" class="panel" hidden><span>Replaying the last shot</span><button class="btn" id="bSlow">Slow motion</button><button class="btn" id="bSkip">Skip</button></div>
 

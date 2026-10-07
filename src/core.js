@@ -527,7 +527,8 @@ function judgeUK(game, rec, before, player, res) {
   return res;
 }
 
-function nextGame(game, res, player) {
+// balls (the table after the shot) is only needed for the optional "one visit on the black" pub rule
+function nextGame(game, res, player, balls) {
   const g = { ...game, groups: [...game.groups] };
   if (res.assign) { g.groups[res.assign.player] = res.assign.group; g.groups[1 - res.assign.player] = res.assign.group === 'solids' ? 'stripes' : 'solids'; }
   g.breakShot = false; g.kitchen = false;
@@ -538,6 +539,8 @@ function nextGame(game, res, player) {
     else if (res.keepTurn) g.turn = player;
     else if ((game.visits || 1) > 1) { g.turn = player; g.visits = game.visits - 1; }
     else { g.turn = 1 - player; g.visits = 1; }
+    // optional pub rule: a player on the black only ever gets one visit (also when they clear their colour mid-way)
+    if (g.oneVisitOnBlack && g.visits > 1 && balls) { const gp = g.groups[g.turn]; if (gp && groupLeft(balls, gp) === 0) g.visits = 1; }
     return g;
   }
   g.turn = game.mode === 'practice' ? player : (res.keepTurn ? player : 1 - player);
@@ -622,7 +625,7 @@ function evalShot(game, balls, shot, player, cfg) {
   else if (res.win >= 0) s = -1000;
   else if (res.foul) s = game.mode === 'uk8' ? -160 : -120;
   else {
-    const ng = nextGame(game, res, player);
+    const ng = nextGame(game, res, player, w.balls);
     if (res.keepTurn) {
       s = 100;
       if (cfg.pos > 0) { const q = bestQuality(ng, w.balls, player); s += cfg.pos * 60 * q - (q === 0 ? cfg.pos * 25 : 0); }
