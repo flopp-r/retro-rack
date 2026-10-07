@@ -86,6 +86,30 @@ test('reds & yellows: a miss on the first of two visits keeps the turn', () => {
   const ng = C.nextGame(game, res, 0);
   assert.strictEqual(ng.turn, 0); assert.strictEqual(ng.visits, 1);
 });
+const onBlackTable = () => C.rack8().map(b => ({ ...b, potted: b.id >= 1 && b.id <= 7 }));   // reds (1-7) all potted
+test('reds & yellows: a foul against a player on the black gives two visits (standard rules)', () => {
+  const balls = onBlackTable(), { res, game } = judge('uk8', { groups: ['stripes', 'solids'], balls }, { first: 1, pots: [0] });
+  const ng = C.nextGame(game, res, 0, balls);
+  assert.strictEqual(ng.turn, 1); assert.strictEqual(ng.visits, 2);
+});
+test('reds & yellows, "one visit on the black": the player on the black gets one visit and the free ball', () => {
+  const balls = onBlackTable(), { res, game } = judge('uk8', { groups: ['stripes', 'solids'], oneVisitOnBlack: true, balls }, { first: 1, pots: [0] });
+  const ng = C.nextGame(game, res, 0, balls);
+  assert.strictEqual(ng.turn, 1); assert.strictEqual(ng.visits, 1); assert.ok(ng.freeShot);
+});
+test('reds & yellows, "one visit on the black": clearing your colour on the first of two visits loses the second', () => {
+  const after = onBlackTable(), before = after.map(b => ({ ...b, potted: b.potted && b.id !== 7 }));   // the 7 goes in on this shot
+  const game = { ...C.newGame('uk8'), breakShot: false, ballInHand: false, kitchen: false, groups: ['solids', 'stripes'], visits: 2, oneVisitOnBlack: true };
+  const res = C.judge(game, { first: 7, railAfter: true, pots: [7], cushMask: 0 }, before, after, 0);
+  const ng = C.nextGame(game, res, 0, after);
+  assert.ok(res.keepTurn); assert.strictEqual(ng.turn, 0); assert.strictEqual(ng.visits, 1);
+  const miss = C.nextGame(ng, C.judge(ng, { first: 8, railAfter: true, pots: [], cushMask: 0 }, after, after, 0), 0, after);
+  assert.strictEqual(miss.turn, 1, 'missing the black then passes the turn');
+});
+test('reds & yellows, "one visit on the black": a player not yet on the black still gets two visits', () => {
+  const balls = C.rack8(), { res, game } = judge('uk8', { groups: ['solids', 'stripes'], oneVisitOnBlack: true, balls }, { first: 1, pots: [0] });
+  assert.strictEqual(C.nextGame(game, res, 0, balls).visits, 2);
+});
 
 console.log('\nTrick shots');
 const tricks = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8').match(/const TRICKS = (\[.*?\]);\n/)[1]);
