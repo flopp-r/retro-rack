@@ -597,11 +597,17 @@ function estimatePower(c, factor) {
 function gauss(rnd) { let u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
+// The CPU's skill levels. aimSd/powSd/spinSd: execution error (degrees, fraction of power, tip offset); cands,
+// variants (power factor, side, top/back spin), refine, robust and bih: how widely it searches; pos: how much it
+// values position; safety: whether it plays safe; potMin: the score a pot must beat or it plays safe instead;
+// pickTop: how many of its best options it picks from at random; brk/brkSpin: break power and screw.
+// planBot also takes a profile object with these fields (career opponents), plus long: extra aim error per metre
+// of travel beyond the first metre (weak long potting).
 const DIFF = {
-  easy:   { aimSd: 1.3, powSd: 0.14, spinSd: 0.10, cands: 3, variants: [[1.4, 0, 0]], refine: 0, pos: 0, robust: 0, safety: false, pickTop: 3, bih: 2 },
-  medium: { aimSd: 0.55, powSd: 0.07, spinSd: 0.06, cands: 5, variants: [[1.3, 0, 0], [1.9, 0, 0.3]], refine: 1, pos: 0.4, robust: 0, safety: false, pickTop: 2, bih: 3 },
-  hard:   { aimSd: 0.22, powSd: 0.04, spinSd: 0.03, cands: 6, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.55], [2.5, 0, 0.4]], refine: 2, pos: 1, robust: 3, safety: true, pickTop: 1, bih: 5 },
-  expert: { aimSd: 0.09, powSd: 0.025, spinSd: 0.015, cands: 7, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.6], [2.5, 0, 0.45], [1.8, 0.5, 0.25], [1.8, -0.5, 0.25], [1.7, 0.45, -0.45], [1.7, -0.45, -0.45]], refine: 2, pos: 1.3, robust: 4, safety: true, pickTop: 1, bih: 7 },
+  easy:   { aimSd: 1.3, powSd: 0.14, spinSd: 0.10, cands: 3, variants: [[1.4, 0, 0]], refine: 0, pos: 0, robust: 0, safety: false, potMin: -50, pickTop: 3, bih: 2, brk: 0.82, brkSpin: 0 },
+  medium: { aimSd: 0.55, powSd: 0.07, spinSd: 0.06, cands: 5, variants: [[1.3, 0, 0], [1.9, 0, 0.3]], refine: 1, pos: 0.4, robust: 0, safety: false, potMin: -50, pickTop: 2, bih: 3, brk: 0.97, brkSpin: -0.1 },
+  hard:   { aimSd: 0.22, powSd: 0.04, spinSd: 0.03, cands: 6, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.55], [2.5, 0, 0.4]], refine: 2, pos: 1, robust: 3, safety: true, potMin: 40, pickTop: 1, bih: 5, brk: 0.97, brkSpin: -0.1 },
+  expert: { aimSd: 0.09, powSd: 0.025, spinSd: 0.015, cands: 7, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.6], [2.5, 0, 0.45], [1.8, 0.5, 0.25], [1.8, -0.5, 0.25], [1.7, 0.45, -0.45], [1.7, -0.45, -0.45]], refine: 2, pos: 1.3, robust: 4, safety: true, potMin: 40, pickTop: 1, bih: 7, brk: 0.97, brkSpin: -0.1 },
 };
 
 // measure object-ball launch angle for a shot (used to correct for throw/squirt)
@@ -635,9 +641,9 @@ function evalShot(game, balls, shot, player, cfg) {
   return { s, res };
 }
 
-// Bot planner — a generator so it can run spread over frames
-function* planBot(game, balls0, player, diffName, rnd = Math.random) {
-  const cfg = DIFF[diffName];
+// Bot planner — a generator so it can run spread over frames. diff: a DIFF level name or a profile object.
+function* planBot(game, balls0, player, diff, rnd = Math.random) {
+  const cfg = typeof diff === 'string' ? DIFF[diff] : diff;
   let balls = cloneBalls(balls0);
   const cue = balls[0];
   const targets = legalTargets(game, balls, player);
@@ -651,7 +657,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
       const z = (rnd() - 0.5) * (game.mode === '9ball' ? 0.7 : game.mode === 'uk8' ? 0.5 : 0.3);
       const pos = [TABLE.headX - 0.02, z];
       const phi = Math.atan2(apex.z - pos[1], apex.x - pos[0]) + (rnd() - 0.5) * 0.3 * deg;
-      const shot = { phi, power: diffName === 'easy' ? 0.82 : 0.97, sx: 0, sy: diffName === 'easy' ? 0 : -0.1, cue: pos };
+      const shot = { phi, power: cfg.brk, sx: 0, sy: cfg.brkSpin, cue: pos };
       if (n > 1) {
         const b2 = cloneBalls(balls); b2[0].x = pos[0]; b2[0].z = pos[1];
         const r = evalShot(game, b2, shot, player, cfg); shot.score = r.s; yield;
@@ -698,7 +704,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
     const cands = shotCandidates(bs, pos[0], pos[1], targets).slice(0, cfg.cands);
     for (const c of cands) {
       for (const [pf, sx, sy] of cfg.variants) {
-        const shot = { phi: c.phi, power: estimatePower(c, pf), sx, sy, cue: game.ballInHand ? pos : null };
+        const shot = { phi: c.phi, power: estimatePower(c, pf), sx, sy, cue: game.ballInHand ? pos : null, dist: c.d1 + c.d2 };
         // aim refinement for throw / squirt
         const want = Math.atan2(c.ez, c.ex);
         let slope = null;
@@ -738,7 +744,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
   }
 
   let pick = null;
-  if (scored.length && scored[0].s > (cfg.safety ? 40 : -50)) {
+  if (scored.length && scored[0].s > cfg.potMin) {
     const top = scored.filter(o => o.s > 0).slice(0, cfg.pickTop);
     pick = (top.length ? top[Math.floor(rnd() * top.length)] : scored[0]).shot;
   }
@@ -789,7 +795,8 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
 function applyNoise(shot, cfg, rnd) {
   const s = { ...shot };
   s.ideal = { ...shot };
-  s.phi += gauss(rnd) * cfg.aimSd * Math.PI / 180;
+  const longer = (cfg.long || 0) * Math.max(0, (shot.dist || 0) - 1);   // weak long potters miss more over distance
+  s.phi += gauss(rnd) * cfg.aimSd * (1 + longer) * Math.PI / 180;
   s.power = Math.max(0.02, Math.min(1, s.power * (1 + gauss(rnd) * cfg.powSd)));
   s.sx = Math.max(-1, Math.min(1, s.sx + gauss(rnd) * cfg.spinSd));
   s.sy = Math.max(-1, Math.min(1, s.sy + gauss(rnd) * cfg.spinSd));

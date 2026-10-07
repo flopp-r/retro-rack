@@ -4,8 +4,9 @@
   "description": "Retro Rack: 3D pixel-art pool with online play",
   "scripts": {
     "build": "node tools/build.js",
-    "test": "node tests/physics.test.js",
+    "test": "node tests/physics.test.js && node tests/career.test.js",
     "test:browser": "node tests/browser/run-all.js",
-    "find-demos": "node tools/find-trick-demos.js"
+    "find-demos": "node tools/find-trick-demos.js",
+    "sim-career": "node tools/sim-career.js"
   }
 }

@@ -82,6 +82,7 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 
 ## Features worth knowing
 
+- **Career:** in **Single player**, **Career** starts a tour of knockout tournaments, beginning on the pub circuit (reds & yellows). Pick a name, a look and an aim guide (fixed for the whole career), then enter events, play your way through the draw against named computer players, and win prize money and trophies. Winning an event opens the next. The career is saved after every shot, so you can leave a match and carry on later. It is stored in this browser on this device: **Save to file** keeps a copy (or moves it to another device with **Load from file**), and clearing your browser's data would delete it.
 - **Replay:** press **V** or the **Replay** button to watch the last shot again. Use slow motion and orbit the camera while it plays.
 - **Menus:** **Single player** leads to games against the computer and to practice; **Multiplayer** to online and same-device games. Back (or Esc, or a phone's back gesture) returns a screen. **Play again** on the home screen starts your last setup in one tap.
 - **Matches:** on a game's setup screen, under **Match**, choose first to 3, 5 or 7 racks, for CPU, same-device and online games.
@@ -105,7 +106,7 @@ To give an AI that can't open this repository (ChatGPT, Gemini or Claude in a br
 
 https://raw.githubusercontent.com/flopp-r/retro-rack/main/CONTEXT.md
 
-It holds the notes, a map of the code and all the source code written for the game, about 300 KB. If the AI can't open links, download the file and attach it. If it says the file is too big, use `CONTEXT-SHORT.md` instead (the notes and the map, without the code). Both are remade by every build, so they always match the latest version.
+It holds the notes, a map of the code and all the source code written for the game, about 350 KB (it grows with the game). If the AI can't open links, download the file and attach it. If it says the file is too big, use `CONTEXT-SHORT.md` instead (the notes and the map, without the code). Both are remade by every build, so they always match the latest version.
 - **New version of the relay:** upload the changed files into the `relay` folder the same way. Cloudflare rebuilds and redeploys it automatically.
 
 ## If something isn't working
