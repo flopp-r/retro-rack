@@ -66,6 +66,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 **Rooms**
 - A listed room appears only while its creator waits, and disappears when a second player joins or the creator leaves. Nobody can join a game in progress or take a seat someone dropped out of.
 - The list forgets rooms after 45 minutes waiting. Unused rooms are deleted after 6 hours.
+- Rejoin is kept on the player's own device for 3 hours, well inside the 6 hours a room lasts. It uses the same seat-by-client-id reconnect as a reload, so the relay needed no change. The table itself lives only in the players' open pages, so if both close, the frame starts again.
 - Chat is preset messages only (sent as an index), so there's nothing to moderate in listed rooms.
 
 **Free tier**
@@ -153,7 +154,8 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
-- **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built. Still to do: a "rejoin last game" menu button.
+- **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
+- **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame.
 - **A rules option:** "lose the second visit when on the black", for reds & yellows: built as "On black: One visit".
 - **Adding balls to trick shots:** built ("Add balls", under "Edit table").
 - **Possibly:** a colour-blind-friendly marking option for reds and yellows.
