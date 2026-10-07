@@ -59,8 +59,8 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cardTxt:empty{display:none}
 #bStart,#bQuick,#bCreate{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
 #bStart:hover,#bQuick:hover,#bCreate:hover{background:#ff8ba5}
-#bQuick{display:block;margin:0 0 12px;text-align:left}
-#bQuick[hidden]{display:none}
+.quickRow{display:flex;flex-wrap:wrap;gap:8px}.quickRow>.btn{margin-bottom:12px;text-align:left}
+#bRejoin{font-size:12px;padding:12px 16px;background:var(--lamp);color:var(--ink)}#bRejoin:hover{background:#ffd48e}
 .mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
@@ -73,7 +73,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #mStage{padding:10px 14px 8px}.mTop{padding:8px 14px 0}.mFoot{padding:6px 14px 8px}
   .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
   .card{padding:6px 9px;gap:9px}.cardArt{height:26px}.cardName{font-size:9px}.cardTxt{font-size:16px}.cardBody{gap:4px}
-  #bStart,#bQuick,#bCreate{font-size:10px;padding:9px 12px}#bQuick{margin-bottom:8px}
+  #bStart,#bQuick,#bCreate,#bRejoin{font-size:10px;padding:9px 12px}.quickRow>.btn{margin-bottom:8px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -276,7 +276,7 @@ input:focus{border-color:var(--chalk)}
     <div id="mStage">
       <section class="mScreen" id="sc-home">
         <h1 class="title">Retro Rack</h1>
-        <button class="btn" id="bQuick" type="button" hidden></button>
+        <div class="quickRow"><button class="btn" id="bRejoin" type="button" hidden></button><button class="btn" id="bQuick" type="button" hidden></button></div>
         <div class="cards">
           <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Computer or practice</span></button>
           <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Online or same device</span></button>

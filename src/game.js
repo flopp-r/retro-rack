@@ -1254,6 +1254,50 @@ function updateQuick() {
   if (!b.hidden) b.textContent = 'Play again: ' + quickLabel(l);
 }
 $('#bQuick').addEventListener('click', () => { ensureAudio(); sfx('ui'); Object.assign(M, M.last); startGame(false); });
+// "Rejoin": an online game left by accident (app closed, tab shut, battery died) can be picked up again for a few
+// hours. The room and this player's id are kept on the device, so the relay gives back the same seat, and the
+// opponent's game (if it's still open) sends the table, just as after a reload. Leaving on purpose forgets it.
+// There's one entry per player id, because two tabs on one device can each hold a seat in the same game.
+const REJOIN_MS = 3 * 60 * 60 * 1000, REJOIN_KEY = 'retroRack.rejoin';
+function rejoinList() {
+  try { const l = JSON.parse(localStorage.getItem(REJOIN_KEY) || '[]'); return Array.isArray(l) ? l.filter(r => r && r.code && r.cid && Date.now() - r.at < REJOIN_MS) : []; } catch (e) { return []; }
+}
+function putRejoin(l) { try { if (l.length) localStorage.setItem(REJOIN_KEY, JSON.stringify(l)); else localStorage.removeItem(REJOIN_KEY); } catch (e) {} }
+function saveRejoin() {
+  if (!NET.on || !NET.started) return;
+  putRejoin([{ code: NET.code, cid: NET.cid, peer: NET.peerName, mode: M.mode, at: Date.now() }, ...rejoinList().filter(r => r.cid !== NET.cid)].slice(0, 4));
+}
+function clearRejoin() { if (NET.cid) putRejoin(rejoinList().filter(r => r.cid !== NET.cid)); }
+// A page in an online room holds a lock named after its player id; the browser frees it when the page closes.
+// So another tab never offers to take over a seat that's still being played.
+const seatLock = cid => 'retroRack.seat.' + cid;
+function holdSeat() {
+  const cid = NET.cid;
+  if (!navigator.locks || NET.unlock) return;
+  navigator.locks.request(seatLock(cid), () => NET.on && NET.cid === cid && !NET.unlock ? new Promise(res => { NET.unlock = res; }) : null).catch(() => {});
+}
+function freeSeat() { if (NET.unlock) { NET.unlock(); NET.unlock = null; } }
+async function rejoinChoice() {
+  let l = relayBase() ? rejoinList() : [];
+  if (l.length && navigator.locks) {
+    try { const q = await navigator.locks.query(), busy = new Set([...q.held, ...q.pending].map(k => k.name)); l = l.filter(r => !busy.has(seatLock(r.cid))); } catch (e) {}
+  }
+  return state === 'menu' && !NET.on ? l[0] || null : null;
+}
+async function updateRejoin() {
+  const r = await rejoinChoice(), b = $('#bRejoin');
+  b.hidden = !r; if (r) b.textContent = `Rejoin ${MODE_NAME[r.mode] || 'game'} with ${cleanName(r.peer)}`;
+}
+addEventListener('storage', e => { if (e.key === REJOIN_KEY && state === 'menu') updateRejoin(); });
+addEventListener('focus', () => { if (state === 'menu') updateRejoin(); });
+const waitText = () => NET.rejoin ? `Waiting for ${cleanName(NET.rejoin.peer)} to come back…` : 'Waiting for your friend to join…';
+$('#bRejoin').addEventListener('click', async () => {
+  ensureAudio();
+  const r = await rejoinChoice(); if (!r) { updateRejoin(); return; }
+  sfx('ui');
+  try { sessionStorage.setItem('rr.cid', r.cid); } catch (e) {}   // the same player id gets the same seat back
+  startOnline(cleanCode(r.code), false, r);
+});
 $('#mBack').addEventListener('click', () => { sfx('ui'); menuBack(); });
 $('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp = 'online'; menuGo('game'); });
 
@@ -1344,7 +1388,7 @@ function refreshMenus() {
   $('#rowBlack').hidden = M.mode !== 'uk8';
   segControl($('#mBlack'), [[false, 'Two visits'], [true, 'One visit']], () => !!M.blackOne, v => M.blackOne = v);
   for (const c of document.querySelectorAll('#sc-game .card')) { c.setAttribute('aria-pressed', String(c.dataset.mode === M.mode)); c.querySelector('.cardTxt').textContent = MODE_TXT[c.dataset.mode]; }
-  updateQuick();
+  updateQuick(); updateRejoin();
   $('#diffTxt').textContent = DIFF_TXT[M.diff];
   $('#guideTxt').textContent = GUIDE_TXT[guideLevel()];
   // settings panel
@@ -1375,13 +1419,13 @@ $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.o
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
 $('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode === 'practice') startGame(false); else { startGame(true, true); toast("Re-racked. The last frame doesn't count", 'info'); } });
-$('#bQuit').addEventListener('click', () => { togglePause(false); toMenu(); });
+$('#bQuit').addEventListener('click', () => { togglePause(false); if (NET.on) clearRejoin(); toMenu(); });
 $('#bAgain').addEventListener('click', () => {
   sfx('ui');
   if (!NET.on) { startGame(true); return; }
   NET.again[NET.seat] = true; netSend({ t: 'again' }); updateAgainBtn(); tryRematch();
 });
-$('#bOverMenu').addEventListener('click', () => { sfx('ui'); toMenu(); });
+$('#bOverMenu').addEventListener('click', () => { sfx('ui'); if (NET.on) clearRejoin(); toMenu(); });
 $('#bCam').addEventListener('click', toggleAimCam);
 $('#bTop').addEventListener('click', toggleTop);
 $('#bHelp').addEventListener('click', () => { $('#help').hidden = !$('#help').hidden; });
@@ -1533,17 +1577,18 @@ function onNet(m) {
   switch (m.t) {
     case 'welcome':
       NET.seat = m.seat === 1 ? 1 : 0; NET.peer = !!m.peer; NET.link = 'online'; updateNetBadge();
-      lobbyStatus(NET.peer ? 'Connected. Starting…' : 'Waiting for your friend to join…');
+      lobbyStatus(NET.peer ? 'Connected. Starting…' : waitText());
       if (NET.peer) sendHello();
       if (state !== 'lobby') updateHUD();
       break;
     case 'full':
+      clearRejoin();
       leaveOnline(); toMenu(); menuNote('That room already has two players in it.'); break;
     case 'peer':
       NET.peer = !!m.on; updateNetBadge();
       if (m.on) sendHello();
       else if (NET.started) toast(`${NET.peerName} disconnected. Waiting for them to come back`, 'foul');
-      else lobbyStatus('Waiting for your friend to join…');
+      else lobbyStatus(waitText());
       break;
     case 'hello':
       NET.peerName = cleanName(m.name); NET.peer = true; updateNetBadge();
@@ -1571,7 +1616,7 @@ function onNet(m) {
     case 'shot': if (typeof m.n === 'number') { NET.queue.push(m); NET.queue.sort((a, b) => a.n - b.n); netProcessQueue(); } break;
     case 'sync': if (typeof m.n === 'number' && Array.isArray(m.balls) && m.game) { NET.pendingSync[m.n] = m; netCheckSync(); } break;
     case 'again': NET.again[1 - NET.seat] = true; tryRematch(); break;
-    case 'bye': NET.peer = false; updateNetBadge(); toast(`${NET.peerName} left the game`, 'foul'); break;
+    case 'bye': NET.peer = false; updateNetBadge(); clearRejoin(); toast(`${NET.peerName} left the game`, 'foul'); break;
     case 'chat': if (Number.isInteger(m.i) && CHAT[m.i]) { toast(`${NET.peerName}: ${CHAT[m.i]}`, 'chat'); sfx('ui'); } break;
     case 'concede':
       if (state === 'moving' || state === 'stroke') NET.pendingConcede = m.from === 1 ? 1 : 0;
@@ -1585,12 +1630,13 @@ function onNet(m) {
 function menuNote(t) { $('#netNote').textContent = t; }
 function lobbyStatus(t) { $('#lobbyStatus').textContent = t; }
 function inviteLink() { return location.href.split('#')[0] + '#room=' + NET.code; }
-function startOnline(code, listed = false) {
+function startOnline(code, listed = false, rejoin = null) {
   if (!relayBase()) { menuNote('Online play needs your relay address first. Paste it into config.js, next to this file (the README explains how).'); return; }
   if (!code || code.length < 4) { menuNote('Room codes are 5 letters and numbers.'); return; }
   NET.on = true; NET.code = code; NET.cid = getCid(); NET.myName = cleanName($('#netName').value, 'Player'); NET.peerName = 'Friend';
   try { localStorage.setItem('retroRack.name', NET.myName); } catch (e) {}
-  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed });
+  holdSeat();
+  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed, rejoin });
   matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote(''); NAV.lastOnline = true;
   try { history.replaceState(null, '', '#room=' + code); } catch (e) {}
   state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false; armBack();
@@ -1603,7 +1649,7 @@ function startOnline(code, listed = false) {
 function leaveOnline() {
   if (!NET.on) return;
   netSend({ t: 'bye' });
-  NET.on = false; NET.started = false; clearTimeout(NET.timer);
+  NET.on = false; NET.started = false; clearTimeout(NET.timer); freeSeat();
   const ws = NET.ws; NET.ws = null; if (ws) { try { ws.close(1000, 'bye'); } catch (e) {} }
   try { history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
   $('#lobby').hidden = true; $('#thinking').hidden = true; updateNetBadge();
@@ -1636,7 +1682,7 @@ function startOnlineGame(m) {
   syncBallMeshes(); aim.sx = aim.sy = 0; aim.power = 0.88;
   showGameUI();
   toast(isYou(game.turn) ? 'Your break' : `${NET.peerName} to break`, 'info');
-  beginTurn();
+  beginTurn(); saveRejoin();
 }
 function snapshot() {
   return { balls: world.balls.map(b => [b.id, b.x, b.z, b.potted ? 1 : 0]), game: { ...game, groups: [...game.groups] }, shots: [...shots], wins: [...matchWins] };
@@ -1663,8 +1709,10 @@ function adoptState(m) {
   showGameUI(); toast(`Back in the game with ${NET.peerName}`, 'good');
   if (NET.verWarn) toast(NET.verWarn, 'foul');
   if (game.over) { state = 'over'; updateHUD(); showOver(null, -1); } else beginTurn();
+  saveRejoin();
 }
 function netAfterShot(shooter) {
+  saveRejoin();
   if (NET.pendingConcede === 0 || NET.pendingConcede === 1) { const l = NET.pendingConcede; NET.pendingConcede = null; setTimeout(() => concedeFrame(true, l), 0); }
   if (shooter === NET.seat) netSend({ t: 'sync', n: NET.n, ...snapshot() });
   else netCheckSync();
@@ -1819,7 +1867,7 @@ function lobbyConnect() {
 }
 setInterval(() => { if (LW.ws && LW.ws.readyState === 1) LW.ws.send('ping'); }, 25000);
 setInterval(() => { if (LW.want) renderRooms(); }, 30000);
-document.addEventListener('visibilitychange', updateLobbyWatch);
+document.addEventListener('visibilitychange', () => { updateLobbyWatch(); if (!document.hidden && state === 'menu') updateRejoin(); });
 function renderRooms() {
   const el = $('#roomList'), live = $('#roomsLive');
   const note = t => { el.innerHTML = ''; const d = document.createElement('div'); d.className = 'note'; d.textContent = t; el.appendChild(d); };
@@ -1842,7 +1890,7 @@ function renderRooms() {
 }
 
 $('#netCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#bJoin').click(); });
-$('#bLobbyCancel').addEventListener('click', () => { sfx('ui'); toMenu(); });
+$('#bLobbyCancel').addEventListener('click', () => { sfx('ui'); clearRejoin(); toMenu(); });
 $('#bCopyLink').addEventListener('click', async () => {
   const link = inviteLink();
   try {
