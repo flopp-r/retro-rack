@@ -24,7 +24,11 @@ const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stri
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
 const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
-const saveM = () => { try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
+const saveM = () => { if (CAR.on) return; try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
+// career (see the career section): the saved career, and while a career match is on, who you're playing
+const K = CAREER;
+const CAR = { data: null, on: false, opp: null, stash: null, result: null, view: null };
+try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') || 'null')); } catch (e) {}
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
   guide: 'ghost', retry: 0, timer: 0, queue: [], pendingSync: {}, again: [false, false], games: 0, started: false,
   lastAim: 0, aimSig: '', aimT: null, stateAfter: false };
@@ -439,7 +443,8 @@ let shotBefore = null, undoStack = [], shots = [0, 0], matchWins = [0, 0], break
 let lastShot = null, replay = null, EDIT = false, touchTurn = { dir: 0, t: 0 }, remoteStrike = null, movingT = 0, aimDirty = true, lastPreview = 0, stroke = null, bot = null, botAim = null, lastRes = null;
 const isBot = pl => !NET.on && M.mode !== 'practice' && M.opp === 'bot' && pl === 1;
 const humanTurn = () => NET.on ? game.turn === NET.seat : !isBot(game.turn);
-const pname = i => NET.on ? (i === NET.seat ? 'You' : NET.peerName) : M.mode === 'practice' ? 'You' : M.opp === 'bot' ? (i === 0 ? 'You' : 'CPU') : `Player ${i + 1}`;
+const botName = () => CAR.on ? K.OPPONENTS[CAR.opp].name : 'CPU';
+const pname = i => NET.on ? (i === NET.seat ? 'You' : NET.peerName) : M.mode === 'practice' ? 'You' : M.opp === 'bot' ? (i === 0 ? 'You' : botName()) : `Player ${i + 1}`;
 const isYou = i => NET.on ? i === NET.seat : (M.mode === 'practice' || (M.opp === 'bot' && i === 0));
 const ballById = id => world.balls.find(b => b.id === id);
 
@@ -459,9 +464,11 @@ function trickRack() {
   const list = trickList(); M.trick = (((M.trick | 0) % list.length) + list.length) % list.length;
   return list[M.trick].balls.map(([id, x, z]) => C.newBall(id, x, z));
 }
-function startGame(rematch, rerack = false) {
+// resume (career): { wins, breaker, snap } carries on a match: the score, who breaks, and a frame in progress
+function startGame(rematch, rerack = false, resume = null) {
   const mode = M.mode;
-  M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide, blackOne: !!M.blackOne }; saveM(); NAV.lastOnline = false; armBack();
+  if (!CAR.on) M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide, blackOne: !!M.blackOne };
+  saveM(); NAV.lastOnline = false; armBack();
   applyTable(tableKeyFor());
   const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter, trick: trickRack }[M.rack] || C.rack8) : C.rack8;
   world = C.makeWorld(rack()); world.ev = [];
@@ -469,10 +476,12 @@ function startGame(rematch, rerack = false) {
   if (rerack) { /* same breaker, score unchanged */ }
   else if (!rematch) { matchWins = [0, 0]; breaker = 0; }
   else { breaker = 1 - breaker; if (matchDone()) matchWins = [0, 0]; }
+  if (resume) { matchWins = [...resume.wins]; breaker = resume.breaker; }
   game.turn = mode === 'practice' ? 0 : breaker;
   if (mode === 'practice') { game.ballInHand = M.rack !== 'trick'; game.kitchen = false; game.breakShot = false; }
   lastShot = null; endReplayNow(); TRK.fresh = mode === 'practice' && M.rack === 'trick'; TRK.demo = false; EDIT = false;
   shots = [0, 0]; undoStack = []; potAnims = []; acc = 0; stroke = null; bot = null; botAim = null; lastRes = null;
+  if (resume && resume.snap) applySnapshot(resume.snap);
   syncBallMeshes();
   aim.sx = aim.sy = 0; aim.power = mode === 'practice' && (M.rack === 'scatter' || M.rack === 'trick') ? 0.45 : 0.88;
   updateTrickUI();
@@ -480,8 +489,10 @@ function startGame(rematch, rerack = false) {
   $('#practice').hidden = mode !== 'practice';
   if (cam.mode === 'attract') { cam.mode = 'free'; cam.free.dist = 3.1 * Math.pow(P.L / 2.54, 0.9); }
   toastClear();
-  if (mode !== 'practice') toast(game.turn === 0 && M.opp === 'bot' ? 'Your break' : `${pname(game.turn)} to break`, 'info');
+  if (resume && resume.snap) toast(`Back at the table with ${botName()}`, 'info');
+  else if (mode !== 'practice') toast(game.turn === 0 && M.opp === 'bot' ? 'Your break' : `${pname(game.turn)} to break`, 'info');
   beginTurn(true);
+  if (CAR.on) careerSave();
 }
 
 function beginTurn() {
@@ -533,6 +544,7 @@ function endShot() {
   res.msgs.forEach(m => toast(m, 'info'));
   if (game.over) {
     matchWins[game.winner]++; state = 'over'; updateHUD();
+    if (CAR.on) careerFrameOver();
     setTimeout(() => showOver(res, pl), 700);
     if (NET.on) netAfterShot(pl);
     return;
@@ -552,6 +564,7 @@ function endShot() {
   } else if (wasBreak && res.keepTurn) toast(`Good break, ${pname(pl) === 'You' ? 'keep going' : pname(pl) + ' continues'}`, 'good');
   beginTurn();
   if (NET.on) netAfterShot(pl);
+  if (CAR.on) careerSave();
 }
 
 function trickResult(res) {
@@ -569,7 +582,7 @@ function matchText() {
 function showOver(res, shooter) {
   const w = game.winner;
   const rt = raceTo(), done = matchDone(), what = rt ? (done ? ' the match' : ' the frame') : '';
-  const wn = NET.on ? (w === NET.seat ? null : NET.peerName) : M.opp === 'bot' ? (w === 0 ? null : 'CPU') : `Player ${w + 1}`;
+  const wn = NET.on ? (w === NET.seat ? null : NET.peerName) : M.opp === 'bot' ? (w === 0 ? null : botName()) : `Player ${w + 1}`;
   $('#overTitle').textContent = wn === null ? `You win${what}` : `${wn} wins${what}`;
   const who = shooter >= 0 ? pname(shooter) : '', why = ((res && res.reason2) || '').replace(/^./, c => c.toLowerCase());
   $('#overWhy').textContent = why ? `${who} ${why}.` : '';
@@ -578,7 +591,9 @@ function showOver(res, shooter) {
   $('#bOverReplay').hidden = !lastShot;
   $('#over').hidden = false;
   if (NET.on) { NET.again = [false, false]; updateAgainBtn(); }
-  else $('#bAgain').textContent = done ? 'New match' : rt ? 'Next frame' : 'Play again';
+  else $('#bAgain').textContent = done ? (CAR.on ? 'Continue' : 'New match') : rt ? 'Next frame' : 'Play again';
+  $('#bOverMenu').textContent = CAR.on ? 'Save and quit' : 'Main menu'; $('#bOverMenu').hidden = CAR.on && done;
+  if (CAR.on && done) $('#overStats').textContent += ' ' + careerResultText();
   if (NET.on ? w === NET.seat : (M.opp !== 'bot' || w === 0)) sfx('win'); else sfx('foul');
   $('#bAgain').focus();
 }
@@ -591,8 +606,9 @@ function undo() {
 
 // ------------------------------------------------------------------ bot driver
 function startBot() {
-  state = 'botThink'; $('#thinking').textContent = 'CPU is lining up a shot';
-  bot = { gen: C.planBot(game, world.balls, game.turn, M.diff), t0: performance.now(), shot: null };
+  state = 'botThink'; $('#thinking').textContent = `${botName()} is lining up a shot`;
+  const diff = CAR.on ? K.profileFor(CAR.opp, { onFinal: K.onFinalBall(game, world.balls, game.turn) }) : M.diff;
+  bot = { gen: C.planBot(game, world.balls, game.turn, diff), t0: performance.now(), shot: null };
   $('#thinking').hidden = false;
 }
 function botThinkTick(now) {
@@ -1091,7 +1107,7 @@ function updateHUD() {
     const el = $('#p' + i);
     el.hidden = mode === 'practice' && i === 1;
     el.classList.toggle('active', mode !== 'practice' && pl === i && state !== 'over');
-    el.querySelector('.pname').textContent = mode === 'practice' ? 'You' : (M.opp === 'bot' && i === 1 ? `CPU (${M.diff})` : pname(i));
+    el.querySelector('.pname').textContent = mode === 'practice' ? 'You' : (M.opp === 'bot' && i === 1 && !CAR.on ? `CPU (${M.diff})` : pname(i));
     const grp = el.querySelector('.pgroup'), balls = el.querySelector('.pballs');
     balls.innerHTML = '';
     if (mode === '8ball' || mode === 'uk8') {
@@ -1170,6 +1186,7 @@ function menuTitle(id) {
   const mode = MODE_NAME[M.mode] || '8-ball';
   if (id === 'setup') return M.opp === 'bot' ? `${mode} v computer` : M.opp === 'online' ? `New room: ${mode}` : `${mode}, same device`;
   if (id === 'game') return M.opp === 'online' ? 'New room: choose a game' : 'Choose a game';
+  if (id === 'cevent') return (K.EVENTS[CAR.view] || {}).name || 'Event';
   return $('#sc-' + id).dataset.title || '';
 }
 // Moving between screens, the whole panel glides across the screen: a copy of the old panel slides off one side
@@ -1303,16 +1320,26 @@ $('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp 
 
 // card pictures: tiny sprites in the style of early arcade "1 PLAYER / 2 PLAYERS" screens, and pixel balls in the
 // game's own colours. Drawn once at a few pixels per sprite and shown at 2x with hard pixel edges.
+const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
+const BODY = ['.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'];
 const SPRITES = {
-  // a player: hair, face, shirt (s, coloured per player), trousers and shoes
-  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', '.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'],
+  // a player: hair, face, shirt (s, coloured per player), trousers and shoes; then the other looks for career portraits
+  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', ...BODY],
+  long: ['..hhhh..', '.hhffhh.', '.hffffh.', '.h.ff.h.', ...BODY],
+  bald: ['..ffff..', '.ffffff.', '..ffff..', '...ff...', ...BODY],
+  cap: ['..ssss..', '.sssssss', '..ffff..', '...ff...', ...BODY],
+  glasses: ['..hhhh..', '.hggggh.', '..ffff..', '...ff...', ...BODY],
+  beard: ['..hhhh..', '.hffffh.', '..hhhh..', '...hh...', ...BODY],
   // a computer with a face on its screen
   cpu: ['........', '.mmmmmm.', '.mccccm.', '.mcecem.', '.mccccm.', '.mceecm.', '.mccccm.', '.mmmmmm.', '...mm...', '.mmmmmm.', 'kkkkkkkk', 'k.k.k.kk'],
 };
-const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6' };
-function drawSprite(g, name, x0, y0, shirt) {
-  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
+const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6', g: '#0d0a1c' };
+// pal: colours to use instead of the defaults, e.g. { f: skin, h: hair } for a career portrait
+function drawSprite(g, name, x0, y0, shirt, pal) {
+  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : (pal && pal[ch]) || SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
 }
+const TROPHY = ['.xxxxxx.', 'xxxxxxxx', 'x.xxxx.x', '.xxxxxx.', '..xxxx..', '...xx...', '...xx...', '..yyyy..', '.yyyyyy.'];
+function drawTrophy(g, x0, y0) { TROPHY.forEach((row, y) => { for (let x = 0; x < 8; x++) if (row[x] !== '.') { g.fillStyle = row[x] === 'x' ? P1 : '#5a2d1b'; g.fillRect(x0 + x, y0 + y, 1, 1); } }); }
 const DIGITS = { 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
   6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111' };
 function hexMul(hex, f) { const n = parseInt(hex.slice(1), 16), c = s => Math.round(clamp(((n >> s) & 255) * f, 0, 255)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
@@ -1332,8 +1359,8 @@ function drawBall2D(g, cx, cy, id, uk) {
   const dg = numbered && DIGITS[id > 9 ? id % 10 || 1 : id];
   if (dg) { g.fillStyle = '#0d0a1c'; for (let i = 0; i < 15; i++) if (dg[i] === '1') g.fillRect(cx - 2 + (i % 3), cy - 3 + Math.floor(i / 3), 1, 1); }
 }
-const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
 const ART = {
+  career: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawTrophy(g, 13, 4); }],
   single: [16, 14, g => drawSprite(g, 'man', 4, 1, P1)],
   multi: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 13, 1, P2); }],
   cpu: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'cpu', 13, 1); }],
@@ -1363,6 +1390,7 @@ for (const c of document.querySelectorAll('#menu .card')) {
   c.append(body);
   c.addEventListener('click', () => {
     ensureAudio(); sfx('ui');
+    if (c.dataset.go === 'career') { menuGo(CAR.data ? 'career' : 'cnew'); return; }
     if (c.dataset.opp) M.opp = c.dataset.opp;
     if (c.dataset.rack) { M.mode = 'practice'; M.rack = c.dataset.rack; startGame(false); return; }
     if (c.dataset.mode) { M.mode = c.dataset.mode; menuGo('setup'); return; }
@@ -1388,7 +1416,7 @@ function refreshMenus() {
   $('#rowBlack').hidden = M.mode !== 'uk8';
   segControl($('#mBlack'), [[false, 'Two visits'], [true, 'One visit']], () => !!M.blackOne, v => M.blackOne = v);
   for (const c of document.querySelectorAll('#sc-game .card')) { c.setAttribute('aria-pressed', String(c.dataset.mode === M.mode)); c.querySelector('.cardTxt').textContent = MODE_TXT[c.dataset.mode]; }
-  updateQuick(); updateRejoin();
+  updateQuick(); updateRejoin(); careerMenus();
   $('#diffTxt').textContent = DIFF_TXT[M.diff];
   $('#guideTxt').textContent = GUIDE_TXT[guideLevel()];
   // settings panel
@@ -1409,11 +1437,13 @@ function togglePause(force) {
   paused = force !== undefined ? force : !paused;
   $('#pause').hidden = !paused;
   const inMenu = state === 'menu';
-  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on; $('#bRestart').hidden = NET.on;
+  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
+  $('#bQuit').textContent = CAR.on ? 'Save and quit' : 'Quit to menu';
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
+  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
+  else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
@@ -1422,6 +1452,7 @@ $('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode 
 $('#bQuit').addEventListener('click', () => { togglePause(false); if (NET.on) clearRejoin(); toMenu(); });
 $('#bAgain').addEventListener('click', () => {
   sfx('ui');
+  if (CAR.on && matchDone()) { toMenu(); return; }   // the match is over: back to the event, where the draw shows what's next
   if (!NET.on) { startGame(true); return; }
   NET.again[NET.seat] = true; netSend({ t: 'again' }); updateAgainBtn(); tryRematch();
 });
@@ -1513,14 +1544,200 @@ function updateTrickUI() {
 }
 $('#bHand').addEventListener('click', () => { if (M.mode === 'practice' && state === 'aim') { game.ballInHand = !game.ballInHand; updateHUD(); } });
 function toMenu() {
+  const fromCareer = CAR.on; if (fromCareer) careerLeave();
   leaveOnline(); endReplayNow(); lastShot = null; EDIT = false; $('#offer').hidden = true; $('#chatPop').hidden = true; $('#ballPick').hidden = true;
   state = 'menu'; bot = null; stroke = null;
   world = C.makeWorld(C.rack8()); game = C.newGame('8ball'); syncBallMeshes();
   $('#hud').hidden = true; $('#over').hidden = true; $('#menu').hidden = false; $('#thinking').hidden = true;
   cam.mode = 'attract'; cam.free = { yaw: cam.cur.yaw, pitch: 0.62, dist: 3.6, tx: 0, tz: 0 };
-  menuReset(NAV.lastOnline ? ['home', 'multi', 'online'] : ['home']);
+  menuReset(fromCareer ? ['home', 'single', 'career', 'cevent'] : NAV.lastOnline ? ['home', 'multi', 'online'] : ['home']);
   hideGuides(); refreshMenus(); updateCamButtons();
 }
+
+// ------------------------------------------------------------------ career
+// The tour (src/career.js holds its rules, events and opponents): a hub with your events, an event screen with the
+// draw, and career matches, which are ordinary games against the CPU set up from the career. The career is saved
+// after every shot, so a match can be left, or the app closed, and picked up exactly where it was. The menu's own
+// choices (M) are put aside during a career match and restored afterwards.
+const careerStore = () => { try { if (CAR.data) localStorage.setItem('retroRack.career', JSON.stringify(CAR.data)); else localStorage.removeItem('retroRack.career'); } catch (e) {} };
+function careerSave() {
+  const m = CAR.data && CAR.data.run && CAR.data.run.match; if (!m || game.over) return;
+  m.wins = [...matchWins]; m.breaker = breaker; m.snap = snapshot(); careerStore();
+}
+function careerFrameOver() {
+  const m = CAR.data && CAR.data.run && CAR.data.run.match; if (!m) return;
+  m.wins = [...matchWins]; m.breaker = 1 - breaker; m.snap = null;   // the next frame: the other player breaks
+  CAR.result = matchDone() ? K.recordMatch(CAR.data, [...matchWins]) : null;
+  careerStore();
+}
+function careerPlay() {
+  const run = CAR.data && CAR.data.run; if (!run) return;
+  const m = run.match, e = K.EVENTS[run.event];
+  CAR.stash = { ...M }; CAR.on = true; CAR.opp = m.opp; CAR.view = run.event; CAR.result = null;
+  Object.assign(M, { mode: e.mode, opp: 'bot', race: m.race, blackOne: !!e.blackOne, guide: CAR.data.guide });
+  startGame(false, false, { wins: m.wins, breaker: m.breaker, snap: m.snap });
+  if (!m.snap) toast(`${K.ROUNDS[run.round]} v ${K.OPPONENTS[m.opp].name}, first to ${m.race}`, 'info');
+}
+function careerLeave() { Object.assign(M, CAR.stash || {}); CAR.stash = null; CAR.on = false; CAR.opp = null; saveM(); }
+const money = n => '£' + n.toLocaleString('en-GB');
+function nextEvent(e) { return K.TIERS[e.tier].events[e.index + 1] || null; }
+function careerResultText() {
+  const r = CAR.result; if (!r) return '';
+  const e = K.EVENTS[r.event], first = (CAR.data.done[e.id] || {}).won === 1, nx = nextEvent(e);
+  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. The next tier opens in a coming update.` : first && nx ? ` ${nx.name} is now open.` : '');
+  if (r.won) return `Through to the ${K.ROUNDS[r.round + 1].toLowerCase()}, against ${K.OPPONENTS[CAR.data.run.match.opp].name}.`;
+  return (r.round === K.ROUNDS.length - 1 ? 'Runner-up.' : `Out in the ${K.ROUNDS[r.round].toLowerCase()}.`) + ` Prize: ${money(r.prize)}.`;
+}
+
+// pixel portraits and strength stars, drawn small and shown with hard pixel edges
+function portrait(look, scale) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 10; c.height = 14;
+  drawSprite(g, look.s, 1, 1, look.shirt, { f: look.skin, h: look.hair });
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = 10 * scale; img.height = 14 * scale;
+  return img;
+}
+const STAR = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.'];
+function starsImg(n) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 29; c.height = 5;
+  for (let i = 0; i < 5; i++) STAR.forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === 'x') { g.fillStyle = i < n ? P1 : '#4e3270'; g.fillRect(i * 6 + x, y, 1, 1); } });
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = img.alt;
+  return img;
+}
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+// the new-career form
+const LOOK_COLS = { skin: ['#f6d2b4', '#f2c49b', '#d9a07a', '#a8714a', '#6b4429'], hair: ['#1a1206', '#5a3420', '#b5432a', '#d9a441', '#c9c3bd'],
+  shirt: ['#ffc56b', '#6cb8ff', '#ff6f8f', '#1d8a74', '#56399a', '#f7ead2'] };
+const NEWC = { s: 'man', skin: '#f2c49b', hair: '#5a3420', shirt: '#ffc56b', guide: 'line' };
+function renderCareerNew() {
+  if (!$('#cName').value) { try { $('#cName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) {} }
+  const st = $('#cStyle'); st.innerHTML = '';
+  for (const s of ['man', 'long', 'bald', 'cap', 'glasses', 'beard']) {
+    const b = mk('button', 'btn cStyleBtn'); b.type = 'button'; b.setAttribute('aria-pressed', String(NEWC.s === s)); b.setAttribute('aria-label', 'Look ' + s);
+    b.append(portrait({ ...NEWC, s }, 2)); b.addEventListener('click', () => { NEWC.s = s; sfx('ui'); refreshMenus(); }); st.append(b);
+  }
+  for (const k of ['skin', 'hair', 'shirt']) {
+    const box = $('#c' + k[0].toUpperCase() + k.slice(1)); box.innerHTML = '';
+    for (const hex of LOOK_COLS[k]) {
+      const b = mk('button', 'swatch'); b.type = 'button'; b.style.background = hex; b.setAttribute('aria-label', `${k} colour`); b.setAttribute('aria-pressed', String(NEWC[k] === hex));
+      b.addEventListener('click', () => { NEWC[k] = hex; sfx('ui'); refreshMenus(); }); box.append(b);
+    }
+  }
+  segControl($('#cGuide'), GUIDES.filter(([v]) => v !== 'auto'), () => NEWC.guide, v => NEWC.guide = v);
+  $('#cGuideTxt').textContent = GUIDE_TXT[NEWC.guide] + ' Fixed for the whole career.';
+}
+
+// the hub: you, then each tier's events
+function eventState(e) {
+  const c = CAR.data, d = c.done[e.id] || {};
+  if (c.run && c.run.event === e.id) return `Playing: ${K.ROUNDS[c.run.round].toLowerCase()}`;
+  if (!K.unlocked(c, e.id)) return 'Locked';
+  if (d.won) return d.won > 1 ? `Won ×${d.won}` : 'Won';
+  return d.played ? `Best: ${d.best === K.ROUNDS.length - 1 ? 'runner-up' : K.ROUNDS[d.best].toLowerCase()}` : 'Open';
+}
+const raceText = e => `First to ${e.races.slice(0, -1).join(', ')}, then ${e.races[e.races.length - 1]} in the final`;
+function renderCareerHub() {
+  const c = CAR.data, me = $('#cMe'), list = $('#cEvents'); me.innerHTML = ''; list.innerHTML = '';
+  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(c.money)} won · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
+  me.append(portrait(c.look, 3), txt);
+  K.TIERS.forEach((t, ti) => {
+    list.append(mk('p', 'cTier', t.name + (K.tierDone(c, ti) ? ': complete' : '')));
+    for (const e0 of t.events) {
+      const e = K.EVENTS[e0.id], open = K.unlocked(c, e.id), b = mk('button', 'cEvt'); b.type = 'button';
+      b.append(mk('span', 'cEvtName', e.name), mk('span', 'cEvtState', eventState(e)), mk('span', 'cEvtTxt', `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. Winner ${money(e.prize[3])}`));
+      b.setAttribute('aria-disabled', String(!open));
+      b.addEventListener('click', () => { if (!K.unlocked(CAR.data, e.id)) return; sfx('ui'); CAR.view = e.id; menuGo('cevent'); });
+      list.append(b);
+    }
+  });
+}
+
+// an event: the draw (or, before entering, the field) and your next opponent
+function renderCareerEvent() {
+  const c = CAR.data, e = K.EVENTS[CAR.view]; if (!e) return;
+  const run = c.run && c.run.event === e.id ? c.run : null, last = !run && c.last && c.last.event === e.id ? c.last : null;
+  $('#cInfo').textContent = `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. ${raceText(e)}. Prizes ${e.prize.map(money).join(', ')}.`;
+  const br = $('#cBracket'), opp = $('#cOpp'); br.innerHTML = ''; opp.innerHTML = '';
+  const b = run || last;
+  br.classList.toggle('field', !b);
+  if (!b) for (const id of [K.YOU, ...e.field]) { const r = mk('div', 'bName' + (id === K.YOU ? ' you' : '')); r.append(mk('span', '', K.nameOf(c, id))); if (id !== K.YOU) r.append(starsImg(K.stars(id))); br.append(r); }
+  else for (let rd = 0; rd <= K.ROUNDS.length; rd++) {
+    const col = mk('div', 'bCol'), ids = rd === 0 ? b.slots : b.res[rd - 1], n = 8 >> rd;
+    for (let i = 0; i < n; i++) {
+      const id = ids ? ids[i] : null, done = b.res[rd], sc = b.scores[rd] && b.scores[rd][i >> 1];
+      const r = mk('div', 'bName' + (id === K.YOU ? ' you' : '') + (rd === K.ROUNDS.length && id ? ' champ' : '') + (done && id && done[i >> 1] !== id ? ' out' : ''));
+      r.append(mk('span', '', id ? K.nameOf(c, id) : '…'));
+      if (sc && rd < K.ROUNDS.length) r.append(mk('span', '', String(sc[i & 1])));
+      col.append(r);
+    }
+    br.append(col);
+  }
+  const show = run ? run.match.opp : null;
+  if (show) {
+    const o = K.OPPONENTS[show], m = run.match;
+    opp.append(portrait(o.look, 3), mk('div', 'cOppName', o.name), mk('div', '', o.full), starsImg(K.stars(show)), mk('div', 'cOppTxt', o.blurb),
+      mk('div', 'cOppTxt', `${K.ROUNDS[run.round]}, first to ${m.race}${m.wins[0] + m.wins[1] || m.snap ? `. Score ${m.wins[0]}–${m.wins[1]}, match in progress` : ''}.`));
+  } else if (last) opp.append(mk('div', 'cOppTxt', last.result === K.ROUNDS.length ? 'You won this event last time.' : `Last time: ${last.result === K.ROUNDS.length - 1 ? 'runner-up' : 'out in the ' + K.ROUNDS[last.result].toLowerCase()}.`));
+  else if (c.run) opp.append(mk('div', 'cOppTxt', `Finish ${K.EVENTS[c.run.event].name} first, or withdraw from it.`));
+  else opp.append(mk('div', 'cOppTxt', 'Enter to see the draw and your first opponent.'));
+}
+
+// called by refreshMenus: draws whichever career screen is showing, and sets the footer's buttons
+function careerMenus() {
+  const sc = menuScreen(), c = CAR.data, bc = $('#bCareer');
+  bc.hidden = true; $('#bWithdraw').hidden = true;
+  if (sc === 'cnew') { renderCareerNew(); bc.hidden = false; bc.textContent = 'Start career'; return; }
+  if (!c || (sc !== 'career' && sc !== 'cevent')) return;
+  if (sc === 'career') {
+    renderCareerHub();
+    if (c.run) { bc.hidden = false; bc.textContent = `Continue: ${K.ROUNDS[c.run.round].toLowerCase()} v ${K.OPPONENTS[c.run.match.opp].name}`; }
+  } else {
+    renderCareerEvent();
+    const mine = c.run && c.run.event === CAR.view;
+    if (mine) { const m = c.run.match; bc.hidden = false; bc.textContent = m.wins[0] + m.wins[1] || m.snap ? 'Continue the match' : `Play the ${K.ROUNDS[c.run.round].toLowerCase()}`; $('#bWithdraw').hidden = false; }
+    else if (!c.run && K.unlocked(c, CAR.view)) { bc.hidden = false; bc.textContent = (c.done[CAR.view] || {}).played ? 'Enter again' : 'Enter'; }
+  }
+}
+$('#bCareer').addEventListener('click', () => {
+  ensureAudio(); sfx('ui');
+  const sc = menuScreen();
+  if (sc === 'cnew') {
+    const name = cleanName($('#cName').value, 'You');
+    CAR.data = K.newCareer({ name, look: NEWC, guide: NEWC.guide }, Date.now()); careerStore();
+    try { localStorage.setItem('retroRack.name', name); } catch (e) {}
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});   // ask the browser not to clear it
+    NAV.stack.pop(); menuGo('career'); return;
+  }
+  if (sc === 'cevent' && !CAR.data.run) {
+    const a = new Uint32Array(1); crypto.getRandomValues(a);
+    if (K.enterEvent(CAR.data, CAR.view, a[0])) { careerStore(); refreshMenus(); }
+    return;
+  }
+  if (CAR.data.run) careerPlay();
+});
+$('#bWithdraw').addEventListener('click', () => {
+  if (!CAR.data.run || !confirm(`Withdraw from ${K.EVENTS[CAR.data.run.event].name}? It counts as losing your current match.`)) return;
+  const r = K.withdraw(CAR.data); careerStore(); sfx('ui'); refreshMenus();
+  if (r) $('#cNote').textContent = `Withdrawn. Prize: ${money(r.prize)}.`;
+});
+$('#cExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(CAR.data, null, 1)], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `retro-rack-career-${CAR.data.name.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.json`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('#cNote').textContent = 'Saved. Keep the file somewhere safe, or load it on another device.';
+});
+$('#cImport').addEventListener('click', () => $('#cFile').click());
+$('#cFile').addEventListener('change', async () => {
+  const f = $('#cFile').files[0]; $('#cFile').value = ''; if (!f) return;
+  let c = null; try { c = K.validate(JSON.parse(await f.text())); } catch (e) {}
+  if (!c) { $('#cNote').textContent = "That file isn't a Retro Rack career."; return; }
+  if (CAR.data && !confirm(`Replace ${CAR.data.name}'s career on this device with ${c.name}'s from the file?`)) return;
+  CAR.data = c; careerStore(); refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
+});
+$('#cRetire').addEventListener('click', () => {
+  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device.`)) return;
+  CAR.data = null; careerStore(); sfx('ui'); NAV.stack.pop(); menuGo('cnew');
+});
 
 // ------------------------------------------------------------------ online play
 // Each browser runs the full game. Only shot inputs travel over the network; the receiving browser
@@ -1811,6 +2028,7 @@ function concedeFrame(fromRemote, loser) {
   const w = 1 - loser;
   game = { ...game, over: true, winner: w }; matchWins[w]++;
   state = 'over'; bot = null; $('#thinking').hidden = true; $('#offer').hidden = true; updateHUD();
+  if (CAR.on) careerFrameOver();
   showOver({ reason2: 'Conceded the frame' }, loser);
   return true;
 }
@@ -1977,7 +2195,7 @@ requestAnimationFrame(frame);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
-  get matchWins() { return matchWins; },
+  get matchWins() { return matchWins; }, CAR, concedeFrame,
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();

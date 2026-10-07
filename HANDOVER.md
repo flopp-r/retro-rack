@@ -77,6 +77,16 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 **Trick shots**
 - Each demo was found by searching with the real physics (`tools/find-trick-demos.js`) and checked for robustness, meaning nearby aims also work.
 
+**Career (chosen by the owner, October 2026)**
+- **A tour of tournaments,** tier by tier from the pub to a world final, rather than league seasons or a simple ladder. Each event is an 8-player knockout against named computer players, with longer matches in later rounds.
+- **All three game types across the tiers:** reds & yellows in the pubs, 8-ball in clubs and halls, 9-ball at the top.
+- **Rewards are looks only:** prize money will buy cloths, cues, ball sets and venue looks. No entry fees, so you can't go broke. Player "upgrades" were rejected: your skill is your real aim, and boosting it would fight the physics.
+- **The aim guide is chosen when a career starts** and stays fixed for it, like a difficulty setting.
+- **Opponents' strength is measured, not guessed:** `tools/sim-career.js` plays each against the Medium CPU (80 frames, accurate to about ±45 rating points). Personalities come from the CPU's own settings: accuracy, long-pot weakness, safety play, break power, and nerves on the final ball. The pub tier runs from about 1245 to 1560 (Medium is 1500), so its final boss is a little stronger than the Medium CPU; later tiers will go much higher.
+- **Matches between computer players** in a draw are settled from their ratings with a seeded random number, so they're instant and never change on reloading.
+- **Saving:** in the browser (localStorage) after every shot, plus Save to file / Load from file. There are no accounts or cloud saves (that would need a login and server storage). Safari can clear a site's storage after 7 days without a visit, and clearing browsing data deletes it, so the README tells players to keep a file copy.
+- **Built in stages,** each playable: Stage 1 (pub tier, opponents, draws, saving), Stage 2 (more tiers and game types, venue looks, spending prize money), Stage 3 (rivals, story cards, trick-shot challenges, trophy cabinet, world final).
+
 ---
 
 ## 5. Reference numbers
@@ -122,6 +132,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 ## 6. How things are tested
 
+- **Career rules:** `tests/career.test.js` (17 tests): tour data, draws, results and money, saving and loading, and the opponents' CPU settings.
 - **Physics and rules:** `tests/physics.test.js` (27 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, the trick demos, and that the context packs are up to date.
 - **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader). The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy. The browser tests have lived in `tests/browser/` since 7 October 2026; `node tests/browser/run-all.js` runs them all (see `AGENTS.md`, Testing).
 - **Online:** the real Cloudflare runtime runs locally (`npx wrangler dev`), and the game is opened with `?relay=ws://127.0.0.1:8787` in **separate browser contexts**, so each gets its own client id. After every shot, the ball positions and the `game` objects of both clients are compared, and they must be identical. Covered: reload rejoin, Rejoin from the home screen, a full room, rematch, re-rack and concede, chat, replaying while the opponent shoots, duplicated tabs, and version mismatches.
@@ -133,7 +144,8 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 - **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `AGENTS.md`.
 - **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
-- **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
+- **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser. Set aside by the owner in favour of a career mode.
+- **Career mode:** Stage 1 built (the pub circuit). Stages 2 and 3 are planned; see section 4, "Career".
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
 - **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame. Possible next step: keep the table when both players leave (each page saves its snapshot and the room restores the newest), which changes how online games start.
@@ -175,8 +187,10 @@ Every change since the move to Claude Code, newest last. The version is the fing
 | 7 Oct 2026 | #8 | 9496b96e | "Move balls" renamed "Edit table", so Add balls is easier to find. |
 | 7 Oct 2026 | #9 | 1dcd4655 | Rejoin button for an online game left by accident. |
 | 7 Oct 2026 | #10 | 1dcd4655 (game unchanged) | Browser tests moved into `tests/browser/`; `AGENTS.md` guide; `CONTEXT.md` and `CONTEXT-SHORT.md` for other AIs; notes checked against the code. |
+| 7 Oct 2026 | #11 | d768a32b | Career mode, Stage 1: the pub circuit (three reds & yellows knockout events, nine named computer opponents with measured strengths), saving after every shot, Save to file / Load from file. Also fixed: closing Pause with its button now redraws the aim guide and keeps the phone's back gesture working first time; with "reduce motion" on, menu cards no longer lift on hover. |
 
 **Lessons worth keeping**
 - #5 deleted CSS that Settings and the overlays also used (`.row`, `.lbl`, `.seg` and others), and nobody noticed until the live site looked wrong. The `fit` browser test now checks those styles.
 - After #7, the version reported in chat was misremembered, so the owner waited for an update that had already arrived. Always read the version from the committed `index.html`.
+- A comment placed partway along a line of code silently swallowed the code after it, twice: a closing bracket in #8 (caught by a syntax check) and the "close Pause" branch from #7, which went unnoticed until #11. Put comments on their own line or at the very end of a statement.
 - An early version of Rejoin saved one "last game" per browser. With two tabs playing each other on one device, a reopened tab could take over the seat of the tab that was still open. Entries are now kept per client id, and a Web Lock marks seats that are still open.

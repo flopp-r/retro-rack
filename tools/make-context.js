@@ -11,6 +11,7 @@ const DOCS = ['AGENTS.md', 'HANDOVER.md', 'README.md'];
 // the source written for this project, in reading order: [path, code-block language, what it is]
 const SOURCE = [
   ['src/core.js', 'js', 'Physics, tables, rules and the CPU player. No DOM; also runs in Node for the tests and tools.'],
+  ['src/career.js', 'js', 'The career: tour, events, opponents, draws, results and the saved career. No DOM; also runs in Node.'],
   ['src/game.js', 'js', 'Everything in the browser: rendering, camera, input, HUD, menus, sound, replay, trick shots, online play.'],
   ['src/shell.html', 'html', 'Page markup and CSS. The build fills in the fonts, favicon and code (__PS2P__, __VT323__, __FAVICON__, __BUNDLE__).'],
   ['relay/src/index.js', 'js', 'The Cloudflare Worker relay: a Room Durable Object per room code, and one Lobby for the open-rooms list.'],
@@ -24,7 +25,9 @@ const SOURCE = [
   ['tools/make-context.js', 'js', 'Builds CONTEXT.md and CONTEXT-SHORT.md (this pack).'],
   ['tools/find-trick-demos.js', 'js', 'Searches with the real physics for "Show me" demo shots.'],
   ['tools/make-icons.js', 'js', 'Draws the app icons.'],
+  ['tools/sim-career.js', 'js', 'Measures career opponents\' strength by playing them against the Medium CPU with the real physics.'],
   ['tests/physics.test.js', 'js', 'Physics, determinism, pocket and rules tests; also checks these packs are up to date.'],
+  ['tests/career.test.js', 'js', 'Career tests: the tour data, draws, results, prize money, saving and loading, opponents\' CPU settings.'],
   ['tests/browser/lib.js', 'js', 'Shared helpers for the browser tests.'],
   ['tests/browser/run-all.js', 'js', 'Runs the browser tests against a local copy of the site and relay.'],
 ];

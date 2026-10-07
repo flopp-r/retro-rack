@@ -63,6 +63,8 @@ const go = async (p, sel) => { await p.click(sel); await sleep(350); };
   await go(p, '[data-go="game"][data-opp="bot"]');
   await p.goBack(); await sleep(400); ok(await screen(p) === 'single', 'browser/phone back: back one screen');
   await p.goBack(); await sleep(400); ok(await screen(p) === 'home', 'and again: home');
+  await p.click('#bMenuSettings'); await sleep(200); await p.click('#bResume'); await sleep(500);
+  ok(await p.evaluate(() => history.state === null), 'Settings from home closed with Done: nothing left armed, so a back gesture works first time');
   await p.click('#bMenuSettings'); await sleep(200);
   await p.goBack(); await sleep(400);
   ok(await p.isHidden('#pause') && p.url().startsWith(SITE.new), 'Settings from home: back closes Settings, still on the page');

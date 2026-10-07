@@ -57,13 +57,46 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cardName{font-family:'Press Start 2P',monospace;font-size:11px;line-height:1.3;color:var(--lamp);white-space:nowrap}
 .cardTxt{font-size:18px;line-height:1;opacity:.72}
 .cardTxt:empty{display:none}
-#bStart,#bQuick,#bCreate{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
-#bStart:hover,#bQuick:hover,#bCreate:hover{background:#ff8ba5}
+#bStart,#bQuick,#bCreate,#bCareer{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
+#bStart:hover,#bQuick:hover,#bCreate:hover,#bCareer:hover{background:#ff8ba5}
 .quickRow{display:flex;flex-wrap:wrap;gap:8px}.quickRow>.btn{margin-bottom:12px;text-align:left}
 #bRejoin{font-size:12px;padding:12px 16px;background:var(--lamp);color:var(--ink)}#bRejoin:hover{background:#ffd48e}
 .mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
+/* career: the new-career form, the hub (you and your events) and an event (the draw and your next opponent) */
+.portrait{image-rendering:pixelated;flex:none}
+#cName{width:200px}
+.cStyleBtn{padding:4px 6px;line-height:0}.cStyleBtn[aria-pressed="true"]{border-color:var(--lamp);background:var(--plum2)}
+.cCols{gap:6px;align-items:center}.cCols .swatches{gap:5px;margin-right:10px}.cCols .swatch{width:24px;height:24px}.cColLbl{font-size:18px;opacity:.8}
+.cTop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.cMe{display:flex;align-items:center;gap:12px}
+.cMeName{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--lamp);margin-bottom:6px}
+.cMeStats{font-size:20px}
+.cEvents{display:flex;flex-direction:column;gap:6px}
+.cTier{font-size:19px;color:var(--lamp);margin:0}
+.cEvt{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;text-align:left;padding:7px 11px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
+.cEvt:hover:not([aria-disabled="true"]){background:var(--plum2);border-color:var(--lamp)}
+.cEvt[aria-disabled="true"]{opacity:.55;cursor:default}
+.cEvtName{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.4}
+.cEvtTxt{font-size:18px;opacity:.85}
+.cEvtState{grid-row:1 / span 2;grid-column:2;font-size:19px;color:var(--lamp);text-align:right}
+#cNote{grid-column:auto;margin:8px 0 0}#cNote:empty{display:none}
+.cTools{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}.cTools .btn{font-size:8px;padding:7px 9px}
+.stars{image-rendering:pixelated;flex:none}
+.cInfo{margin:0 0 8px;font-size:19px}
+.cEv{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}
+.bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:17px}
+.bracket.field{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;gap:3px;min-height:100%}
+.bName{display:flex;justify-content:space-between;gap:4px;padding:1px 5px;background:rgba(13,10,28,.6);border-left:3px solid var(--plum2);white-space:nowrap;overflow:hidden}
+.bName span:first-child{overflow:hidden;text-overflow:ellipsis}
+.bName.you{color:var(--lamp);border-left-color:var(--lamp)}.bName.out{opacity:.45}.bName.champ{border-left-color:var(--lamp);color:var(--lamp)}
+.cOpp{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-content:start;font-size:18px}
+.cOpp .portrait{grid-row:1 / span 3}
+.cOppName{font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.5;color:var(--lamp)}
+.cOppTxt{grid-column:1 / -1;opacity:.9}
+@media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
 @media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
@@ -73,7 +106,13 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #mStage{padding:10px 14px 8px}.mTop{padding:8px 14px 0}.mFoot{padding:6px 14px 8px}
   .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
   .card{padding:6px 9px;gap:9px}.cardArt{height:26px}.cardName{font-size:9px}.cardTxt{font-size:16px}.cardBody{gap:4px}
-  #bStart,#bQuick,#bCreate,#bRejoin{font-size:10px;padding:9px 12px}.quickRow>.btn{margin-bottom:8px}
+  #bStart,#bQuick,#bCreate,#bRejoin,#bCareer{font-size:10px;padding:9px 12px}.quickRow>.btn{margin-bottom:8px}
+  #sc-cnew .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-cnew .lbl{font-size:18px;padding-top:3px}#sc-cnew .note{display:none}
+  #cName{font-size:18px;padding:2px 6px}.cStyleBtn{padding:2px 4px}.cCols .swatch{width:20px;height:20px}
+  .cTop{margin-bottom:6px}.cMeName{font-size:10px;margin-bottom:3px}.cMeStats{font-size:17px}.cEvents{gap:4px}
+  .cEvt{grid-template-columns:auto 1fr auto;padding:4px 9px}.cEvtName{font-size:8px}.cEvtTxt,.cEvtState,.cTier{font-size:16px}
+  .cEvtState{grid-row:1;grid-column:3}.cEvtTxt{grid-row:1;grid-column:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cColLbl{font-size:16px}
+  .cInfo{font-size:16px;margin-bottom:4px}.bracket{font-size:15px;gap:3px}.cOpp{font-size:16px}.cOppName{font-size:8px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -157,7 +196,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #practice{top:auto;bottom:calc(var(--tb,120px) + 6px);display:grid;grid-template-columns:1fr 1fr;align-items:start;max-width:44vw}
   #help{bottom:auto;top:8px;max-height:70vh}
 }
-@media (prefers-reduced-motion:reduce){.toast,#shot{transition:none}#thinking::after{animation:none;width:1.4em}}
+@media (prefers-reduced-motion:reduce){.toast,#shot,.card{transition:none}.card:hover{transform:none}#thinking::after{animation:none;width:1.4em}}
 #hud #tools .btn,#hud #practice .btn{font-size:8px;padding:7px 9px}
 input{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
 input:focus{border-color:var(--chalk)}
@@ -287,7 +326,23 @@ input:focus{border-color:var(--chalk)}
         <div class="cards">
           <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels</span></button>
           <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play, trick shots</span></button>
+          <button class="card" type="button" data-go="career" data-art="career"><span class="cardName">Career</span><span class="cardTxt">From the pub to the top</span></button>
         </div>
+      </section>
+      <section class="mScreen" id="sc-cnew" data-title="New career" hidden>
+        <div class="row"><div class="lbl">Name</div><div class="seg"><input id="cName" maxlength="14" placeholder="Your name" autocomplete="nickname"></div></div>
+        <div class="row"><div class="lbl">Look</div><div class="seg" id="cStyle"></div></div>
+        <div class="row"><div class="lbl">Colours</div><div class="seg cCols"><span class="cColLbl">Skin</span><span class="swatches" id="cSkin"></span><span class="cColLbl">Hair</span><span class="swatches" id="cHair"></span><span class="cColLbl">Shirt</span><span class="swatches" id="cShirt"></span></div></div>
+        <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="cGuide"></div><div class="note" id="cGuideTxt"></div></div>
+      </section>
+      <section class="mScreen" id="sc-career" data-title="Career" hidden>
+        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
+        <div class="cEvents" id="cEvents"></div>
+        <div class="note" id="cNote" role="status"></div>
+      </section>
+      <section class="mScreen" id="sc-cevent" hidden>
+        <p class="cInfo" id="cInfo"></p>
+        <div class="cEv"><div class="bracket" id="cBracket"></div><div class="cOpp" id="cOpp"></div></div>
       </section>
       <section class="mScreen" id="sc-multi" data-title="Multiplayer" hidden>
         <div class="cards">
@@ -328,7 +383,7 @@ input:focus{border-color:var(--chalk)}
         </div>
       </section>
     </div>
-    <div class="mFoot"><button class="btn" id="bStart" type="button" hidden>Rack 'em up</button><button class="btn" id="bCreate" type="button" hidden>Create a room</button><button class="btn" id="bMenuSettings" type="button">Settings</button><button class="btn" id="bMenuFull" type="button" aria-pressed="false" hidden>Fullscreen</button></div>
+    <div class="mFoot"><button class="btn" id="bStart" type="button" hidden>Rack 'em up</button><button class="btn" id="bCreate" type="button" hidden>Create a room</button><button class="btn" id="bCareer" type="button" hidden></button><button class="btn" id="bWithdraw" type="button" hidden>Withdraw</button><button class="btn" id="bMenuSettings" type="button">Settings</button><button class="btn" id="bMenuFull" type="button" aria-pressed="false" hidden>Fullscreen</button></div>
   </div>
 </div>
 
@@ -994,11 +1049,17 @@ function estimatePower(c, factor) {
 function gauss(rnd) { let u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
+// The CPU's skill levels. aimSd/powSd/spinSd: execution error (degrees, fraction of power, tip offset); cands,
+// variants (power factor, side, top/back spin), refine, robust and bih: how widely it searches; pos: how much it
+// values position; safety: whether it plays safe; potMin: the score a pot must beat or it plays safe instead;
+// pickTop: how many of its best options it picks from at random; brk/brkSpin: break power and screw.
+// planBot also takes a profile object with these fields (career opponents), plus long: extra aim error per metre
+// of travel beyond the first metre (weak long potting).
 const DIFF = {
-  easy:   { aimSd: 1.3, powSd: 0.14, spinSd: 0.10, cands: 3, variants: [[1.4, 0, 0]], refine: 0, pos: 0, robust: 0, safety: false, pickTop: 3, bih: 2 },
-  medium: { aimSd: 0.55, powSd: 0.07, spinSd: 0.06, cands: 5, variants: [[1.3, 0, 0], [1.9, 0, 0.3]], refine: 1, pos: 0.4, robust: 0, safety: false, pickTop: 2, bih: 3 },
-  hard:   { aimSd: 0.22, powSd: 0.04, spinSd: 0.03, cands: 6, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.55], [2.5, 0, 0.4]], refine: 2, pos: 1, robust: 3, safety: true, pickTop: 1, bih: 5 },
-  expert: { aimSd: 0.09, powSd: 0.025, spinSd: 0.015, cands: 7, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.6], [2.5, 0, 0.45], [1.8, 0.5, 0.25], [1.8, -0.5, 0.25], [1.7, 0.45, -0.45], [1.7, -0.45, -0.45]], refine: 2, pos: 1.3, robust: 4, safety: true, pickTop: 1, bih: 7 },
+  easy:   { aimSd: 1.3, powSd: 0.14, spinSd: 0.10, cands: 3, variants: [[1.4, 0, 0]], refine: 0, pos: 0, robust: 0, safety: false, potMin: -50, pickTop: 3, bih: 2, brk: 0.82, brkSpin: 0 },
+  medium: { aimSd: 0.55, powSd: 0.07, spinSd: 0.06, cands: 5, variants: [[1.3, 0, 0], [1.9, 0, 0.3]], refine: 1, pos: 0.4, robust: 0, safety: false, potMin: -50, pickTop: 2, bih: 3, brk: 0.97, brkSpin: -0.1 },
+  hard:   { aimSd: 0.22, powSd: 0.04, spinSd: 0.03, cands: 6, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.55], [2.5, 0, 0.4]], refine: 2, pos: 1, robust: 3, safety: true, potMin: 40, pickTop: 1, bih: 5, brk: 0.97, brkSpin: -0.1 },
+  expert: { aimSd: 0.09, powSd: 0.025, spinSd: 0.015, cands: 7, variants: [[1.2, 0, 0], [1.7, 0, 0.45], [1.7, 0, -0.5], [2.6, 0, -0.6], [2.5, 0, 0.45], [1.8, 0.5, 0.25], [1.8, -0.5, 0.25], [1.7, 0.45, -0.45], [1.7, -0.45, -0.45]], refine: 2, pos: 1.3, robust: 4, safety: true, potMin: 40, pickTop: 1, bih: 7, brk: 0.97, brkSpin: -0.1 },
 };
 
 // measure object-ball launch angle for a shot (used to correct for throw/squirt)
@@ -1032,9 +1093,9 @@ function evalShot(game, balls, shot, player, cfg) {
   return { s, res };
 }
 
-// Bot planner — a generator so it can run spread over frames
-function* planBot(game, balls0, player, diffName, rnd = Math.random) {
-  const cfg = DIFF[diffName];
+// Bot planner — a generator so it can run spread over frames. diff: a DIFF level name or a profile object.
+function* planBot(game, balls0, player, diff, rnd = Math.random) {
+  const cfg = typeof diff === 'string' ? DIFF[diff] : diff;
   let balls = cloneBalls(balls0);
   const cue = balls[0];
   const targets = legalTargets(game, balls, player);
@@ -1048,7 +1109,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
       const z = (rnd() - 0.5) * (game.mode === '9ball' ? 0.7 : game.mode === 'uk8' ? 0.5 : 0.3);
       const pos = [TABLE.headX - 0.02, z];
       const phi = Math.atan2(apex.z - pos[1], apex.x - pos[0]) + (rnd() - 0.5) * 0.3 * deg;
-      const shot = { phi, power: diffName === 'easy' ? 0.82 : 0.97, sx: 0, sy: diffName === 'easy' ? 0 : -0.1, cue: pos };
+      const shot = { phi, power: cfg.brk, sx: 0, sy: cfg.brkSpin, cue: pos };
       if (n > 1) {
         const b2 = cloneBalls(balls); b2[0].x = pos[0]; b2[0].z = pos[1];
         const r = evalShot(game, b2, shot, player, cfg); shot.score = r.s; yield;
@@ -1095,7 +1156,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
     const cands = shotCandidates(bs, pos[0], pos[1], targets).slice(0, cfg.cands);
     for (const c of cands) {
       for (const [pf, sx, sy] of cfg.variants) {
-        const shot = { phi: c.phi, power: estimatePower(c, pf), sx, sy, cue: game.ballInHand ? pos : null };
+        const shot = { phi: c.phi, power: estimatePower(c, pf), sx, sy, cue: game.ballInHand ? pos : null, dist: c.d1 + c.d2 };
         // aim refinement for throw / squirt
         const want = Math.atan2(c.ez, c.ex);
         let slope = null;
@@ -1135,7 +1196,7 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
   }
 
   let pick = null;
-  if (scored.length && scored[0].s > (cfg.safety ? 40 : -50)) {
+  if (scored.length && scored[0].s > cfg.potMin) {
     const top = scored.filter(o => o.s > 0).slice(0, cfg.pickTop);
     pick = (top.length ? top[Math.floor(rnd() * top.length)] : scored[0]).shot;
   }
@@ -1186,7 +1247,8 @@ function* planBot(game, balls0, player, diffName, rnd = Math.random) {
 function applyNoise(shot, cfg, rnd) {
   const s = { ...shot };
   s.ideal = { ...shot };
-  s.phi += gauss(rnd) * cfg.aimSd * Math.PI / 180;
+  const longer = (cfg.long || 0) * Math.max(0, (shot.dist || 0) - 1);   // weak long potters miss more over distance
+  s.phi += gauss(rnd) * cfg.aimSd * (1 + longer) * Math.PI / 180;
   s.power = Math.max(0.02, Math.min(1, s.power * (1 + gauss(rnd) * cfg.powSd)));
   s.sx = Math.max(-1, Math.min(1, s.sx + gauss(rnd) * cfg.spinSd));
   s.sy = Math.max(-1, Math.min(1, s.sy + gauss(rnd) * cfg.spinSd));
@@ -1200,6 +1262,183 @@ return { P, TABLE, SPECS, setTable, groupName, newBall, cloneBalls, makeWorld, c
 })();
 if (typeof module !== 'undefined') module.exports = CORE;
 
+// ============================================================================
+//  RETRO RACK — career: the tournament tour, its opponents, brackets and the saved career.
+//  No DOM: runs in the browser after core.js, and in Node for the tests and tools/sim-career.js.
+// ============================================================================
+const CAREER = ((C) => {
+'use strict';
+
+// The computer players met on the tour. look: pixel portrait (sprite style, skin, hair, shirt; game.js draws it).
+// base: the CPU level they start from; cfg overrides it (fields as in DIFF in core.js), and nerves multiplies their
+// execution error when they're on the final ball. rating: strength on an Elo-style scale where the Medium CPU is
+// 1500, measured by playing 80 frames each against the Medium CPU with tools/sim-career.js (about ±45). Ratings settle the matches
+// between computer players in a bracket, and give the stars shown on screen.
+const OPPONENTS = {
+  dave:    { name: 'Dodgy Dave', full: 'Dave Pike', look: { s: 'cap', skin: '#e8b88f', hair: '#3b2a1a', shirt: '#7a8b3a' },
+    blurb: 'Hits everything hard and hopes.', base: 'easy', cfg: { aimSd: 1.5, powSd: 0.18, brk: 0.95 }, rating: 1245 },
+  maureen: { name: 'Maureen', full: 'Maureen Jolly', look: { s: 'long', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#b04a7a' },
+    blurb: 'Deadly from close range. Long pots, less so.', base: 'easy', cfg: { aimSd: 0.85, powSd: 0.1, long: 0.9, pickTop: 2 }, rating: 1310 },
+  mick:    { name: 'Big Mick', full: 'Mick Malone', look: { s: 'bald', skin: '#c98e62', hair: '#3b2a1a', shirt: '#c0392b' },
+    blurb: 'Big break, big shots, no safety game.', base: 'medium', cfg: { aimSd: 0.95, powSd: 0.12, variants: [[1.6, 0, 0], [2.3, 0, 0.3]], brk: 1, brkSpin: 0 }, rating: 1270 },
+  kev:     { name: 'Kev', full: 'Kev Kissick', look: { s: 'man', skin: '#f2c49b', hair: '#b5432a', shirt: '#e0a526' },
+    blurb: 'Never plays the same shot twice. Neither does the cue ball.', base: 'medium', cfg: { aimSd: 0.8, pickTop: 3 }, rating: 1330 },
+  gaz:     { name: 'Gaz', full: 'Gaz Pritchard', look: { s: 'man', skin: '#e8b88f', hair: '#d9a441', shirt: '#2f6db5' },
+    blurb: 'Pots well, until the black is on.', base: 'medium', cfg: { aimSd: 0.7, nerves: 2.5 }, rating: 1375 },
+  priya:   { name: 'Priya', full: 'Priya Shah', look: { s: 'long', skin: '#a8714a', hair: '#1a1206', shirt: '#1d8a74' },
+    blurb: 'Tidy. Always thinking about the next ball.', base: 'medium', cfg: { aimSd: 0.7, pos: 0.7 }, rating: 1455 },
+  eddie:   { name: 'Steady Eddie', full: 'Eddie Shaw', look: { s: 'glasses', skin: '#f2c49b', hair: '#8a8a8a', shirt: '#56399a' },
+    blurb: 'Plays safe at every chance. Patience wins.', base: 'medium', cfg: { aimSd: 0.65, safety: true, potMin: 75 }, rating: 1420 },
+  shona:   { name: 'Shona', full: 'Shona McLeod', look: { s: 'long', skin: '#f6d2b4', hair: '#b5432a', shirt: '#e0a526' },
+    blurb: 'A natural potter, long or short.', base: 'medium', cfg: { aimSd: 0.5, pos: 0.5 }, rating: 1515 },
+  ray:     { name: 'The Landlord', full: 'Ray Doyle', look: { s: 'beard', skin: '#d9a07a', hair: '#4a4a4a', shirt: '#5a2d1b' },
+    blurb: 'Pub champion nine years running. Rarely misses, but feels the pressure.', base: 'hard', cfg: { aimSd: 0.4, powSd: 0.06, robust: 1, bih: 4, nerves: 1.8 }, rating: 1560 },
+};
+
+// The tour, tier by tier. Each event is an 8-player knockout: you and seven of the tier's players. races: frames
+// needed to win the quarter-final, semi-final and final. prize: money for going out in each of those rounds, then
+// for winning. Winning an event opens the next one; winning the last opens the next tier.
+const TIERS = [
+  { id: 'pub', name: 'The pub circuit', champ: 'the pub champion', mode: 'uk8', events: [
+    { id: 'redlion', name: 'The Red Lion Open', field: ['dave', 'maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie'], races: [2, 2, 3], prize: [10, 25, 50, 100] },
+    { id: 'crown', name: 'The Crown Cup', field: ['maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie', 'shona'], races: [2, 3, 3], prize: [20, 50, 100, 200], blackOne: true },
+    { id: 'pubchamp', name: 'The Pub Championship', field: ['mick', 'kev', 'gaz', 'priya', 'eddie', 'shona', 'ray'], races: [3, 3, 4], prize: [40, 100, 200, 400] },
+  ] },
+];
+const ROUNDS = ['Quarter-final', 'Semi-final', 'Final'];
+const YOU = 'you';
+const EVENTS = {};
+TIERS.forEach((t, ti) => t.events.forEach((e, i) => { EVENTS[e.id] = { ...e, tier: ti, index: i, mode: t.mode }; }));
+
+// a small seeded random generator, so the draw and the other players' results never change on reloading
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+// stars: 1 to 5, spread across the pub players (a rating of 1275 or less is 1 star, 1575 or more is 5). The tiers to
+// come will be stronger, so this scale will need widening then.
+const stars = id => id === YOU ? 0 : Math.max(1, Math.min(5, Math.round((OPPONENTS[id].rating - 1200) / 75)));
+const nameOf = (career, id) => id === YOU ? career.name : OPPONENTS[id].name;
+
+function newCareer({ name, look, guide }, now) {
+  return { v: 1, name: cleanName(name), look: cleanLook(look), guide: GUIDES.includes(guide) ? guide : 'line', created: now, money: 0,
+    trophies: [], done: {}, history: [], run: null, last: null };
+}
+const GUIDES = ['full', 'line', 'ghost', 'min'];
+const cleanName = s => String(s || '').replace(/[<>]/g, '').trim().slice(0, 14) || 'You';
+const HEX = /^#[0-9a-f]{6}$/i, STYLES = ['man', 'long', 'bald', 'cap', 'glasses', 'beard'];
+function cleanLook(l) {
+  l = l || {};
+  return { s: STYLES.includes(l.s) ? l.s : 'man', skin: HEX.test(l.skin) ? l.skin : '#f2c49b', hair: HEX.test(l.hair) ? l.hair : '#5a3420', shirt: HEX.test(l.shirt) ? l.shirt : '#ffc56b' };
+}
+
+function unlocked(career, eventId) {
+  const e = EVENTS[eventId]; if (!e) return false;
+  if (e.index > 0) return (career.done[TIERS[e.tier].events[e.index - 1].id] || {}).won > 0;
+  return e.tier === 0 || tierDone(career, e.tier - 1);
+}
+function tierDone(career, ti) { const evs = TIERS[ti].events; return (career.done[evs[evs.length - 1].id] || {}).won > 0; }
+
+// a new draw: the two strongest players are seeded into opposite halves; everyone else, you included, is drawn at random
+function enterEvent(career, eventId, seed) {
+  const e = EVENTS[eventId];
+  if (!e || career.run || !unlocked(career, eventId)) return false;
+  const r = rng(seed), field = [...e.field].sort((a, b) => OPPONENTS[b].rating - OPPONENTS[a].rating);
+  const rest = [YOU, ...field.slice(2)];
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  const slots = [field[0], ...rest.slice(0, 3), ...rest.slice(3), field[1]];
+  career.run = { event: eventId, seed: seed >>> 0, slots, round: 0, res: [], scores: [], match: null };
+  setMatch(career);
+  return true;
+}
+// who meets whom in a round: pairs of slots in round 0, then pairs of the previous round's winners
+const entrants = (run, round) => round === 0 ? run.slots : run.res[round - 1];
+function setMatch(career) {
+  const run = career.run, e = EVENTS[run.event], list = entrants(run, run.round), i = list.indexOf(YOU);
+  run.match = { opp: list[i ^ 1], race: e.races[run.round], wins: [0, 0], breaker: rng(run.seed + 7 * run.round + 1)() < 0.5 ? 0 : 1, snap: null };
+}
+function simMatch(a, b, race, r) {
+  const p = 1 / (1 + Math.pow(10, (OPPONENTS[b].rating - OPPONENTS[a].rating) / 400)), w = [0, 0];
+  while (Math.max(w[0], w[1]) < race) w[r() < p ? 0 : 1]++;
+  return w;
+}
+// plays out a round: your result as given, the computer players' matches from their ratings
+function playRound(run, round, yours) {
+  const e = EVENTS[run.event], list = entrants(run, round), r = rng(run.seed * 31 + round + 1), res = [], scores = [];
+  for (let m = 0; m < list.length / 2; m++) {
+    const a = list[2 * m], b = list[2 * m + 1];
+    const w = a === YOU ? yours : b === YOU ? [yours[1], yours[0]] : simMatch(a, b, e.races[round], r);
+    res.push(w[0] > w[1] ? a : b); scores.push(w);
+  }
+  run.res[round] = res; run.scores[round] = scores;
+}
+// your match is over (wins: [yours, theirs]). Returns what happened, for the result screen.
+function recordMatch(career, wins) {
+  const run = career.run; if (!run || !run.match) return null;
+  const e = EVENTS[run.event], round = run.round, opp = run.match.opp, won = wins[0] > wins[1];
+  playRound(run, round, wins);
+  const out = { event: e.id, round, opp, wins: [...wins], won, prize: 0, champion: false, tierDone: false };
+  career.history.unshift({ event: e.id, round, opp, wins: [...wins] }); career.history.length = Math.min(career.history.length, 20);
+  if (won && round < ROUNDS.length - 1) { run.round++; setMatch(career); return out; }
+  // the event is over for you: finish the bracket so it can be shown, then pay out
+  for (let rd = round + 1; rd < ROUNDS.length; rd++) playRound(run, rd, null);
+  out.prize = e.prize[won ? ROUNDS.length : round];
+  out.champion = won;
+  career.money += out.prize;
+  const d = career.done[e.id] = career.done[e.id] || { played: 0, won: 0, best: -1 };
+  d.played++; if (won) d.won++; d.best = Math.max(d.best, won ? ROUNDS.length : round);
+  if (won) { career.trophies.push({ event: e.id }); out.tierDone = e.index === TIERS[e.tier].events.length - 1 && d.won === 1; }
+  career.last = { event: e.id, slots: run.slots, res: run.res, scores: run.scores, result: won ? ROUNDS.length : round };
+  career.run = null;
+  return out;
+}
+// giving up an event: counts as losing your current match
+function withdraw(career) {
+  const run = career.run; if (!run) return null;
+  const race = run.match ? run.match.race : 1;
+  return recordMatch(career, [run.match ? Math.min(run.match.wins[0], race - 1) : 0, race]);
+}
+
+// true when the shooter is on the last ball of the frame: the black in 8-ball and reds & yellows, the 9 when it's alone
+function onFinalBall(game, balls, player) {
+  const left = balls.filter(b => b.id && !b.potted);
+  if (game.mode === '9ball') return left.length === 1;
+  const g = game.groups[player];
+  return !!g && !left.some(b => b.id !== 8 && C.groupOf(b.id) === g);
+}
+// the CPU settings for an opponent; pressure: { onFinal } when they're on the last ball of the frame
+function profileFor(id, pressure = {}) {
+  const o = OPPONENTS[id], cfg = { ...C.DIFF[o.base], ...o.cfg };
+  if (pressure.onFinal && o.cfg.nerves) { cfg.aimSd *= o.cfg.nerves; cfg.powSd *= o.cfg.nerves; }
+  return cfg;
+}
+
+// checks a saved or imported career, and returns a clean copy (or null if it isn't one)
+function validate(c) {
+  if (!c || typeof c !== 'object' || c.v !== 1 || typeof c.name !== 'string') return null;
+  const num = (v, d = 0) => Number.isFinite(v) ? v : d;
+  const out = newCareer({ name: c.name, look: c.look, guide: c.guide }, num(c.created));
+  out.money = Math.max(0, Math.round(num(c.money)));
+  out.trophies = Array.isArray(c.trophies) ? c.trophies.filter(t => t && EVENTS[t.event]).map(t => ({ event: t.event })) : [];
+  for (const [k, d] of Object.entries(c.done && typeof c.done === 'object' ? c.done : {}))
+    if (EVENTS[k] && d) out.done[k] = { played: Math.max(0, num(d.played) | 0), won: Math.max(0, num(d.won) | 0), best: num(d.best, -1) | 0 };
+  out.history = Array.isArray(c.history) ? c.history.filter(h => h && EVENTS[h.event] && OPPONENTS[h.opp] && Array.isArray(h.wins)).slice(0, 20) : [];
+  const okIds = a => Array.isArray(a) && a.every(id => id === YOU || OPPONENTS[id]);
+  const r = c.run;
+  if (r && EVENTS[r.event] && okIds(r.slots) && r.slots.length === 8 && r.slots.includes(YOU) && Number.isInteger(r.round) && r.round >= 0 && r.round < ROUNDS.length
+    && Array.isArray(r.res) && r.res.length === r.round && r.res.every(okIds) && r.match && OPPONENTS[r.match.opp]) {
+    const m = r.match;
+    out.run = { event: r.event, seed: num(r.seed) >>> 0, slots: [...r.slots], round: r.round, res: r.res.map(x => [...x]), scores: Array.isArray(r.scores) ? r.scores : [],
+      match: { opp: m.opp, race: EVENTS[r.event].races[r.round], wins: [num(m.wins && m.wins[0]) | 0, num(m.wins && m.wins[1]) | 0], breaker: m.breaker === 1 ? 1 : 0, snap: m.snap && Array.isArray(m.snap.balls) && m.snap.game ? m.snap : null } };
+  }
+  if (c.last && EVENTS[c.last.event] && okIds(c.last.slots)) out.last = c.last;
+  return out;
+}
+
+return { OPPONENTS, TIERS, EVENTS, ROUNDS, YOU, rng, stars, nameOf, newCareer, unlocked, tierDone, enterEvent, entrants, recordMatch, withdraw, onFinalBall, profileFor, validate, simMatch };
+})(typeof CORE !== 'undefined' ? CORE : require('./core.js'));
+if (typeof module !== 'undefined') module.exports = CAREER;
+
 (() => {
 'use strict';
 const C = CORE, P = C.P, T = C.TABLE, R_US = C.SPECS.us9.R;
@@ -1210,7 +1449,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '1dcd4655';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = 'd768a32b';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -1226,7 +1465,11 @@ const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stri
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
 const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
-const saveM = () => { try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
+const saveM = () => { if (CAR.on) return; try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
+// career (see the career section): the saved career, and while a career match is on, who you're playing
+const K = CAREER;
+const CAR = { data: null, on: false, opp: null, stash: null, result: null, view: null };
+try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') || 'null')); } catch (e) {}
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
   guide: 'ghost', retry: 0, timer: 0, queue: [], pendingSync: {}, again: [false, false], games: 0, started: false,
   lastAim: 0, aimSig: '', aimT: null, stateAfter: false };
@@ -1641,7 +1884,8 @@ let shotBefore = null, undoStack = [], shots = [0, 0], matchWins = [0, 0], break
 let lastShot = null, replay = null, EDIT = false, touchTurn = { dir: 0, t: 0 }, remoteStrike = null, movingT = 0, aimDirty = true, lastPreview = 0, stroke = null, bot = null, botAim = null, lastRes = null;
 const isBot = pl => !NET.on && M.mode !== 'practice' && M.opp === 'bot' && pl === 1;
 const humanTurn = () => NET.on ? game.turn === NET.seat : !isBot(game.turn);
-const pname = i => NET.on ? (i === NET.seat ? 'You' : NET.peerName) : M.mode === 'practice' ? 'You' : M.opp === 'bot' ? (i === 0 ? 'You' : 'CPU') : `Player ${i + 1}`;
+const botName = () => CAR.on ? K.OPPONENTS[CAR.opp].name : 'CPU';
+const pname = i => NET.on ? (i === NET.seat ? 'You' : NET.peerName) : M.mode === 'practice' ? 'You' : M.opp === 'bot' ? (i === 0 ? 'You' : botName()) : `Player ${i + 1}`;
 const isYou = i => NET.on ? i === NET.seat : (M.mode === 'practice' || (M.opp === 'bot' && i === 0));
 const ballById = id => world.balls.find(b => b.id === id);
 
@@ -1661,9 +1905,11 @@ function trickRack() {
   const list = trickList(); M.trick = (((M.trick | 0) % list.length) + list.length) % list.length;
   return list[M.trick].balls.map(([id, x, z]) => C.newBall(id, x, z));
 }
-function startGame(rematch, rerack = false) {
+// resume (career): { wins, breaker, snap } carries on a match: the score, who breaks, and a frame in progress
+function startGame(rematch, rerack = false, resume = null) {
   const mode = M.mode;
-  M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide, blackOne: !!M.blackOne }; saveM(); NAV.lastOnline = false; armBack();
+  if (!CAR.on) M.last = { mode, opp: M.opp, diff: M.diff, rack: M.rack, race: M.race, guide: M.guide, blackOne: !!M.blackOne };
+  saveM(); NAV.lastOnline = false; armBack();
   applyTable(tableKeyFor());
   const rack = mode === '9ball' ? C.rack9 : mode === 'practice' ? ({ '9ball': C.rack9, scatter: C.rackScatter, trick: trickRack }[M.rack] || C.rack8) : C.rack8;
   world = C.makeWorld(rack()); world.ev = [];
@@ -1671,10 +1917,12 @@ function startGame(rematch, rerack = false) {
   if (rerack) { /* same breaker, score unchanged */ }
   else if (!rematch) { matchWins = [0, 0]; breaker = 0; }
   else { breaker = 1 - breaker; if (matchDone()) matchWins = [0, 0]; }
+  if (resume) { matchWins = [...resume.wins]; breaker = resume.breaker; }
   game.turn = mode === 'practice' ? 0 : breaker;
   if (mode === 'practice') { game.ballInHand = M.rack !== 'trick'; game.kitchen = false; game.breakShot = false; }
   lastShot = null; endReplayNow(); TRK.fresh = mode === 'practice' && M.rack === 'trick'; TRK.demo = false; EDIT = false;
   shots = [0, 0]; undoStack = []; potAnims = []; acc = 0; stroke = null; bot = null; botAim = null; lastRes = null;
+  if (resume && resume.snap) applySnapshot(resume.snap);
   syncBallMeshes();
   aim.sx = aim.sy = 0; aim.power = mode === 'practice' && (M.rack === 'scatter' || M.rack === 'trick') ? 0.45 : 0.88;
   updateTrickUI();
@@ -1682,8 +1930,10 @@ function startGame(rematch, rerack = false) {
   $('#practice').hidden = mode !== 'practice';
   if (cam.mode === 'attract') { cam.mode = 'free'; cam.free.dist = 3.1 * Math.pow(P.L / 2.54, 0.9); }
   toastClear();
-  if (mode !== 'practice') toast(game.turn === 0 && M.opp === 'bot' ? 'Your break' : `${pname(game.turn)} to break`, 'info');
+  if (resume && resume.snap) toast(`Back at the table with ${botName()}`, 'info');
+  else if (mode !== 'practice') toast(game.turn === 0 && M.opp === 'bot' ? 'Your break' : `${pname(game.turn)} to break`, 'info');
   beginTurn(true);
+  if (CAR.on) careerSave();
 }
 
 function beginTurn() {
@@ -1735,6 +1985,7 @@ function endShot() {
   res.msgs.forEach(m => toast(m, 'info'));
   if (game.over) {
     matchWins[game.winner]++; state = 'over'; updateHUD();
+    if (CAR.on) careerFrameOver();
     setTimeout(() => showOver(res, pl), 700);
     if (NET.on) netAfterShot(pl);
     return;
@@ -1754,6 +2005,7 @@ function endShot() {
   } else if (wasBreak && res.keepTurn) toast(`Good break, ${pname(pl) === 'You' ? 'keep going' : pname(pl) + ' continues'}`, 'good');
   beginTurn();
   if (NET.on) netAfterShot(pl);
+  if (CAR.on) careerSave();
 }
 
 function trickResult(res) {
@@ -1771,7 +2023,7 @@ function matchText() {
 function showOver(res, shooter) {
   const w = game.winner;
   const rt = raceTo(), done = matchDone(), what = rt ? (done ? ' the match' : ' the frame') : '';
-  const wn = NET.on ? (w === NET.seat ? null : NET.peerName) : M.opp === 'bot' ? (w === 0 ? null : 'CPU') : `Player ${w + 1}`;
+  const wn = NET.on ? (w === NET.seat ? null : NET.peerName) : M.opp === 'bot' ? (w === 0 ? null : botName()) : `Player ${w + 1}`;
   $('#overTitle').textContent = wn === null ? `You win${what}` : `${wn} wins${what}`;
   const who = shooter >= 0 ? pname(shooter) : '', why = ((res && res.reason2) || '').replace(/^./, c => c.toLowerCase());
   $('#overWhy').textContent = why ? `${who} ${why}.` : '';
@@ -1780,7 +2032,9 @@ function showOver(res, shooter) {
   $('#bOverReplay').hidden = !lastShot;
   $('#over').hidden = false;
   if (NET.on) { NET.again = [false, false]; updateAgainBtn(); }
-  else $('#bAgain').textContent = done ? 'New match' : rt ? 'Next frame' : 'Play again';
+  else $('#bAgain').textContent = done ? (CAR.on ? 'Continue' : 'New match') : rt ? 'Next frame' : 'Play again';
+  $('#bOverMenu').textContent = CAR.on ? 'Save and quit' : 'Main menu'; $('#bOverMenu').hidden = CAR.on && done;
+  if (CAR.on && done) $('#overStats').textContent += ' ' + careerResultText();
   if (NET.on ? w === NET.seat : (M.opp !== 'bot' || w === 0)) sfx('win'); else sfx('foul');
   $('#bAgain').focus();
 }
@@ -1793,8 +2047,9 @@ function undo() {
 
 // ------------------------------------------------------------------ bot driver
 function startBot() {
-  state = 'botThink'; $('#thinking').textContent = 'CPU is lining up a shot';
-  bot = { gen: C.planBot(game, world.balls, game.turn, M.diff), t0: performance.now(), shot: null };
+  state = 'botThink'; $('#thinking').textContent = `${botName()} is lining up a shot`;
+  const diff = CAR.on ? K.profileFor(CAR.opp, { onFinal: K.onFinalBall(game, world.balls, game.turn) }) : M.diff;
+  bot = { gen: C.planBot(game, world.balls, game.turn, diff), t0: performance.now(), shot: null };
   $('#thinking').hidden = false;
 }
 function botThinkTick(now) {
@@ -2293,7 +2548,7 @@ function updateHUD() {
     const el = $('#p' + i);
     el.hidden = mode === 'practice' && i === 1;
     el.classList.toggle('active', mode !== 'practice' && pl === i && state !== 'over');
-    el.querySelector('.pname').textContent = mode === 'practice' ? 'You' : (M.opp === 'bot' && i === 1 ? `CPU (${M.diff})` : pname(i));
+    el.querySelector('.pname').textContent = mode === 'practice' ? 'You' : (M.opp === 'bot' && i === 1 && !CAR.on ? `CPU (${M.diff})` : pname(i));
     const grp = el.querySelector('.pgroup'), balls = el.querySelector('.pballs');
     balls.innerHTML = '';
     if (mode === '8ball' || mode === 'uk8') {
@@ -2372,6 +2627,7 @@ function menuTitle(id) {
   const mode = MODE_NAME[M.mode] || '8-ball';
   if (id === 'setup') return M.opp === 'bot' ? `${mode} v computer` : M.opp === 'online' ? `New room: ${mode}` : `${mode}, same device`;
   if (id === 'game') return M.opp === 'online' ? 'New room: choose a game' : 'Choose a game';
+  if (id === 'cevent') return (K.EVENTS[CAR.view] || {}).name || 'Event';
   return $('#sc-' + id).dataset.title || '';
 }
 // Moving between screens, the whole panel glides across the screen: a copy of the old panel slides off one side
@@ -2505,16 +2761,26 @@ $('#bCreate').addEventListener('click', () => { ensureAudio(); sfx('ui'); M.opp 
 
 // card pictures: tiny sprites in the style of early arcade "1 PLAYER / 2 PLAYERS" screens, and pixel balls in the
 // game's own colours. Drawn once at a few pixels per sprite and shown at 2x with hard pixel edges.
+const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
+const BODY = ['.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'];
 const SPRITES = {
-  // a player: hair, face, shirt (s, coloured per player), trousers and shoes
-  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', '.ssssss.', 's.ssss.s', 's.ssss.s', 'f.ssss.f', '..pppp..', '..p..p..', '..p..p..', '.bb..bb.'],
+  // a player: hair, face, shirt (s, coloured per player), trousers and shoes; then the other looks for career portraits
+  man: ['..hhhh..', '.hffffh.', '..ffff..', '...ff...', ...BODY],
+  long: ['..hhhh..', '.hhffhh.', '.hffffh.', '.h.ff.h.', ...BODY],
+  bald: ['..ffff..', '.ffffff.', '..ffff..', '...ff...', ...BODY],
+  cap: ['..ssss..', '.sssssss', '..ffff..', '...ff...', ...BODY],
+  glasses: ['..hhhh..', '.hggggh.', '..ffff..', '...ff...', ...BODY],
+  beard: ['..hhhh..', '.hffffh.', '..hhhh..', '...hh...', ...BODY],
   // a computer with a face on its screen
   cpu: ['........', '.mmmmmm.', '.mccccm.', '.mcecem.', '.mccccm.', '.mceecm.', '.mccccm.', '.mmmmmm.', '...mm...', '.mmmmmm.', 'kkkkkkkk', 'k.k.k.kk'],
 };
-const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6' };
-function drawSprite(g, name, x0, y0, shirt) {
-  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
+const SPRITE_COL = { h: '#5a3420', f: '#f2c49b', p: '#1a1433', b: '#0d0a1c', m: '#cfd0dc', c: '#1d8a74', e: '#0d0a1c', k: '#8d8aa6', g: '#0d0a1c' };
+// pal: colours to use instead of the defaults, e.g. { f: skin, h: hair } for a career portrait
+function drawSprite(g, name, x0, y0, shirt, pal) {
+  SPRITES[name].forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 's' ? shirt : (pal && pal[ch]) || SPRITE_COL[ch]; g.fillRect(x0 + x, y0 + y, 1, 1); } });
 }
+const TROPHY = ['.xxxxxx.', 'xxxxxxxx', 'x.xxxx.x', '.xxxxxx.', '..xxxx..', '...xx...', '...xx...', '..yyyy..', '.yyyyyy.'];
+function drawTrophy(g, x0, y0) { TROPHY.forEach((row, y) => { for (let x = 0; x < 8; x++) if (row[x] !== '.') { g.fillStyle = row[x] === 'x' ? P1 : '#5a2d1b'; g.fillRect(x0 + x, y0 + y, 1, 1); } }); }
 const DIGITS = { 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
   6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111' };
 function hexMul(hex, f) { const n = parseInt(hex.slice(1), 16), c = s => Math.round(clamp(((n >> s) & 255) * f, 0, 255)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
@@ -2534,8 +2800,8 @@ function drawBall2D(g, cx, cy, id, uk) {
   const dg = numbered && DIGITS[id > 9 ? id % 10 || 1 : id];
   if (dg) { g.fillStyle = '#0d0a1c'; for (let i = 0; i < 15; i++) if (dg[i] === '1') g.fillRect(cx - 2 + (i % 3), cy - 3 + Math.floor(i / 3), 1, 1); }
 }
-const P1 = '#ffc56b', P2 = '#6cb8ff';   // player one in lamp gold, player two in chalk blue
 const ART = {
+  career: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawTrophy(g, 13, 4); }],
   single: [16, 14, g => drawSprite(g, 'man', 4, 1, P1)],
   multi: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 13, 1, P2); }],
   cpu: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'cpu', 13, 1); }],
@@ -2565,6 +2831,7 @@ for (const c of document.querySelectorAll('#menu .card')) {
   c.append(body);
   c.addEventListener('click', () => {
     ensureAudio(); sfx('ui');
+    if (c.dataset.go === 'career') { menuGo(CAR.data ? 'career' : 'cnew'); return; }
     if (c.dataset.opp) M.opp = c.dataset.opp;
     if (c.dataset.rack) { M.mode = 'practice'; M.rack = c.dataset.rack; startGame(false); return; }
     if (c.dataset.mode) { M.mode = c.dataset.mode; menuGo('setup'); return; }
@@ -2590,7 +2857,7 @@ function refreshMenus() {
   $('#rowBlack').hidden = M.mode !== 'uk8';
   segControl($('#mBlack'), [[false, 'Two visits'], [true, 'One visit']], () => !!M.blackOne, v => M.blackOne = v);
   for (const c of document.querySelectorAll('#sc-game .card')) { c.setAttribute('aria-pressed', String(c.dataset.mode === M.mode)); c.querySelector('.cardTxt').textContent = MODE_TXT[c.dataset.mode]; }
-  updateQuick(); updateRejoin();
+  updateQuick(); updateRejoin(); careerMenus();
   $('#diffTxt').textContent = DIFF_TXT[M.diff];
   $('#guideTxt').textContent = GUIDE_TXT[guideLevel()];
   // settings panel
@@ -2611,11 +2878,13 @@ function togglePause(force) {
   paused = force !== undefined ? force : !paused;
   $('#pause').hidden = !paused;
   const inMenu = state === 'menu';
-  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on; $('#bRestart').hidden = NET.on;
+  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
+  $('#bQuit').textContent = CAR.on ? 'Save and quit' : 'Quit to menu';
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
+  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
+  else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
@@ -2624,6 +2893,7 @@ $('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode 
 $('#bQuit').addEventListener('click', () => { togglePause(false); if (NET.on) clearRejoin(); toMenu(); });
 $('#bAgain').addEventListener('click', () => {
   sfx('ui');
+  if (CAR.on && matchDone()) { toMenu(); return; }   // the match is over: back to the event, where the draw shows what's next
   if (!NET.on) { startGame(true); return; }
   NET.again[NET.seat] = true; netSend({ t: 'again' }); updateAgainBtn(); tryRematch();
 });
@@ -2715,14 +2985,200 @@ function updateTrickUI() {
 }
 $('#bHand').addEventListener('click', () => { if (M.mode === 'practice' && state === 'aim') { game.ballInHand = !game.ballInHand; updateHUD(); } });
 function toMenu() {
+  const fromCareer = CAR.on; if (fromCareer) careerLeave();
   leaveOnline(); endReplayNow(); lastShot = null; EDIT = false; $('#offer').hidden = true; $('#chatPop').hidden = true; $('#ballPick').hidden = true;
   state = 'menu'; bot = null; stroke = null;
   world = C.makeWorld(C.rack8()); game = C.newGame('8ball'); syncBallMeshes();
   $('#hud').hidden = true; $('#over').hidden = true; $('#menu').hidden = false; $('#thinking').hidden = true;
   cam.mode = 'attract'; cam.free = { yaw: cam.cur.yaw, pitch: 0.62, dist: 3.6, tx: 0, tz: 0 };
-  menuReset(NAV.lastOnline ? ['home', 'multi', 'online'] : ['home']);
+  menuReset(fromCareer ? ['home', 'single', 'career', 'cevent'] : NAV.lastOnline ? ['home', 'multi', 'online'] : ['home']);
   hideGuides(); refreshMenus(); updateCamButtons();
 }
+
+// ------------------------------------------------------------------ career
+// The tour (src/career.js holds its rules, events and opponents): a hub with your events, an event screen with the
+// draw, and career matches, which are ordinary games against the CPU set up from the career. The career is saved
+// after every shot, so a match can be left, or the app closed, and picked up exactly where it was. The menu's own
+// choices (M) are put aside during a career match and restored afterwards.
+const careerStore = () => { try { if (CAR.data) localStorage.setItem('retroRack.career', JSON.stringify(CAR.data)); else localStorage.removeItem('retroRack.career'); } catch (e) {} };
+function careerSave() {
+  const m = CAR.data && CAR.data.run && CAR.data.run.match; if (!m || game.over) return;
+  m.wins = [...matchWins]; m.breaker = breaker; m.snap = snapshot(); careerStore();
+}
+function careerFrameOver() {
+  const m = CAR.data && CAR.data.run && CAR.data.run.match; if (!m) return;
+  m.wins = [...matchWins]; m.breaker = 1 - breaker; m.snap = null;   // the next frame: the other player breaks
+  CAR.result = matchDone() ? K.recordMatch(CAR.data, [...matchWins]) : null;
+  careerStore();
+}
+function careerPlay() {
+  const run = CAR.data && CAR.data.run; if (!run) return;
+  const m = run.match, e = K.EVENTS[run.event];
+  CAR.stash = { ...M }; CAR.on = true; CAR.opp = m.opp; CAR.view = run.event; CAR.result = null;
+  Object.assign(M, { mode: e.mode, opp: 'bot', race: m.race, blackOne: !!e.blackOne, guide: CAR.data.guide });
+  startGame(false, false, { wins: m.wins, breaker: m.breaker, snap: m.snap });
+  if (!m.snap) toast(`${K.ROUNDS[run.round]} v ${K.OPPONENTS[m.opp].name}, first to ${m.race}`, 'info');
+}
+function careerLeave() { Object.assign(M, CAR.stash || {}); CAR.stash = null; CAR.on = false; CAR.opp = null; saveM(); }
+const money = n => '£' + n.toLocaleString('en-GB');
+function nextEvent(e) { return K.TIERS[e.tier].events[e.index + 1] || null; }
+function careerResultText() {
+  const r = CAR.result; if (!r) return '';
+  const e = K.EVENTS[r.event], first = (CAR.data.done[e.id] || {}).won === 1, nx = nextEvent(e);
+  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. The next tier opens in a coming update.` : first && nx ? ` ${nx.name} is now open.` : '');
+  if (r.won) return `Through to the ${K.ROUNDS[r.round + 1].toLowerCase()}, against ${K.OPPONENTS[CAR.data.run.match.opp].name}.`;
+  return (r.round === K.ROUNDS.length - 1 ? 'Runner-up.' : `Out in the ${K.ROUNDS[r.round].toLowerCase()}.`) + ` Prize: ${money(r.prize)}.`;
+}
+
+// pixel portraits and strength stars, drawn small and shown with hard pixel edges
+function portrait(look, scale) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 10; c.height = 14;
+  drawSprite(g, look.s, 1, 1, look.shirt, { f: look.skin, h: look.hair });
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = 10 * scale; img.height = 14 * scale;
+  return img;
+}
+const STAR = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.'];
+function starsImg(n) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 29; c.height = 5;
+  for (let i = 0; i < 5; i++) STAR.forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === 'x') { g.fillStyle = i < n ? P1 : '#4e3270'; g.fillRect(i * 6 + x, y, 1, 1); } });
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = img.alt;
+  return img;
+}
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+// the new-career form
+const LOOK_COLS = { skin: ['#f6d2b4', '#f2c49b', '#d9a07a', '#a8714a', '#6b4429'], hair: ['#1a1206', '#5a3420', '#b5432a', '#d9a441', '#c9c3bd'],
+  shirt: ['#ffc56b', '#6cb8ff', '#ff6f8f', '#1d8a74', '#56399a', '#f7ead2'] };
+const NEWC = { s: 'man', skin: '#f2c49b', hair: '#5a3420', shirt: '#ffc56b', guide: 'line' };
+function renderCareerNew() {
+  if (!$('#cName').value) { try { $('#cName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) {} }
+  const st = $('#cStyle'); st.innerHTML = '';
+  for (const s of ['man', 'long', 'bald', 'cap', 'glasses', 'beard']) {
+    const b = mk('button', 'btn cStyleBtn'); b.type = 'button'; b.setAttribute('aria-pressed', String(NEWC.s === s)); b.setAttribute('aria-label', 'Look ' + s);
+    b.append(portrait({ ...NEWC, s }, 2)); b.addEventListener('click', () => { NEWC.s = s; sfx('ui'); refreshMenus(); }); st.append(b);
+  }
+  for (const k of ['skin', 'hair', 'shirt']) {
+    const box = $('#c' + k[0].toUpperCase() + k.slice(1)); box.innerHTML = '';
+    for (const hex of LOOK_COLS[k]) {
+      const b = mk('button', 'swatch'); b.type = 'button'; b.style.background = hex; b.setAttribute('aria-label', `${k} colour`); b.setAttribute('aria-pressed', String(NEWC[k] === hex));
+      b.addEventListener('click', () => { NEWC[k] = hex; sfx('ui'); refreshMenus(); }); box.append(b);
+    }
+  }
+  segControl($('#cGuide'), GUIDES.filter(([v]) => v !== 'auto'), () => NEWC.guide, v => NEWC.guide = v);
+  $('#cGuideTxt').textContent = GUIDE_TXT[NEWC.guide] + ' Fixed for the whole career.';
+}
+
+// the hub: you, then each tier's events
+function eventState(e) {
+  const c = CAR.data, d = c.done[e.id] || {};
+  if (c.run && c.run.event === e.id) return `Playing: ${K.ROUNDS[c.run.round].toLowerCase()}`;
+  if (!K.unlocked(c, e.id)) return 'Locked';
+  if (d.won) return d.won > 1 ? `Won ×${d.won}` : 'Won';
+  return d.played ? `Best: ${d.best === K.ROUNDS.length - 1 ? 'runner-up' : K.ROUNDS[d.best].toLowerCase()}` : 'Open';
+}
+const raceText = e => `First to ${e.races.slice(0, -1).join(', ')}, then ${e.races[e.races.length - 1]} in the final`;
+function renderCareerHub() {
+  const c = CAR.data, me = $('#cMe'), list = $('#cEvents'); me.innerHTML = ''; list.innerHTML = '';
+  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(c.money)} won · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
+  me.append(portrait(c.look, 3), txt);
+  K.TIERS.forEach((t, ti) => {
+    list.append(mk('p', 'cTier', t.name + (K.tierDone(c, ti) ? ': complete' : '')));
+    for (const e0 of t.events) {
+      const e = K.EVENTS[e0.id], open = K.unlocked(c, e.id), b = mk('button', 'cEvt'); b.type = 'button';
+      b.append(mk('span', 'cEvtName', e.name), mk('span', 'cEvtState', eventState(e)), mk('span', 'cEvtTxt', `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. Winner ${money(e.prize[3])}`));
+      b.setAttribute('aria-disabled', String(!open));
+      b.addEventListener('click', () => { if (!K.unlocked(CAR.data, e.id)) return; sfx('ui'); CAR.view = e.id; menuGo('cevent'); });
+      list.append(b);
+    }
+  });
+}
+
+// an event: the draw (or, before entering, the field) and your next opponent
+function renderCareerEvent() {
+  const c = CAR.data, e = K.EVENTS[CAR.view]; if (!e) return;
+  const run = c.run && c.run.event === e.id ? c.run : null, last = !run && c.last && c.last.event === e.id ? c.last : null;
+  $('#cInfo').textContent = `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. ${raceText(e)}. Prizes ${e.prize.map(money).join(', ')}.`;
+  const br = $('#cBracket'), opp = $('#cOpp'); br.innerHTML = ''; opp.innerHTML = '';
+  const b = run || last;
+  br.classList.toggle('field', !b);
+  if (!b) for (const id of [K.YOU, ...e.field]) { const r = mk('div', 'bName' + (id === K.YOU ? ' you' : '')); r.append(mk('span', '', K.nameOf(c, id))); if (id !== K.YOU) r.append(starsImg(K.stars(id))); br.append(r); }
+  else for (let rd = 0; rd <= K.ROUNDS.length; rd++) {
+    const col = mk('div', 'bCol'), ids = rd === 0 ? b.slots : b.res[rd - 1], n = 8 >> rd;
+    for (let i = 0; i < n; i++) {
+      const id = ids ? ids[i] : null, done = b.res[rd], sc = b.scores[rd] && b.scores[rd][i >> 1];
+      const r = mk('div', 'bName' + (id === K.YOU ? ' you' : '') + (rd === K.ROUNDS.length && id ? ' champ' : '') + (done && id && done[i >> 1] !== id ? ' out' : ''));
+      r.append(mk('span', '', id ? K.nameOf(c, id) : '…'));
+      if (sc && rd < K.ROUNDS.length) r.append(mk('span', '', String(sc[i & 1])));
+      col.append(r);
+    }
+    br.append(col);
+  }
+  const show = run ? run.match.opp : null;
+  if (show) {
+    const o = K.OPPONENTS[show], m = run.match;
+    opp.append(portrait(o.look, 3), mk('div', 'cOppName', o.name), mk('div', '', o.full), starsImg(K.stars(show)), mk('div', 'cOppTxt', o.blurb),
+      mk('div', 'cOppTxt', `${K.ROUNDS[run.round]}, first to ${m.race}${m.wins[0] + m.wins[1] || m.snap ? `. Score ${m.wins[0]}–${m.wins[1]}, match in progress` : ''}.`));
+  } else if (last) opp.append(mk('div', 'cOppTxt', last.result === K.ROUNDS.length ? 'You won this event last time.' : `Last time: ${last.result === K.ROUNDS.length - 1 ? 'runner-up' : 'out in the ' + K.ROUNDS[last.result].toLowerCase()}.`));
+  else if (c.run) opp.append(mk('div', 'cOppTxt', `Finish ${K.EVENTS[c.run.event].name} first, or withdraw from it.`));
+  else opp.append(mk('div', 'cOppTxt', 'Enter to see the draw and your first opponent.'));
+}
+
+// called by refreshMenus: draws whichever career screen is showing, and sets the footer's buttons
+function careerMenus() {
+  const sc = menuScreen(), c = CAR.data, bc = $('#bCareer');
+  bc.hidden = true; $('#bWithdraw').hidden = true;
+  if (sc === 'cnew') { renderCareerNew(); bc.hidden = false; bc.textContent = 'Start career'; return; }
+  if (!c || (sc !== 'career' && sc !== 'cevent')) return;
+  if (sc === 'career') {
+    renderCareerHub();
+    if (c.run) { bc.hidden = false; bc.textContent = `Continue: ${K.ROUNDS[c.run.round].toLowerCase()} v ${K.OPPONENTS[c.run.match.opp].name}`; }
+  } else {
+    renderCareerEvent();
+    const mine = c.run && c.run.event === CAR.view;
+    if (mine) { const m = c.run.match; bc.hidden = false; bc.textContent = m.wins[0] + m.wins[1] || m.snap ? 'Continue the match' : `Play the ${K.ROUNDS[c.run.round].toLowerCase()}`; $('#bWithdraw').hidden = false; }
+    else if (!c.run && K.unlocked(c, CAR.view)) { bc.hidden = false; bc.textContent = (c.done[CAR.view] || {}).played ? 'Enter again' : 'Enter'; }
+  }
+}
+$('#bCareer').addEventListener('click', () => {
+  ensureAudio(); sfx('ui');
+  const sc = menuScreen();
+  if (sc === 'cnew') {
+    const name = cleanName($('#cName').value, 'You');
+    CAR.data = K.newCareer({ name, look: NEWC, guide: NEWC.guide }, Date.now()); careerStore();
+    try { localStorage.setItem('retroRack.name', name); } catch (e) {}
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});   // ask the browser not to clear it
+    NAV.stack.pop(); menuGo('career'); return;
+  }
+  if (sc === 'cevent' && !CAR.data.run) {
+    const a = new Uint32Array(1); crypto.getRandomValues(a);
+    if (K.enterEvent(CAR.data, CAR.view, a[0])) { careerStore(); refreshMenus(); }
+    return;
+  }
+  if (CAR.data.run) careerPlay();
+});
+$('#bWithdraw').addEventListener('click', () => {
+  if (!CAR.data.run || !confirm(`Withdraw from ${K.EVENTS[CAR.data.run.event].name}? It counts as losing your current match.`)) return;
+  const r = K.withdraw(CAR.data); careerStore(); sfx('ui'); refreshMenus();
+  if (r) $('#cNote').textContent = `Withdrawn. Prize: ${money(r.prize)}.`;
+});
+$('#cExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(CAR.data, null, 1)], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `retro-rack-career-${CAR.data.name.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.json`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('#cNote').textContent = 'Saved. Keep the file somewhere safe, or load it on another device.';
+});
+$('#cImport').addEventListener('click', () => $('#cFile').click());
+$('#cFile').addEventListener('change', async () => {
+  const f = $('#cFile').files[0]; $('#cFile').value = ''; if (!f) return;
+  let c = null; try { c = K.validate(JSON.parse(await f.text())); } catch (e) {}
+  if (!c) { $('#cNote').textContent = "That file isn't a Retro Rack career."; return; }
+  if (CAR.data && !confirm(`Replace ${CAR.data.name}'s career on this device with ${c.name}'s from the file?`)) return;
+  CAR.data = c; careerStore(); refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
+});
+$('#cRetire').addEventListener('click', () => {
+  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device.`)) return;
+  CAR.data = null; careerStore(); sfx('ui'); NAV.stack.pop(); menuGo('cnew');
+});
 
 // ------------------------------------------------------------------ online play
 // Each browser runs the full game. Only shot inputs travel over the network; the receiving browser
@@ -3013,6 +3469,7 @@ function concedeFrame(fromRemote, loser) {
   const w = 1 - loser;
   game = { ...game, over: true, winner: w }; matchWins[w]++;
   state = 'over'; bot = null; $('#thinking').hidden = true; $('#offer').hidden = true; updateHUD();
+  if (CAR.on) careerFrameOver();
   showOver({ reason2: 'Conceded the frame' }, loser);
   return true;
 }
@@ -3179,7 +3636,7 @@ requestAnimationFrame(frame);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
-  get matchWins() { return matchWins; },
+  get matchWins() { return matchWins; }, CAR, concedeFrame,
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();

@@ -57,13 +57,46 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cardName{font-family:'Press Start 2P',monospace;font-size:11px;line-height:1.3;color:var(--lamp);white-space:nowrap}
 .cardTxt{font-size:18px;line-height:1;opacity:.72}
 .cardTxt:empty{display:none}
-#bStart,#bQuick,#bCreate{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
-#bStart:hover,#bQuick:hover,#bCreate:hover{background:#ff8ba5}
+#bStart,#bQuick,#bCreate,#bCareer{font-size:12px;padding:12px 16px;background:var(--rose);color:var(--ink)}
+#bStart:hover,#bQuick:hover,#bCreate:hover,#bCareer:hover{background:#ff8ba5}
 .quickRow{display:flex;flex-wrap:wrap;gap:8px}.quickRow>.btn{margin-bottom:12px;text-align:left}
 #bRejoin{font-size:12px;padding:12px 16px;background:var(--lamp);color:var(--ink)}#bRejoin:hover{background:#ffd48e}
 .mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
 #bMenuSettings{margin-left:auto}   /* the screen's main button (if any) on the left, always in view */
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
+/* career: the new-career form, the hub (you and your events) and an event (the draw and your next opponent) */
+.portrait{image-rendering:pixelated;flex:none}
+#cName{width:200px}
+.cStyleBtn{padding:4px 6px;line-height:0}.cStyleBtn[aria-pressed="true"]{border-color:var(--lamp);background:var(--plum2)}
+.cCols{gap:6px;align-items:center}.cCols .swatches{gap:5px;margin-right:10px}.cCols .swatch{width:24px;height:24px}.cColLbl{font-size:18px;opacity:.8}
+.cTop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.cMe{display:flex;align-items:center;gap:12px}
+.cMeName{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--lamp);margin-bottom:6px}
+.cMeStats{font-size:20px}
+.cEvents{display:flex;flex-direction:column;gap:6px}
+.cTier{font-size:19px;color:var(--lamp);margin:0}
+.cEvt{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;text-align:left;padding:7px 11px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
+.cEvt:hover:not([aria-disabled="true"]){background:var(--plum2);border-color:var(--lamp)}
+.cEvt[aria-disabled="true"]{opacity:.55;cursor:default}
+.cEvtName{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.4}
+.cEvtTxt{font-size:18px;opacity:.85}
+.cEvtState{grid-row:1 / span 2;grid-column:2;font-size:19px;color:var(--lamp);text-align:right}
+#cNote{grid-column:auto;margin:8px 0 0}#cNote:empty{display:none}
+.cTools{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}.cTools .btn{font-size:8px;padding:7px 9px}
+.stars{image-rendering:pixelated;flex:none}
+.cInfo{margin:0 0 8px;font-size:19px}
+.cEv{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}
+.bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:17px}
+.bracket.field{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;gap:3px;min-height:100%}
+.bName{display:flex;justify-content:space-between;gap:4px;padding:1px 5px;background:rgba(13,10,28,.6);border-left:3px solid var(--plum2);white-space:nowrap;overflow:hidden}
+.bName span:first-child{overflow:hidden;text-overflow:ellipsis}
+.bName.you{color:var(--lamp);border-left-color:var(--lamp)}.bName.out{opacity:.45}.bName.champ{border-left-color:var(--lamp);color:var(--lamp)}
+.cOpp{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-content:start;font-size:18px}
+.cOpp .portrait{grid-row:1 / span 3}
+.cOppName{font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.5;color:var(--lamp)}
+.cOppTxt{grid-column:1 / -1;opacity:.9}
+@media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
 @media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
@@ -73,7 +106,13 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #mStage{padding:10px 14px 8px}.mTop{padding:8px 14px 0}.mFoot{padding:6px 14px 8px}
   .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
   .card{padding:6px 9px;gap:9px}.cardArt{height:26px}.cardName{font-size:9px}.cardTxt{font-size:16px}.cardBody{gap:4px}
-  #bStart,#bQuick,#bCreate,#bRejoin{font-size:10px;padding:9px 12px}.quickRow>.btn{margin-bottom:8px}
+  #bStart,#bQuick,#bCreate,#bRejoin,#bCareer{font-size:10px;padding:9px 12px}.quickRow>.btn{margin-bottom:8px}
+  #sc-cnew .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-cnew .lbl{font-size:18px;padding-top:3px}#sc-cnew .note{display:none}
+  #cName{font-size:18px;padding:2px 6px}.cStyleBtn{padding:2px 4px}.cCols .swatch{width:20px;height:20px}
+  .cTop{margin-bottom:6px}.cMeName{font-size:10px;margin-bottom:3px}.cMeStats{font-size:17px}.cEvents{gap:4px}
+  .cEvt{grid-template-columns:auto 1fr auto;padding:4px 9px}.cEvtName{font-size:8px}.cEvtTxt,.cEvtState,.cTier{font-size:16px}
+  .cEvtState{grid-row:1;grid-column:3}.cEvtTxt{grid-row:1;grid-column:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cColLbl{font-size:16px}
+  .cInfo{font-size:16px;margin-bottom:4px}.bracket{font-size:15px;gap:3px}.cOpp{font-size:16px}.cOppName{font-size:8px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -157,7 +196,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #practice{top:auto;bottom:calc(var(--tb,120px) + 6px);display:grid;grid-template-columns:1fr 1fr;align-items:start;max-width:44vw}
   #help{bottom:auto;top:8px;max-height:70vh}
 }
-@media (prefers-reduced-motion:reduce){.toast,#shot{transition:none}#thinking::after{animation:none;width:1.4em}}
+@media (prefers-reduced-motion:reduce){.toast,#shot,.card{transition:none}.card:hover{transform:none}#thinking::after{animation:none;width:1.4em}}
 #hud #tools .btn,#hud #practice .btn{font-size:8px;padding:7px 9px}
 input{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
 input:focus{border-color:var(--chalk)}
@@ -287,7 +326,23 @@ input:focus{border-color:var(--chalk)}
         <div class="cards">
           <button class="card" type="button" data-go="game" data-opp="bot" data-art="cpu"><span class="cardName">Vs computer</span><span class="cardTxt">Four skill levels</span></button>
           <button class="card" type="button" data-go="practice" data-art="practice"><span class="cardName">Practice</span><span class="cardTxt">Free play, trick shots</span></button>
+          <button class="card" type="button" data-go="career" data-art="career"><span class="cardName">Career</span><span class="cardTxt">From the pub to the top</span></button>
         </div>
+      </section>
+      <section class="mScreen" id="sc-cnew" data-title="New career" hidden>
+        <div class="row"><div class="lbl">Name</div><div class="seg"><input id="cName" maxlength="14" placeholder="Your name" autocomplete="nickname"></div></div>
+        <div class="row"><div class="lbl">Look</div><div class="seg" id="cStyle"></div></div>
+        <div class="row"><div class="lbl">Colours</div><div class="seg cCols"><span class="cColLbl">Skin</span><span class="swatches" id="cSkin"></span><span class="cColLbl">Hair</span><span class="swatches" id="cHair"></span><span class="cColLbl">Shirt</span><span class="swatches" id="cShirt"></span></div></div>
+        <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="cGuide"></div><div class="note" id="cGuideTxt"></div></div>
+      </section>
+      <section class="mScreen" id="sc-career" data-title="Career" hidden>
+        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
+        <div class="cEvents" id="cEvents"></div>
+        <div class="note" id="cNote" role="status"></div>
+      </section>
+      <section class="mScreen" id="sc-cevent" hidden>
+        <p class="cInfo" id="cInfo"></p>
+        <div class="cEv"><div class="bracket" id="cBracket"></div><div class="cOpp" id="cOpp"></div></div>
       </section>
       <section class="mScreen" id="sc-multi" data-title="Multiplayer" hidden>
         <div class="cards">
@@ -328,7 +383,7 @@ input:focus{border-color:var(--chalk)}
         </div>
       </section>
     </div>
-    <div class="mFoot"><button class="btn" id="bStart" type="button" hidden>Rack 'em up</button><button class="btn" id="bCreate" type="button" hidden>Create a room</button><button class="btn" id="bMenuSettings" type="button">Settings</button><button class="btn" id="bMenuFull" type="button" aria-pressed="false" hidden>Fullscreen</button></div>
+    <div class="mFoot"><button class="btn" id="bStart" type="button" hidden>Rack 'em up</button><button class="btn" id="bCreate" type="button" hidden>Create a room</button><button class="btn" id="bCareer" type="button" hidden></button><button class="btn" id="bWithdraw" type="button" hidden>Withdraw</button><button class="btn" id="bMenuSettings" type="button">Settings</button><button class="btn" id="bMenuFull" type="button" aria-pressed="false" hidden>Fullscreen</button></div>
   </div>
 </div>
 
