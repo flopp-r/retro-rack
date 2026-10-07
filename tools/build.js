@@ -1,5 +1,6 @@
 // Builds index.html from src/ and vendor/. Run with:  node tools/build.js   (no installs needed)
 // Output is one self-contained file: fonts and the three.js engine are inlined so it also works offline.
+// It then remakes CONTEXT.md and CONTEXT-SHORT.md, the one-file summaries of the project for AI assistants.
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const root = path.join(__dirname, '..');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
@@ -31,3 +32,4 @@ bundle = bundle.replace("'__BUILD__'", `'${version}'`);
 html = html.replace('__BUNDLE__', () => bundle);   // function form: the bundle contains $ characters
 fs.writeFileSync(path.join(root, 'index.html'), html);
 console.log(`Built index.html (${Math.round(html.length / 1024)} KB, ${pairs.length} three.js exports, version ${version})`);
+console.log('Wrote ' + require('./make-context.js').write());

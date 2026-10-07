@@ -1,34 +1,20 @@
-# Retro Rack: handover from the Claude chat
+# Retro Rack: decisions, history and changes
 
-This file captures what was built, what was decided and why, and what's next, from the original chat where Retro Rack was created. Read it together with `CLAUDE.md`, which explains how the code works.
+This file records why Retro Rack is the way it is: the decisions and their reasons, reference numbers, the ideas list, and a dated list of every change shipped. It began as the handover from the Claude chat where the game was first built; work has continued in Claude Code since. Read it together with `AGENTS.md`, which explains how the code works and how to change it.
 
 ---
 
-## 1. Status at handover (5 October 2026)
+## 1. Current status
 
-**Live and working**
-- The game is at https://flopp-r.github.io/retro-rack/, served by GitHub Pages from the public repository `github.com/flopp-r/retro-rack` (branch `main`, root folder).
+- The game is live at https://flopp-r.github.io/retro-rack/, served by GitHub Pages from the public repository `github.com/flopp-r/retro-rack` (branch `main`, root folder).
 - The relay is a Cloudflare Worker named `retro-rack-relay` on the free plan, deployed automatically by Cloudflare Workers Builds from the repository's `relay/` folder. Its `workers.dev` address is in `config.js`; leave that file alone.
-- The live version includes everything up to the **open rooms list** (relay version with the `Lobby` Durable Object, migration `v2`) and the **stacked notifications**.
-
-**Built and tested, possibly not yet uploaded**
-
-The "update package" adds:
-- instant replay;
-- touch fine-aim buttons;
-- quick chat;
-- concede and re-rack;
-- matches (first to 3, 5 or 7);
-- trick shots with "Show me" demos, plus a ball editor and saved layouts;
-- the project restructure: `src/`, `vendor/`, `tools/`, `tests/`, `CLAUDE.md` and this file.
-
-**How to tell:** if the repository has a `src/` folder, the update is in. If not, the repository only holds the built `index.html`, `config.js`, `README.md` and `relay/`. The update package then needs uploading first.
+- Everything in section 9 (changes shipped) is live. The version shown at the bottom of the menu matches the `BUILD` value in the committed `index.html`.
 
 ---
 
 ## 2. Working preferences
 
-Personal working preferences are kept in the Claude Code project's own instructions, not in this public repository. Project conventions (UK English, metric units, a clean console, testing before pushing) are in `CLAUDE.md`.
+Personal working preferences are kept in the owner's own Claude Code settings, not in this public repository. Project conventions (plain-language explanations, UK English, metric units, a clean console, testing before pushing) are in `AGENTS.md`.
 
 ---
 
@@ -46,7 +32,8 @@ Personal working preferences are kept in the Claude Code project's own instructi
    - Live aim preview, reconnect and resync after a reload, and rematches.
    - The relay address moved into `config.js`.
 7. **Open rooms list:** Listed or Private rooms, plus notifications stacked in one column so they never overlap.
-8. **The update package (see section 1):** replay, touch aim buttons, chat, concede and re-rack, matches, trick shots, and the project restructure for Claude Code.
+8. **The update package:** instant replay, touch fine-aim buttons, quick chat, concede and re-rack, matches (first to 3, 5 or 7), trick shots with "Show me" demos plus a ball editor and saved layouts, and the project restructure for Claude Code (`src/`, `vendor/`, `tools/`, `tests/`).
+9. **Claude Code (from 6 October 2026):** every change since has gone through a pull request; they are listed in section 9.
 
 ---
 
@@ -57,7 +44,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **three.js is pinned at r159** (ES-module build, wrapped by `tools/build.js`). Upgrading is possible but not needed. If you do upgrade, re-check lighting, the `DepthTexture` outline pass and the console.
 
 **Online play**
-- **Determinism over server-side physics.** The relay never simulates. Both browsers run identical physics; the rules for that are in `CLAUDE.md`. This keeps the relay tiny and free, and enables replays.
+- **Determinism over server-side physics.** The relay never simulates. Both browsers run identical physics; the rules for that are in `AGENTS.md`. This keeps the relay tiny and free, and enables replays.
 - **The trust model is aimed at friendly games:**
   - Receivers accept only shot inputs and recompute the result themselves. Cue ball placement is validated, and the strike velocities are checked.
   - The shooter's `sync` is a cross-check; on a mismatch, the receiver warns and adopts the shooter's table.
@@ -133,29 +120,23 @@ Personal working preferences are kept in the Claude Code project's own instructi
 
 ---
 
-## 6. How things were tested in the chat
+## 6. How things are tested
 
-- **Physics and rules:** Node scripts, now collected as `tests/physics.test.js` (22 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, and the trick demos.
-- **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader), for screenshots and scripted play. The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy.
-- **Online:** the real Cloudflare runtime ran locally (`cd relay && npx wrangler dev`), and the game was opened as `index.html?relay=ws://127.0.0.1:8787` in **separate browser contexts**. Each tab gets its own client id from sessionStorage. After every shot, the ball positions and the `game` objects of both clients were compared, and they must be identical. Also tested:
-  - reload rejoin;
-  - a full room;
-  - rematch;
-  - re-rack and concede;
-  - chat;
-  - replaying while the opponent shoots.
-- **Software WebGL is slow,** so keep test windows small (about 480×360, pixel size 6).
+- **Physics and rules:** `tests/physics.test.js` (27 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, the trick demos, and that the context packs are up to date.
+- **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader). The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy. The browser tests have lived in `tests/browser/` since 7 October 2026; `node tests/browser/run-all.js` runs them all (see `AGENTS.md`, Testing).
+- **Online:** the real Cloudflare runtime runs locally (`npx wrangler dev`), and the game is opened with `?relay=ws://127.0.0.1:8787` in **separate browser contexts**, so each gets its own client id. After every shot, the ball positions and the `game` objects of both clients are compared, and they must be identical. Covered: reload rejoin, Rejoin from the home screen, a full room, rematch, re-rack and concede, chat, replaying while the opponent shoots, duplicated tabs, and version mismatches.
+- **Software WebGL is slow,** so keep test windows small (about 480×360) unless the size is what's being tested.
 
 ---
 
 ## 7. Ideas list (discussed; the ones built since say so)
 
-- **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `CLAUDE.md`.
+- **Installable app (PWA):** built in Claude Code, together with a version check for online play. The service worker is network first, so nobody gets stuck on an old copy; see `AGENTS.md`.
 - **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser.
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
-- **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame.
+- **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame. Possible next step: keep the table when both players leave (each page saves its snapshot and the room restores the newest), which changes how online games start.
 - **A rules option:** "lose the second visit when on the black", for reds & yellows: built as "On black: One visit".
 - **Adding balls to trick shots:** built ("Add balls", under "Edit table").
 - **Possibly:** a colour-blind-friendly marking option for reds and yellows.
@@ -167,9 +148,35 @@ Personal working preferences are kept in the Claude Code project's own instructi
 
 - Work happens in Claude Code, which pushes to GitHub through its GitHub connector. That is set up and working.
 - **Node.js** is needed for `node tools/build.js` and `node tests/physics.test.js`. If it's missing, install the LTS version from nodejs.org.
-- **The routine:** describe a change; Claude Code edits `src/`, rebuilds `index.html`, runs the tests, then pushes once the change is approved. Check the live site with Ctrl+F5 a couple of minutes later.
-- **Keep it to one change at a time.** Test online changes with the local relay before pushing, since both players need the same version.
+- **The routine** (details in `AGENTS.md`, "How changes are made"): describe a change; Claude Code explains the options and builds the one chosen on a branch, rebuilds `index.html`, runs the tests and opens a pull request. When the owner says "merge it", it is squash-merged into `main`, and the live site updates a minute or two later (Ctrl+F5 to see it).
+- **Keep it to one change at a time.** Test online changes with the local relay before merging, since both players need the same version.
 - **To undo a change,** revert it and push the revert, so the site goes back to how it was.
 
 **Suggested first message in a new session:**
-> Read CLAUDE.md and HANDOVER.md. Run the tests and the build, and tell me whether everything is working. Don't change or push anything yet.
+> Read AGENTS.md and HANDOVER.md. Run the tests and the build, and tell me whether everything is working. Don't change or push anything yet.
+
+**To give another AI the whole project:** give it the link https://raw.githubusercontent.com/flopp-r/retro-rack/main/CONTEXT.md (or the file itself). If it can't take a file that size, use `CONTEXT-SHORT.md`.
+
+---
+
+## 9. Changes shipped
+
+Every change since the move to Claude Code, newest last. The version is the fingerprint shown at the bottom of the menu.
+
+| Date | Pull request | Version | What changed |
+|---|---|---|---|
+| 6 Oct 2026 | #1 | 2880b44b | Installable app (manifest, icons, network-first service worker); online version check; a duplicated tab gets a fresh client id. |
+| 6 Oct 2026 | #2 | 4f7f829c | Pulsing gold halo on the balls you're on, with an on/off setting. |
+| 6 Oct 2026 | #3 | 93d5d1f2 | Volume setting, fullscreen button, "turn your phone sideways" hint, vibration on pots and fouls. |
+| 6 Oct 2026 | #4 | 501f2ef4 | Phone layout for short screens: no HUD overlaps on phones held sideways. |
+| 6 Oct 2026 | #5 | ff47e0c2 | New menus: home, single player and multiplayer screens with transitions, Play again, back-gesture support. |
+| 6 Oct 2026 | #6 | c39a9ee4 | Shorter menu text, smaller cards, arcade-style sprites, a gliding panel; restored shared styles that #5 removed by mistake. |
+| 7 Oct 2026 | #7 | c22e5b21 | "Add balls" in the trick-shot editor; "On black: One visit" rule option for reds & yellows. |
+| 7 Oct 2026 | #8 | 9496b96e | "Move balls" renamed "Edit table", so Add balls is easier to find. |
+| 7 Oct 2026 | #9 | 1dcd4655 | Rejoin button for an online game left by accident. |
+| 7 Oct 2026 | #10 | 1dcd4655 (game unchanged) | Browser tests moved into `tests/browser/`; `AGENTS.md` guide; `CONTEXT.md` and `CONTEXT-SHORT.md` for other AIs; notes checked against the code. |
+
+**Lessons worth keeping**
+- #5 deleted CSS that Settings and the overlays also used (`.row`, `.lbl`, `.seg` and others), and nobody noticed until the live site looked wrong. The `fit` browser test now checks those styles.
+- After #7, the version reported in chat was misremembered, so the owner waited for an update that had already arrived. Always read the version from the committed `index.html`.
+- An early version of Rejoin saved one "last game" per browser. With two tabs playing each other on one device, a reopened tab could take over the seat of the tab that was still open. Entries are now kept per client id, and a Web Lock marks seats that are still open.

@@ -118,5 +118,11 @@ for (const t of tricks) test(`"${t.name}" demo shot works`, () => {
   assert.ok(t.pot.every(id => w.rec.pots.includes(id)) && !w.rec.pots.includes(0), 'demo no longer pots its balls; run node tools/find-trick-demos.js');
 });
 
+console.log('\nProject notes');
+test('CONTEXT.md and CONTEXT-SHORT.md match the code and notes', () => {
+  for (const [f, text] of Object.entries(require('../tools/make-context.js').make()))
+    assert.ok(fs.readFileSync(path.join(__dirname, '..', f), 'utf8') === text, `${f} is out of date: run node tools/build.js`);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

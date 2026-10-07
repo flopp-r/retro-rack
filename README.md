@@ -11,7 +11,8 @@
 | `sw.js`, `manifest.webmanifest`, `icons/` | Let people install the game as an app and play it offline. |
 | `relay/` | A tiny Cloudflare Worker that passes messages between the two players. |
 | `src/`, `vendor/`, `tools/`, `tests/` | The source code, the 3D engine and fonts, the build tool and the tests. `index.html` is built from these. |
-| `CLAUDE.md`, `HANDOVER.md` | Notes that tell Claude Code how the project fits together, and its history. |
+| `AGENTS.md`, `CLAUDE.md`, `HANDOVER.md` | Notes for AI assistants and developers: how the project fits together and how to change it (`CLAUDE.md` points Claude Code to `AGENTS.md`), and its history and decisions. |
+| `CONTEXT.md`, `CONTEXT-SHORT.md` | The whole project in one file, for an AI that can't open this repository (see "Asking another AI about the project" below). Made by the build; don't edit them. |
 
 Everything here runs on free plans. You need a GitHub account and a Cloudflare account, and everything is done in your web browser.
 
@@ -19,14 +20,11 @@ Everything here runs on free plans. You need a GitHub account and a Cloudflare a
 
 ## Step 1: Put the game on GitHub Pages
 
-1. On github.com, click **+** (top right), then **New repository**.
-2. Name it `retro-rack`, choose **Public**, and click **Create repository**.
+1. Sign in to github.com and open https://github.com/flopp-r/retro-rack.
+2. Click **Fork** (top right), keep the name `retro-rack`, and click **Create fork**. You now have your own copy.
    (GitHub Pages is free for public repositories, so anyone can see the code. That's fine; there's nothing private in it.)
-3. On the new repository page, click the **uploading an existing file** link.
-4. Unzip `retro-rack.zip` on your computer and open the `retro-rack` folder. Select **everything inside it** (`index.html`, `config.js`, `README.md` and the `relay` folder) and drag it all into the browser window.
-5. Check that the list includes `relay/src/index.js`, `relay/package.json`, `relay/package-lock.json` and `relay/wrangler.jsonc`, then click **Commit changes**.
-6. Go to the repository's **Settings**, then **Pages** in the left sidebar. Under **Build and deployment**, set **Source** to **Deploy from a branch**, choose the **main** branch and the **/ (root)** folder, then click **Save**.
-7. Wait a minute or two and refresh the page. It will show your site address, something like `https://yourname.github.io/retro-rack/`. Open it and the game should load. Offline modes work already.
+3. Go to the repository's **Settings**, then **Pages** in the left sidebar. Under **Build and deployment**, set **Source** to **Deploy from a branch**, choose the **main** branch and the **/ (root)** folder, then click **Save**.
+4. Wait a minute or two and refresh the page. It will show your site address, something like `https://yourname.github.io/retro-rack/`. Open it and the game should load. Offline modes work already.
 
 ## Step 2: Put the relay on Cloudflare
 
@@ -99,7 +97,15 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 ## Updating later
 
 - **New version of the game:** on GitHub, use **Add file**, then **Upload files**, and drop in the new files. Files with the same name replace the old ones. Commit, and the site updates in a minute or two.
-- **With Claude Code:** open this repository in Claude Code and describe the change. It reads `CLAUDE.md` to learn how the project works, edits the source in `src/`, rebuilds `index.html`, runs the tests, and pushes. The site and relay then update by themselves.
+- **With Claude Code:** open this repository in Claude Code and describe the change. It reads `AGENTS.md` (through `CLAUDE.md`) to learn how the project works, edits the source in `src/`, rebuilds `index.html`, runs the tests, and pushes. The site and relay then update by themselves. Other AI coding tools read `AGENTS.md` directly.
+
+## Asking another AI about the project
+
+To give an AI that can't open this repository (ChatGPT, Gemini or Claude in a browser, say) the whole picture, paste it this link and ask your question:
+
+https://raw.githubusercontent.com/flopp-r/retro-rack/main/CONTEXT.md
+
+It holds the notes, a map of the code and all the source code written for the game, about 300 KB. If the AI can't open links, download the file and attach it. If it says the file is too big, use `CONTEXT-SHORT.md` instead (the notes and the map, without the code). Both are remade by every build, so they always match the latest version.
 - **New version of the relay:** upload the changed files into the `relay` folder the same way. Cloudflare rebuilds and redeploys it automatically.
 
 ## If something isn't working
