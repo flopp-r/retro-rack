@@ -1403,13 +1403,13 @@ $('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else st
 $('#bOverReplay').addEventListener('click', startReplay);
 $('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; $('#bSlow').textContent = replay.speed < 1 ? 'Normal speed' : 'Slow motion'; });
 $('#bSkip').addEventListener('click', () => endReplay());
-$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag any ball to move it. Add balls puts more on the table', 'info'); });
+$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag balls to move them', 'info'); });   // kept short, so on phones it clears the new Add balls button
 $('#bReturn').addEventListener('click', () => {
   if (M.mode !== 'practice' || state !== 'aim') return;
   for (const b of world.balls) if (b.id && b.potted) { b.potted = false; C.spotBall(world.balls, b); }
   syncBallMeshes(); aimDirty = true; updateHUD(); renderBallPick();
 });
-// "Add balls" (while moving balls in practice): every object ball, lit if it's on the table; tap to add or take off
+// "Add balls" (in Edit table mode, in practice): every object ball, lit if it's on the table; tap to add or take off
 function renderBallPick() {
   const grid = $('#ballGrid'); grid.innerHTML = '';
   for (let id = 1; id <= 15; id++) {
