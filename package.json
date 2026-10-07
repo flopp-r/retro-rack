@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node tools/build.js",
     "test": "node tests/physics.test.js",
+    "test:browser": "node tests/browser/run-all.js",
     "find-demos": "node tools/find-trick-demos.js"
   }
 }
