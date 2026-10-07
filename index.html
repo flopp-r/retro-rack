@@ -234,7 +234,7 @@ input:focus{border-color:var(--chalk)}
     <button class="btn" id="bRerack" title="R">Rerack</button>
     <button class="btn" id="bUndo" title="U">Undo shot</button>
     <button class="btn" id="bHand" aria-pressed="false" title="B">Ball in hand</button>
-    <button class="btn" id="bMove" aria-pressed="false">Move balls</button>
+    <button class="btn" id="bMove" aria-pressed="false">Edit table</button>
     <button class="btn" id="bBalls" aria-pressed="false" hidden>Add balls</button>
     <button class="btn" id="bSave">Save layout</button>
     <div id="trickInfo" class="panel" hidden>
@@ -260,7 +260,7 @@ input:focus{border-color:var(--chalk)}
       <dt>Views</dt><dd><kbd>C</kbd> cue view, <kbd>T</kbd> overhead, <kbd>F</kbd> reset.</dd>
       <dt>Touch</dt><dd>One finger aims. Two fingers orbit and pinch to zoom.</dd>
       <dt>Replay</dt><dd><kbd>V</kbd> or the Replay button watches the last shot again, with slow motion. Orbit the camera while it plays.</dd>
-      <dt>Practice</dt><dd><kbd>R</kbd> rerack, <kbd>U</kbd> undo, <kbd>B</kbd> ball in hand. Move balls lets you drag any ball; Save layout keeps it under Trick shots.</dd>
+      <dt>Practice</dt><dd><kbd>R</kbd> rerack, <kbd>U</kbd> undo, <kbd>B</kbd> ball in hand. Edit table lets you drag any ball and add or remove balls; Save layout keeps it under Trick shots.</dd>
     </dl>
     <p>8-ball: pot your group, then the 8. A scratch, hitting the wrong ball first, or no ball reaching a rail after contact is a foul and gives your opponent ball in hand.</p>
     <p>9-ball: always hit the lowest ball first. Pot the 9 on a legal shot to win.</p>
@@ -1210,7 +1210,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = 'c22e5b21';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '9496b96e';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -2605,13 +2605,13 @@ $('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else st
 $('#bOverReplay').addEventListener('click', startReplay);
 $('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; $('#bSlow').textContent = replay.speed < 1 ? 'Normal speed' : 'Slow motion'; });
 $('#bSkip').addEventListener('click', () => endReplay());
-$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag any ball to move it. Add balls puts more on the table', 'info'); });
+$('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag balls to move them', 'info'); });   // kept short, so on phones it clears the new Add balls button
 $('#bReturn').addEventListener('click', () => {
   if (M.mode !== 'practice' || state !== 'aim') return;
   for (const b of world.balls) if (b.id && b.potted) { b.potted = false; C.spotBall(world.balls, b); }
   syncBallMeshes(); aimDirty = true; updateHUD(); renderBallPick();
 });
-// "Add balls" (while moving balls in practice): every object ball, lit if it's on the table; tap to add or take off
+// "Add balls" (in Edit table mode, in practice): every object ball, lit if it's on the table; tap to add or take off
 function renderBallPick() {
   const grid = $('#ballGrid'); grid.innerHTML = '';
   for (let id = 1; id <= 15; id++) {

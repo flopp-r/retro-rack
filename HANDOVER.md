@@ -155,7 +155,7 @@ Personal working preferences are kept in the Claude Code project's own instructi
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built. Still to do: a "rejoin last game" menu button.
 - **A rules option:** "lose the second visit when on the black", for reds & yellows: built as "On black: One visit".
-- **Adding balls to trick shots:** built ("Add balls" while moving balls).
+- **Adding balls to trick shots:** built ("Add balls", under "Edit table").
 - **Possibly:** a colour-blind-friendly marking option for reds and yellows.
 - **Discussed and set aside:** spectators (needs a lot of relay work), turn timers (annoying between friends) and achievements.
 
