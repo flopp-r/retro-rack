@@ -10,7 +10,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const ctx = await b.newContext({ viewport: { width: 762, height: 341 }, reducedMotion: 'reduce', acceptDownloads: true });
   await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.name', 'Tess');
+    localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.name', 'Tess'); localStorage.setItem('retroRack.locker', JSON.stringify({ v: 1, money: 0 }));
     localStorage.setItem('retroRack.menu', JSON.stringify({ mode: '9ball', opp: 'bot', diff: 'hard', guide: 'auto', race: 0, last: { mode: '9ball', opp: 'bot', diff: 'hard', rack: '8ball', race: 0, guide: 'auto' } })); } });
   const logs = [];
   const open = async () => {
@@ -24,6 +24,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   const fits = async name => { const o = await p.evaluate(() => { const s = document.querySelector('#mStage'); return s.scrollHeight - s.clientHeight; }); ok(o <= 1, `${name} fits a phone on its side without scrolling (${o})`); };
   const st = () => p.evaluate(() => ({ state: __rr.state, car: __rr.CAR.on, wins: [...__rr.matchWins], mode: __rr.M.mode, race: __rr.M.race, guide: __rr.M.guide }));
   const saved = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.career')));
+  const lock = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
   const table = () => p.evaluate(() => JSON.stringify(__rr.world.balls.map(b => [b.id, b.x, b.z, b.potted])));
   // ends the current frame by conceding for the given player, as soon as nothing is moving
   const concede = who => until(() => p.evaluate(w => __rr.state !== 'over' && __rr.concedeFrame(false, w), who));
@@ -39,7 +40,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   ok(await p.textContent('#bCareer') === 'Start career', 'the main button says Start career');
   await p.click('#bCareer'); await sleep(400);
   let c = await saved();
-  ok(c && c.name === 'Tess' && c.look.s === 'cap' && c.look.shirt === '#ff6f8f' && c.guide === 'ghost' && c.money === 0, `career saved with the choices made (${c && JSON.stringify(c.look)}, guide ${c && c.guide})`);
+  ok(c && c.name === 'Tess' && c.look.s === 'cap' && c.look.shirt === '#ff6f8f' && c.guide === 'ghost' && !('money' in c), `career saved with the choices made (${c && JSON.stringify(c.look)}, guide ${c && c.guide})`);
   ok(await p.isVisible('#sc-career'), 'the hub shows'); await fits('Career hub');
   const states = await p.$$eval('.cEvtState', es => es.map(e => e.textContent));
   ok(states.join() === 'Open,Locked,Locked', `first event open, the rest locked (${states})`);
@@ -106,10 +107,12 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
     if (round === 'semi-final') { await p.click('#bAgain'); await sleep(500); }
   }
   const champ = await p.textContent('#overStats');
-  ok(/You win The Red Lion Open! Prize: £100\. The Crown Cup is now open\./.test(champ), `champion: ${champ}`);
+  ok(/You win The Red Lion Open! Prize: £100 and a bronze case\. The Crown Cup is now open\./.test(champ), `champion: ${champ}`);
   await p.click('#bAgain'); await sleep(500);
   c = await saved();
-  ok(c.money === 100 && c.trophies.length === 1 && !c.run && c.done.redlion.won === 1, 'prize £100, one trophy, the event finished');
+  let lk = await lock();
+  ok(lk.money === 100 && c.earned === 100 && c.trophies.length === 1 && !c.run && c.done.redlion.won === 1, 'prize £100 into the locker, one trophy, the event finished');
+  ok(lk.cases.bronze === 3 && lk.meter.bronze === 1, `cases: one for the event, two for the 7 frames won (bronze ${lk.cases.bronze}, meter ${lk.meter.bronze})`);
   ok(await p.$eval('.bName.champ', e => e.textContent) === 'Tess', 'the draw shows you as champion');
   await p.click('#mBack'); await sleep(300);
   ok((await p.$$eval('.cEvtState', es => es.map(e => e.textContent))).join() === 'Won,Open,Locked' && (await p.textContent('.cMeStats')).includes('£100 to spend · 1 trophy'), 'hub: Red Lion won, Crown Cup open, £100 to spend and 1 trophy');
@@ -120,27 +123,27 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   for (let f = 0; f < 2; f++) { ok(await concede(0), `frame ${f + 1} lost`); await overShown(); if (f === 0) { await p.click('#bAgain'); await sleep(1200); } }
   ok(/You win/.test(await p.textContent('#overTitle')) === false && /Out in the quarter-final\. Prize: £20\./.test(await p.textContent('#overStats')), `knocked out: ${await p.textContent('#overStats')}`);
   await p.click('#bAgain'); await sleep(500);
-  c = await saved(); ok(c.money === 120 && !c.run && c.done.crown.best === 0, 'money now £120; best result: quarter-final');
+  c = await saved(); ok((await lock()).money === 120 && !c.run && c.done.crown.best === 0, 'money now £120; best result: quarter-final');
   ok(await p.textContent('#bCareer') === 'Enter again', 'the event can be entered again');
 
   console.log('--- withdrawing');
   await p.click('#bCareer'); await sleep(300); await p.click('#bWithdraw'); await sleep(300);
-  c = await saved(); ok(!c.run && c.money === 140 && /Withdrawn\. Prize: £20\./.test(await p.textContent('#cNote')), 'withdrawing counts as going out, and pays that round\'s prize');
+  c = await saved(); ok(!c.run && (await lock()).money === 140 && /Withdrawn\. Prize: £20\./.test(await p.textContent('#cNote')), 'withdrawing counts as going out, and pays that round\'s prize');
 
   console.log('--- save to file, retire, load from file');
   await p.click('#mBack'); await sleep(300);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#cExport')]);
   const file = shot('career-save.json'); await dl.saveAs(file);
   const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
-  ok(dl.suggestedFilename() === 'retro-rack-career-tess.json' && exported.money === 140 && exported.trophies.length === 1, `saved to ${dl.suggestedFilename()}`);
+  ok(dl.suggestedFilename() === 'retro-rack-career-tess.json' && exported.locker.money === 140 && exported.trophies.length === 1, `saved to ${dl.suggestedFilename()}`);
   await p.click('#cRetire'); await sleep(600);
   ok(await p.isVisible('#sc-cnew') && !(await saved()), 'retired: the career is gone and the new-career form shows');
   await p.click('#bCareer'); await sleep(400);
   await p.setInputFiles('#cFile', file); await sleep(500);
   c = await saved();
-  ok(c.name === 'Tess' && c.money === 140 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
+  ok(c.name === 'Tess' && (await lock()).money === 140 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
   fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await sleep(400);
-  ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await saved()).money === 140, 'a file that is not a career is refused, and nothing changes');
+  ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await lock()).money === 140, 'a file that is not a career is refused, and nothing changes');
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));
   await b.close();

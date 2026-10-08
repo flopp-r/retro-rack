@@ -22,7 +22,7 @@ const pairs = m[1].split(',').map(s => s.trim()).filter(Boolean).map(part => {
 });
 three = three.slice(0, m.index) + 'return Object.freeze({' + pairs.join(',') + '});';
 
-let bundle = 'const THREE = (() => {\n' + three + '\n})();\n' + read('src/core.js') + '\n' + read('src/career.js') + '\n' + read('src/game.js');
+let bundle = 'const THREE = (() => {\n' + three + '\n})();\n' + read('src/core.js') + '\n' + read('src/career.js') + '\n' + read('src/looks.js') + '\n' + read('src/game.js');
 if (bundle.includes('</script')) throw new Error('Bundle contains </script, which would break the page');
 // The version is a fingerprint of the game code: any code change gives a new one, an unchanged rebuild the same.
 // Online players compare versions before a game starts, because both must run identical code.

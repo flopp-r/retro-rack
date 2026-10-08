@@ -51,26 +51,26 @@ test('the same seed always gives the same draw and the same results', () => {
 console.log('\nResults and money');
 test('winning every round: champion, top prize, a trophy, and the next event opens', () => {
   const c = fresh(), r = playEvent(c, 'redlion', 5, [true, true, true]);
-  assert.ok(r.champion && r.prize === 100 && c.money === 100 && c.trophies.length === 1 && !c.run);
+  assert.ok(r.champion && r.prize === 100 && c.earned === 100 && c.trophies.length === 1 && !c.run);
   assert.ok(K.unlocked(c, 'crown') && !K.unlocked(c, 'pubchamp'));
   assert.deepStrictEqual(c.last.res.map(x => x.length), [4, 2, 1]); assert.strictEqual(c.last.res[2][0], 'you');
 });
 test('going out pays that round: semi-final loss in the first event is £25', () => {
   const c = fresh(), r = playEvent(c, 'redlion', 6, [true, false]);
-  assert.ok(!r.won && r.round === 1 && r.prize === 25 && c.money === 25 && c.done.redlion.best === 1 && !K.unlocked(c, 'crown'));
+  assert.ok(!r.won && r.round === 1 && r.prize === 25 && c.earned === 25 && c.done.redlion.best === 1 && !K.unlocked(c, 'crown'));
   assert.strictEqual(c.last.res[2].length, 1, 'the rest of the event is played out');
 });
 test('winning the last event of the tier completes it', () => {
   const c = fresh();
   playEvent(c, 'redlion', 1, [true, true, true]); playEvent(c, 'crown', 2, [true, true, true]);
   const r = playEvent(c, 'pubchamp', 3, [true, true, true]);
-  assert.ok(r.tierDone && K.tierDone(c, 0) && c.money === 700 && c.trophies.length === 3);
+  assert.ok(r.tierDone && K.tierDone(c, 0) && c.earned === 700 && c.trophies.length === 3);
   assert.ok(!playEvent(c, 'pubchamp', 4, [true, true, true]).tierDone, 'only the first win completes the tier');
 });
 test('withdrawing counts as losing the current match', () => {
   const c = fresh(); K.enterEvent(c, 'redlion', 8); K.recordMatch(c, [2, 0]);
   const r = K.withdraw(c);
-  assert.ok(!r.won && r.round === 1 && c.money === 25 && !c.run);
+  assert.ok(!r.won && r.round === 1 && c.earned === 25 && !c.run);
 });
 test('computer players: the stronger wins more often', () => {
   const r = K.rng(42); let w = 0;
@@ -106,20 +106,21 @@ test('opponents play in one tier each, get stronger tier by tier, the bosses are
   }
   assert.ok(K.strength('viktor') < 1819, 'the national champion is below the Hard CPU');
 });
-test('the shop: buying needs the money, takes it, and only once', () => {
-  const c = fresh(); c.money = 300;
-  assert.strictEqual(K.buy(c, 'ice'), 'money');
-  assert.strictEqual(K.buy(c, 'navy'), 'ok'); assert.ok(c.money === 50 && c.bought.includes('navy'));
-  assert.strictEqual(K.buy(c, 'navy'), 'owned'); assert.strictEqual(K.buy(c, 'nothing'), 'unknown');
+test('the shop\'s looks have proper colours and prices (buying them is in tests/looks.test.js)', () => {
+  assert.ok(K.SHOP.every(it => it.price > 0));
   assert.ok(K.SHOP.every(it => (it.kind === 'cloth' && /^#[0-9a-f]{6}$/.test(it.col)) || (it.kind === 'cue' && Object.keys(K.HOUSE_CUE).every(k => /^#[0-9a-f]{6}$/.test(it.col[k])))));
 });
-test('prize money counts towards both what you can spend and what you have won', () => {
-  const c = fresh(); playEvent(c, 'redlion', 5, [true, true, true]); K.buy(c, 'charcoal');
-  assert.ok(c.money === 0 && c.earned === 100);
+test('prize money is counted as won; the career keeps no money of its own (it goes into the locker)', () => {
+  const c = fresh(); playEvent(c, 'redlion', 5, [true, true, true]);
+  assert.ok(c.earned === 100 && !('money' in c) && !('bought' in c));
 });
 test('a save from before the shop loads: everything it had was won', () => {
   const c = K.validate({ v: 1, name: 'Old', money: 300, trophies: [], done: {}, history: [] });
-  assert.ok(c.earned === 300 && Array.isArray(c.bought) && !c.bought.length);
+  assert.ok(c.earned === 300 && c.money === 300 && !('bought' in c));
+});
+test('a save from before the locker keeps its unspent money and bought looks, for the locker to take', () => {
+  const c = K.validate({ v: 1, name: 'Old', money: 250, earned: 900, bought: ['navy', 'nothing', 'navy'], trophies: [], done: {}, history: [] });
+  assert.ok(c.earned === 900 && c.money === 250 && c.bought.join() === 'navy');
 });
 
 console.log('\nSaving and loading');
@@ -133,7 +134,7 @@ test('anything that is not a career is refused', () => {
 });
 test('bad values are cleaned up: look, money, unknown events and a broken run', () => {
   const c = K.validate({ v: 1, name: '<b>Tess</b>', look: { s: 'robot', shirt: 'red' }, money: -5, done: { nowhere: { won: 1 } }, trophies: [{ event: 'nowhere' }], run: { event: 'redlion', slots: ['you'] } });
-  assert.ok(c.name === 'bTess/b' && c.look.s === 'man' && c.look.shirt === '#ffc56b' && c.money === 0 && !c.done.nowhere && !c.trophies.length && c.run === null);
+  assert.ok(c.name === 'bTess/b' && c.look.s === 'man' && c.look.shirt === '#ffc56b' && !('money' in c) && !c.done.nowhere && !c.trophies.length && c.run === null);
 });
 
 console.log('\nOpponents at the table');

@@ -56,9 +56,9 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
   }
 
   console.log('--- changes made mid-game reach the other player');
-  await g.click('#bPause'); await sleep(200); await g.click('#sCue .cueBtn:nth-child(1)'); await g.click('#bResume');
+  await g.click('#bPause'); await sleep(200); await g.click('#sCue .btn:last-child'); await g.click('#bResume');   // Arcade, then round to the house cue
   ok(await until(async () => (await st(h)).peerCue === 'house'), 'the guest switches to the house cue: the host\'s game knows at once');
-  await h.click('#bPause'); await sleep(200); await h.click('#sCloth .swatch:nth-child(1)'); await h.click('#bResume');
+  await h.click('#bPause'); await sleep(200); await h.click('#sCloth .btn:last-child'); await h.click('#bResume');   // Navy, then round to Teal
   ok(await until(async () => (await look(g)).cloth === 'teal' && (await look(h)).cloth === 'teal'), 'the host changes the cloth to Teal: both tables follow');
 
   console.log('--- nonsense from the other side is ignored');
@@ -66,8 +66,16 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
   await sleep(800);
   ok((await st(g)).peerCue === 'house' && (await look(g)).cloth === 'tan', 'an unknown cue becomes the house cue; an unknown cloth leaves the guest on their own');
 
+  console.log('--- the day\'s first online win');
+  await until(async () => ['aim', 'remote'].includes((await st(h)).state) && ['aim', 'remote'].includes((await st(g)).state));
+  await h.click('#bPause'); await sleep(200); await h.click('#bConcede');   // the host gives the frame to the guest
+  ok(await until(() => g.isVisible('#over')), 'the guest wins the frame');
+  const gl = await g.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
+  ok(/Your first online win today: £30 and a gold case!/.test(await g.textContent('#overEarn')) && gl.cases.gold === 1 && gl.money === 70, `it pays: "${await g.textContent('#overEarn')}"`);
+  ok(await h.textContent('#overEarn') === '', 'the host, who lost, gets nothing');
+
   console.log('--- afterwards');
-  await g.click('#bPause'); await g.click('#bQuit'); await sleep(600);
+  await g.click('#bOverMenu'); await sleep(600);
   ok((await look(g)).cloth === 'tan', "after leaving, the guest's own cloth is back");
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));

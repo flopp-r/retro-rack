@@ -68,7 +68,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
 /* career: the new-career form, the hub (you and your events) and an event (the draw and your next opponent) */
-.portrait{image-rendering:pixelated;flex:none}
+.portrait,.shopSw{image-rendering:pixelated;flex:none}
 #cName{width:200px}
 .cStyleBtn{padding:4px 6px;line-height:0}.cStyleBtn[aria-pressed="true"]{border-color:var(--lamp);background:var(--plum2)}
 .cCols{gap:6px;align-items:center}.cCols .swatches{gap:5px;margin-right:10px}.cCols .swatch{width:24px;height:24px}.cColLbl{font-size:18px;opacity:.8}
@@ -83,8 +83,25 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .shopItem:hover{background:var(--plum2)}.shopItem[aria-pressed="true"]{border-color:var(--lamp)}
 .shopItem>img,.shopItem>.shopSw{grid-row:1 / span 2}.shopSw{width:30px;height:30px;border:3px solid var(--ink)}
 .shopName{font-family:'Press Start 2P',monospace;font-size:9px}.shopState{font-size:18px;color:var(--lamp)}
-#shopNote{grid-column:auto;margin:8px 0 0}#shopNote:empty{display:none}
-.cueBtn{padding:6px 8px;line-height:0}.cueBtn[aria-pressed="true"]{border-color:var(--lamp);background:var(--plum2)}
+.shopName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.shopItem.locked{opacity:.62}.shopItem.locked:hover{opacity:.85}
+/* the locker: cases, then pages of looks */
+.lockTop{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-bottom:8px}.lockTop .cInfo{margin:0;flex:1 1 auto}
+#lockBody.shopGrid{margin-top:0;grid-template-columns:repeat(4,minmax(0,1fr))}
+.caseGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.caseCard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;text-align:center;background:var(--plum);border:3px solid var(--ink);box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
+.caseName{font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.3}.caseN{font-size:18px;color:var(--lamp)}.caseOdds{font-size:15px;line-height:1;opacity:.8}
+.caseBtns{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:auto}.caseBtns .btn{font-size:8px;padding:6px 7px}.caseBtns .btn.dim{opacity:.5}
+.lockFoot{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:17px}.lockFoot>span:first-child{margin-right:auto;opacity:.85}.lockFoot .btn{font-size:9px;padding:5px 9px}
+#lockNote{grid-column:auto;margin:6px 0 0}#lockNote:empty{display:none}
+.picker{align-items:center;flex-wrap:nowrap}.pickCur{display:inline-flex;align-items:center;gap:8px;min-width:170px;font-size:19px}.pickCur .shopSw{width:22px;height:22px;border-width:2px}
+/* opening a case: a reel of the case's items glides past a marker and stops on the prize */
+.reelPanel{width:min(560px,94vw);text-align:center;padding:16px 18px}
+#reelWin{position:relative;overflow:hidden;height:72px;margin:10px 0;border:3px solid var(--ink);background:#0d0a1c;cursor:pointer}
+#reelStrip{display:flex;gap:6px;padding:6px 0;will-change:transform}
+.reelTile{flex:none;width:58px;height:54px;display:flex;align-items:center;justify-content:center;background:var(--plum);border:3px solid}
+.reelTile.won{background:var(--plum2);outline:3px solid var(--lamp)}
+.reelMark{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--lamp);box-shadow:0 0 6px var(--lamp)}
+#reelTxt{min-height:1.3em;margin:0 0 6px;font-size:20px}.reelRarity{font-family:'Press Start 2P',monospace;font-size:10px}
 .cTier{font-size:19px;color:var(--lamp);margin:0}
 .cEvt{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;text-align:left;padding:7px 11px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
 .cEvt:hover:not([aria-disabled="true"]){background:var(--plum2);border-color:var(--lamp)}
@@ -109,7 +126,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cOppTxt{grid-column:1 / -1;opacity:.9}
 @media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
-@media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}}   /* narrow upright phones: labels above, so the buttons wrap less */
+@media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}#lockBody.shopGrid,.caseGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
   #menu{padding:2vh 3vw}
@@ -125,6 +142,10 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   .cEvtState{grid-row:1;grid-column:3}.cEvtTxt{grid-row:1;grid-column:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cColLbl{font-size:16px}
   .cInfo{font-size:16px;margin-bottom:4px}.bracket{font-size:15px;gap:3px}.cOpp{font-size:16px}.cOppName{font-size:8px}
   .cTiers{margin-bottom:5px}.shopGrid{gap:5px;margin-top:6px;grid-template-columns:repeat(4,minmax(0,1fr))}.shopItem{padding:4px 7px}.shopName{font-size:8px}.shopState{font-size:16px}.shopSw{width:24px;height:24px}
+  .lockTop{margin-bottom:5px}.lockTop .cInfo{font-size:16px}.shopItem>img.portrait{max-height:24px;width:auto}.caseGrid{gap:5px}.caseCard{padding:4px 4px;gap:2px}
+  .caseCard>img{width:36px;height:28px}.caseName{font-size:8px}.caseN{font-size:16px}.caseOdds{font-size:14px}.caseBtns .btn{padding:5px 5px}
+  .lockFoot{margin-top:5px;font-size:15px}.lockFoot .btn{padding:4px 8px}#lockNote{margin-top:3px;font-size:16px}
+  #reelWin{height:64px;margin:6px 0}.reelTile{width:52px;height:48px}.reelPanel{padding:10px 14px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -192,6 +213,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #overTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:26px;color:var(--lamp);margin:0 0 14px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--ink)}
 #overWhy{font-size:24px;margin:0 0 6px}
 #overStats{font-size:20px;opacity:.8;margin:0}
+#overEarn{font-size:20px;color:var(--lamp);margin:6px 0 0}#overEarn:empty{display:none}
 
 /* phones: narrow screens, and short ones such as a phone on its side */
 @media (max-width:760px),(max-height:500px){
@@ -332,6 +354,7 @@ input:focus{border-color:var(--chalk)}
         <div class="cards">
           <button class="card" type="button" data-go="single" data-art="single"><span class="cardName">Single player</span><span class="cardTxt">Computer or practice</span></button>
           <button class="card" type="button" data-go="multi" data-art="multi"><span class="cardName">Multiplayer</span><span class="cardTxt">Online or same device</span></button>
+          <button class="card" type="button" data-go="locker" data-art="locker"><span class="cardName">Locker</span><span class="cardTxt" id="lockerTxt">Cases and looks</span></button>
         </div>
         <p id="ver"></p>
       </section>
@@ -349,16 +372,16 @@ input:focus{border-color:var(--chalk)}
         <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="cGuide"></div><div class="note" id="cGuideTxt"></div></div>
       </section>
       <section class="mScreen" id="sc-career" data-title="Career" hidden>
-        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cShop" type="button">Shop</button><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
+        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cShop" type="button">Locker</button><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
         <div class="seg cTiers" id="cTiers"></div>
         <div class="cEvents" id="cEvents"></div>
         <div class="note" id="cNote" role="status"></div>
       </section>
-      <section class="mScreen" id="sc-cshop" data-title="Shop" hidden>
-        <p class="cInfo" id="shopMoney"></p>
-        <div class="seg" id="shopTabs"></div>
-        <div class="shopGrid" id="shopGrid"></div>
-        <div class="note" id="shopNote" role="status"></div>
+      <section class="mScreen" id="sc-locker" data-title="Locker" hidden>
+        <div class="lockTop"><p class="cInfo" id="lockMoney"></p><div class="seg" id="lockTabs"></div></div>
+        <div id="lockBody"></div>
+        <div class="lockFoot" id="lockPages"></div>
+        <div class="note" id="lockNote" role="status"></div>
       </section>
       <section class="mScreen" id="sc-cevent" hidden>
         <p class="cInfo" id="cInfo"></p>
@@ -420,9 +443,19 @@ input:focus{border-color:var(--chalk)}
     <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
     <div class="row"><div class="lbl">Sound</div><div class="seg" id="sVolume"></div></div>
     <div class="row" id="rowVibrate"><div class="lbl">Vibration</div><div class="seg"><button class="btn" id="sVibrate"></button></div><div class="note">A short buzz when you pot a ball, a longer one on a foul.</div></div>
-    <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
-    <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg" id="sCue"></div></div>
+    <div class="row"><div class="lbl">Cloth</div><div class="seg picker" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
+    <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg picker" id="sCue"></div></div>
+    <div class="row"><div class="lbl">Gloves</div><div class="seg picker" id="sGlove"></div></div>
     <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
+  </div>
+</div>
+
+<div id="reel" class="overlay" hidden>
+  <div class="panel reelPanel" role="dialog" aria-labelledby="reelTitle">
+    <h2 id="reelTitle"></h2>
+    <div id="reelWin"><div id="reelStrip"></div><div class="reelMark"></div></div>
+    <p id="reelTxt" role="status"></p>
+    <div class="actions" id="reelBtns" hidden><button class="btn" id="bReelUse" type="button">Use it</button><button class="btn" id="bReelAgain" type="button">Open another</button><button class="btn" id="bReelDone" type="button">Done</button></div>
   </div>
 </div>
 
@@ -460,6 +493,7 @@ input:focus{border-color:var(--chalk)}
     <h2 id="overTitle"></h2>
     <p id="overWhy"></p>
     <p id="overStats"></p>
+    <p id="overEarn"></p>
     <div class="actions"><button class="btn" id="bAgain">Play again</button><button class="btn" id="bOverReplay">Watch replay</button><button class="btn" id="bOverMenu">Main menu</button></div>
   </div>
 </div>
