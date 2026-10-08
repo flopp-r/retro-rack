@@ -7,17 +7,17 @@ const CAREER = ((C) => {
 
 // The computer players met on the tour. look: pixel portrait (sprite style, skin, hair, shirt; game.js draws it).
 // base: the CPU level they start from; cfg overrides it (fields as in DIFF in core.js), and nerves multiplies their
-// execution error when they're on the final ball; cue: the cue design they use (see SHOP). rating: strength on an
-// Elo-style scale where the Medium CPU is 1500 in the same game, measured by playing 80 frames each (100 for a few)
-// against the Medium CPU in their tier's game with tools/sim-career.js (about ±45). Ratings settle the matches between computer
-// players in a draw, and give the stars shown on screen.
+// execution error when they're on the final ball; cue: the cue design they use (see SHOP); glove: their gloves, if
+// any (looks.js). rating: strength on an Elo-style scale where the Medium CPU is 1500 in the same game, measured by
+// playing 80 frames each (100 for a few) against the Medium CPU in their tier's game with tools/sim-career.js (about
+// ±45). Ratings settle the matches between computer players in a draw, and give the stars shown on screen.
 const OPPONENTS = {
   dave:    { name: 'Dodgy Dave', full: 'Dave Pike', look: { s: 'cap', skin: '#e8b88f', hair: '#3b2a1a', shirt: '#7a8b3a' },
     blurb: 'Hits everything hard and hopes.', base: 'easy', cfg: { aimSd: 1.5, powSd: 0.18, brk: 0.95 }, rating: 1245 },
   maureen: { name: 'Maureen', full: 'Maureen Jolly', look: { s: 'long', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#b04a7a' },
     blurb: 'Deadly from close range. Long pots, less so.', base: 'easy', cfg: { aimSd: 0.85, powSd: 0.1, long: 0.9, pickTop: 2 }, rating: 1310 },
   mick:    { name: 'Big Mick', full: 'Mick Malone', look: { s: 'bald', skin: '#c98e62', hair: '#3b2a1a', shirt: '#c0392b' },
-    blurb: 'Big break, big shots, no safety game.', base: 'medium', cfg: { aimSd: 0.95, powSd: 0.12, variants: [[1.6, 0, 0], [2.3, 0, 0.3]], brk: 1, brkSpin: 0 }, rating: 1270 },
+    blurb: 'Big break, big shots, no safety game.', base: 'medium', cfg: { aimSd: 0.95, powSd: 0.12, variants: [[1.6, 0, 0], [2.3, 0, 0.3]], brk: 1, brkSpin: 0 }, rating: 1270, glove: 'g-boxing' },
   kev:     { name: 'Kev', full: 'Kev Kissick', look: { s: 'man', skin: '#f2c49b', hair: '#b5432a', shirt: '#e0a526' },
     blurb: 'Never plays the same shot twice. Neither does the cue ball.', base: 'medium', cfg: { aimSd: 0.8, pickTop: 3 }, rating: 1330 },
   gaz:     { name: 'Gaz', full: 'Gaz Pritchard', look: { s: 'man', skin: '#e8b88f', hair: '#d9a441', shirt: '#2f6db5' },
@@ -29,10 +29,10 @@ const OPPONENTS = {
   shona:   { name: 'Shona', full: 'Shona McLeod', look: { s: 'long', skin: '#f6d2b4', hair: '#b5432a', shirt: '#e0a526' },
     blurb: 'A natural potter, long or short.', base: 'medium', cfg: { aimSd: 0.5, pos: 0.5 }, rating: 1515 },
   ray:     { name: 'The Landlord', full: 'Ray Doyle', look: { s: 'beard', skin: '#d9a07a', hair: '#4a4a4a', shirt: '#5a2d1b' },
-    blurb: 'Pub champion nine years running. Rarely misses, but feels the pressure.', base: 'hard', cfg: { aimSd: 0.4, powSd: 0.06, robust: 1, bih: 4, nerves: 1.8 }, rating: 1560, cue: 'ash' },
+    blurb: 'Pub champion nine years running. Rarely misses, but feels the pressure.', base: 'hard', cfg: { aimSd: 0.4, powSd: 0.06, robust: 1, bih: 4, nerves: 1.8 }, rating: 1560, cue: 'ash', glove: 'g-leather' },
   // the club circuit (8-ball)
   perry:   { name: 'Posh Perry', full: 'Peregrine Hale', look: { s: 'glasses', skin: '#f6d2b4', hair: '#d9a441', shirt: '#1e3263' },
-    blurb: 'Plays in a waistcoat. Plays it safe.', base: 'medium', cfg: { aimSd: 0.65, safety: true, potMin: 60 }, rating: 1465 },
+    blurb: 'Plays in a waistcoat. Plays it safe.', base: 'medium', cfg: { aimSd: 0.65, safety: true, potMin: 60 }, rating: 1465, glove: 'g-driving' },
   bev:     { name: 'Bev', full: 'Bev Okafor', look: { s: 'long', skin: '#6b4429', hair: '#1a1206', shirt: '#e0a526' },
     blurb: 'Club secretary. Knows every roll of these cushions.', base: 'medium', cfg: { aimSd: 0.6, pos: 0.6 }, rating: 1500 },
   danny:   { name: 'The Kid', full: 'Danny Reyes', look: { s: 'cap', skin: '#c98e62', hair: '#1a1206', shirt: '#ff6f8f' },
@@ -46,9 +46,9 @@ const OPPONENTS = {
   aisha:   { name: 'Aisha', full: 'Aisha Bello', look: { s: 'long', skin: '#a8714a', hair: '#1a1206', shirt: '#1d8a74' },
     blurb: 'A smooth stroke and a calm head.', base: 'medium', cfg: { aimSd: 0.5, pos: 0.7 }, rating: 1610 },
   frank:   { name: 'Fingers', full: 'Frank Dolan', look: { s: 'man', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#86263f' },
-    blurb: 'A master of spin. Screw, stun and side on every shot.', base: 'medium', cfg: { aimSd: 0.5, refine: 2, variants: [[1.3, 0, 0], [1.9, 0, 0.3], [1.7, 0, -0.5], [1.7, 0.4, 0]] }, rating: 1500, cue: 'racing' },
+    blurb: 'A master of spin. Screw, stun and side on every shot.', base: 'medium', cfg: { aimSd: 0.5, refine: 2, variants: [[1.3, 0, 0], [1.9, 0, 0.3], [1.7, 0, -0.5], [1.7, 0.4, 0]] }, rating: 1500, cue: 'racing', glove: 'g-bones' },
   duchess: { name: 'The Duchess', full: 'Victoria Lane', look: { s: 'long', skin: '#f6d2b4', hair: '#c9c3bd', shirt: '#56399a' },
-    blurb: 'Club champion. Expects to win, and usually does.', base: 'hard', cfg: { aimSd: 0.38, robust: 1, bih: 4, nerves: 1.4 }, rating: 1625, cue: 'gold' },
+    blurb: 'Club champion. Expects to win, and usually does.', base: 'hard', cfg: { aimSd: 0.38, robust: 1, bih: 4, nerves: 1.4 }, rating: 1625, cue: 'gold', glove: 'g-golf' },
   // the hall circuit (8-ball)
   marco:   { name: 'Marco', full: 'Marco Bianchi', look: { s: 'man', skin: '#d9a07a', hair: '#1a1206', shirt: '#c0392b' },
     blurb: 'Hustles the tourists. You are not a tourist.', base: 'medium', cfg: { aimSd: 0.5, pickTop: 2 }, rating: 1610 },
@@ -59,15 +59,15 @@ const OPPONENTS = {
   sunil:   { name: 'Sunil', full: 'Sunil Rao', look: { s: 'glasses', skin: '#a8714a', hair: '#1a1206', shirt: '#2f6db5' },
     blurb: 'Never out of position.', base: 'hard', cfg: { aimSd: 0.45, pos: 1.2, robust: 0 }, rating: 1625 },
   smokey:  { name: 'Smokey Joe', full: 'Joe Kirby', look: { s: 'beard', skin: '#e8b88f', hair: '#8a8a8a', shirt: '#2d2344' },
-    blurb: 'Plays the percentages. Leaves you nothing.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 70, robust: 1 }, rating: 1635 },
+    blurb: 'Plays the percentages. Leaves you nothing.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 70, robust: 1 }, rating: 1635, glove: 'g-biker' },
   rosa:    { name: 'Rosa', full: 'Rosa Delgado', look: { s: 'long', skin: '#c98e62', hair: '#3b2a1a', shirt: '#ff6f8f' },
     blurb: 'Fearless long potter.', base: 'hard', cfg: { aimSd: 0.38, robust: 0 }, rating: 1590 },
   ivan:    { name: 'Ivan', full: 'Ivan Petrov', look: { s: 'man', skin: '#f6d2b4', hair: '#d9a441', shirt: '#141018' },
     blurb: 'Silent. Relentless.', base: 'hard', cfg: { aimSd: 0.45, robust: 0 }, rating: 1625 },
   kaz:     { name: 'Kaz', full: 'Kaz Nakamura', look: { s: 'glasses', skin: '#f2d0a4', hair: '#1a1206', shirt: '#5a2d1b' },
-    blurb: 'A safety specialist. Patience is the whole game.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 80, robust: 1 }, rating: 1680 },
+    blurb: 'A safety specialist. Patience is the whole game.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 80, robust: 1 }, rating: 1680, glove: 'g-robot' },
   professor: { name: 'The Professor', full: 'Alan Whitby', look: { s: 'beard', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#5a2d1b' },
-    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1705, cue: 'ebony' },
+    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1705, cue: 'ebony', glove: 'g-royal' },
   // the national tour (9-ball)
   callum:  { name: 'Callum', full: 'Callum Fraser', look: { s: 'man', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1e3263' },
     blurb: 'A big break and a bigger grin.', base: 'hard', cfg: { aimSd: 0.42, robust: 0, brk: 1, brkSpin: 0 }, rating: 1590 },
@@ -84,14 +84,15 @@ const OPPONENTS = {
   devm:    { name: 'Dev', full: 'Dev Mistry', look: { s: 'glasses', skin: '#a8714a', hair: '#1a1206', shirt: '#56399a' },
     blurb: 'Quiet, quick and deadly accurate.', base: 'hard', cfg: { aimSd: 0.3, robust: 1 }, rating: 1635, cue: 'arcade' },
   erin:    { name: 'Erin', full: 'Erin Gallagher', look: { s: 'long', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1d8a74' },
-    blurb: 'Last year\'s runner-up, and hungry.', base: 'hard', cfg: { aimSd: 0.28, robust: 2 }, rating: 1610, cue: 'racing' },
+    blurb: 'Last year\'s runner-up, and hungry.', base: 'hard', cfg: { aimSd: 0.28, robust: 2 }, rating: 1610, cue: 'racing', glove: 'g-racing' },
   viktor:  { name: 'The Metronome', full: 'Viktor Strand', look: { s: 'bald', skin: '#f2c49b', hair: '#3b2a1a', shirt: '#141018' },
-    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.22, robust: 3, nerves: 1.25 }, rating: 1655, cue: 'champion' },
+    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.22, robust: 3, nerves: 1.25 }, rating: 1655, cue: 'champion', glove: 'g-carbon' },
 };
 
-// The shop: looks bought with prize money. Cloths and cues only, so the balls always stay easy to read. Bought looks
-// work in every game (game.js keeps them in its settings, S.owned); online, both players see each other's cue and the
-// host's cloth. Cue colours: shaft, joint, forearm, wrap, butt sleeve and the inlay points.
+// The shop: looks bought outright with money from the locker (see looks.js, which also holds the looks that come in
+// cases). Cloths and cues only, so the balls always stay easy to read. Owned looks work in every game; online, both
+// players see each other's cue and the host's cloth. Cue colours: shaft, joint, forearm, wrap, butt sleeve and the
+// inlay points.
 const HOUSE_CUE = { shaft: '#e3c68f', joint: '#cfd0dc', fore: '#5a2d1b', wrap: '#2d2344', butt: '#a03d2a', inlay: '#ffc56b' };
 const SHOP = [
   { id: 'charcoal', kind: 'cloth', name: 'Charcoal', price: 100, col: '#3d434c' },
@@ -109,15 +110,6 @@ const SHOP = [
 const ITEMS = Object.fromEntries(SHOP.map(it => [it.id, it]));
 // is id one of obj's own entries? (plain lookups would also find built-in names such as "__proto__")
 const has = (obj, id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(obj, id);
-// buys a look with the career's money: 'ok', or why not ('owned', 'money', 'unknown')
-function buy(career, id) {
-  if (!has(ITEMS, id)) return 'unknown';
-  const it = ITEMS[id];
-  if (career.bought.includes(id)) return 'owned';
-  if (career.money < it.price) return 'money';
-  career.money -= it.price; career.bought.push(id);
-  return 'ok';
-}
 
 // The tour, tier by tier. Each event is an 8-player knockout: you and seven of the tier's players. races: frames
 // needed to win the quarter-final, semi-final and final. prize: money for going out in each of those rounds, then
@@ -165,8 +157,8 @@ const tierOf = id => TIERS.findIndex(t => t.events.some(e => e.field.includes(id
 const nameOf = (career, id) => id === YOU ? career.name : OPPONENTS[id].name;
 
 function newCareer({ name, look, guide }, now) {
-  return { v: 1, name: cleanName(name), look: cleanLook(look), guide: GUIDES.includes(guide) ? guide : 'line', created: now, money: 0, earned: 0,
-    bought: [], trophies: [], done: {}, history: [], run: null, last: null };
+  return { v: 1, name: cleanName(name), look: cleanLook(look), guide: GUIDES.includes(guide) ? guide : 'line', created: now, earned: 0,
+    trophies: [], done: {}, history: [], run: null, last: null };
 }
 const GUIDES = ['full', 'line', 'ghost', 'min'];
 const cleanName = s => String(s || '').replace(/[<>]/g, '').trim().slice(0, 14) || 'You';
@@ -228,7 +220,7 @@ function recordMatch(career, wins) {
   for (let rd = round + 1; rd < ROUNDS.length; rd++) playRound(run, rd, null);
   out.prize = e.prize[won ? ROUNDS.length : round];
   out.champion = won;
-  career.money += out.prize; career.earned += out.prize;
+  career.earned += out.prize;   // the money itself goes into the locker (game.js)
   const d = career.done[e.id] = career.done[e.id] || { played: 0, won: 0, best: -1 };
   d.played++; if (won) d.won++; d.best = Math.max(d.best, won ? ROUNDS.length : round);
   if (won) { career.trophies.push({ event: e.id }); out.tierDone = e.index === TIERS[e.tier].events.length - 1 && d.won === 1; }
@@ -262,9 +254,12 @@ function validate(c) {
   if (!c || typeof c !== 'object' || c.v !== 1 || typeof c.name !== 'string') return null;
   const num = (v, d = 0) => Number.isFinite(v) ? v : d;
   const out = newCareer({ name: c.name, look: c.look, guide: c.guide }, num(c.created));
-  out.money = Math.max(0, Math.round(num(c.money)));
-  out.earned = Math.max(out.money, Math.round(num(c.earned, out.money)));   // saves from before the shop: all of it was won
-  out.bought = Array.isArray(c.bought) ? [...new Set(c.bought.filter(id => has(ITEMS, id)))] : [];
+  // saves from before the locker kept unspent prize money (money) and the looks bought (bought); game.js moves both
+  // into the locker. Saves from before the shop had no earned: all of their money was won.
+  const left = Math.max(0, Math.round(num(c.money)));
+  out.earned = Math.max(left, Math.round(num(c.earned, left)));
+  if (left) out.money = left;
+  if (Array.isArray(c.bought)) out.bought = [...new Set(c.bought.filter(id => has(ITEMS, id)))];
   out.trophies = Array.isArray(c.trophies) ? c.trophies.filter(t => t && has(EVENTS, t.event)).map(t => ({ event: t.event })) : [];
   for (const [k, d] of Object.entries(c.done && typeof c.done === 'object' ? c.done : {}))
     if (has(EVENTS, k) && d) out.done[k] = { played: Math.max(0, num(d.played) | 0), won: Math.max(0, num(d.won) | 0), best: num(d.best, -1) | 0 };
@@ -282,6 +277,6 @@ function validate(c) {
 }
 
 return { OPPONENTS, TIERS, EVENTS, ROUNDS, YOU, SHOP, ITEMS, HOUSE_CUE, has, rng, stars, strength, tierOf, nameOf, newCareer, unlocked, tierDone, enterEvent, entrants,
-  recordMatch, withdraw, onFinalBall, profileFor, validate, simMatch, buy };
+  recordMatch, withdraw, onFinalBall, profileFor, validate, simMatch };
 })(typeof CORE !== 'undefined' ? CORE : require('./core.js'));
 if (typeof module !== 'undefined') module.exports = CAREER;

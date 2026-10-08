@@ -12,7 +12,7 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', owned: [], markers: true, vibrate: true };
+const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true };
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
@@ -22,12 +22,8 @@ try {
 } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
-// looks from the career shop: every game can use the ones bought on this device (S.owned); the rest stay hidden
-for (const it of CAREER.SHOP) if (it.kind === 'cloth') CLOTHS[it.id] = [it.col, it.name];
-const owns = id => id === 'house' || (CAREER.has(CLOTHS, id) && !CAREER.has(CAREER.ITEMS, id)) || S.owned.includes(id);
-S.owned = Array.isArray(S.owned) ? S.owned.filter(id => CAREER.has(CAREER.ITEMS, id)) : [];
-if (!owns(S.cloth) || !CAREER.has(CLOTHS, S.cloth)) S.cloth = 'teal';
-if (!owns(S.cue) || !(S.cue === 'house' || CAREER.ITEMS[S.cue].kind === 'cue')) S.cue = 'house';
+// the cloths from the shop and from cases (see looks.js); every game can use the ones owned on this device
+for (const it of Object.values(LOOKS.ALL)) if (it.kind === 'cloth') CLOTHS[it.id] = [it.col, it.name];
 const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
 const saveM = () => { if (CAR.on) return; try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
@@ -35,9 +31,56 @@ const saveM = () => { if (CAR.on) return; try { localStorage.setItem('retroRack.
 const K = CAREER;
 const CAR = { data: null, on: false, opp: null, stash: null, result: null, view: null };
 try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') || 'null')); } catch (e) {}
+// the locker (src/looks.js): the money, unopened cases and looks owned on this device. Every change reads the stored
+// copy, makes the change and writes it straight back, so two open pages never undo each other's changes.
+const LK = LOOKS;
+let LOCK = LK.newLocker(), DEV = false;   // DEV: dev mode's test locker in use (see "dev mode")
+const lockKey = () => DEV ? 'retroRack.lockerDev' : 'retroRack.locker';
+const lockerRead = () => { try { const raw = localStorage.getItem(lockKey()); return raw ? LK.validateLocker(JSON.parse(raw)) : null; } catch (e) { return null; } };
+function lockerEdit(fn) {
+  const l = lockerRead() || LOCK, r = fn(l); LOCK = l;
+  try { localStorage.setItem(lockKey(), JSON.stringify(l)); } catch (e) {}
+  return r;
+}
+LOCK = lockerRead() || LOCK;
+const addOwned = (l, ids) => { for (const id of Array.isArray(ids) ? ids : []) if (K.has(LK.ALL, id) && !LK.owns(l, id)) l.owned.push(id); };
+// looks bought before the locker were kept in the settings (owned), and a career kept its unspent prize money: both move in
+if (S.owned || !lockerRead()) { lockerEdit(l => addOwned(l, S.owned)); delete S.owned; saveS(); }
+if (CAR.data && (CAR.data.money || CAR.data.bought)) {
+  const { money = 0, bought } = CAR.data; lockerEdit(l => { l.money += money; addOwned(l, bought); });
+  delete CAR.data.money; delete CAR.data.bought; try { localStorage.setItem('retroRack.career', JSON.stringify(CAR.data)); } catch (e) {}
+}
+// Dev mode, for trying every look without unlocking them: typing the dev word as your name on the Online screen
+// switches it on or off (see the online section), leaving your name as it was. Only a fingerprint of the word is kept
+// here, because the repository is public. While it's on, the locker is a separate test locker with everything owned,
+// £100,000 and 50 of each case; the real locker is left alone and comes back when it's switched off.
+const DEVW = { print: 'f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc48e6ee5' };
+function devLocker() {
+  const l = LK.newLocker(); l.money = 100000; l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
+  for (const g of LK.GRADE_IDS) l.cases[g] = 50;
+  try { localStorage.setItem('retroRack.lockerDev', JSON.stringify(l)); } catch (e) {}
+  return l;
+}
+try { DEV = localStorage.getItem('retroRack.dev') === '1'; } catch (e) {}
+if (DEV) LOCK = lockerRead() || devLocker();
+addEventListener('storage', e => {   // another open page changed the locker, or dev mode
+  if (e.key === 'retroRack.dev') { DEV = e.newValue === '1'; LOCK = lockerRead() || (DEV ? devLocker() : LK.newLocker()); checkLooks(); }
+  else if (e.key !== lockKey()) return;
+  else LOCK = lockerRead() || LOCK;
+  if (state === 'menu') refreshMenus();
+});
+const owns = id => (K.has(CLOTHS, id) && !K.has(LK.ALL, id)) || LK.owns(LOCK, id);
+const kindOf = id => K.has(LK.ALL, id) ? LK.ALL[id].kind : '';
+// the looks in use must be owned (after dev mode, say), else back to the free ones
+function checkLooks() {
+  if (!owns(S.cloth) || !K.has(CLOTHS, S.cloth)) S.cloth = 'teal';
+  if (!owns(S.cue) || !(S.cue === 'house' || kindOf(S.cue) === 'cue')) S.cue = 'house';
+  if (!owns(S.glove) || !(S.glove === 'none' || kindOf(S.glove) === 'glove')) S.glove = 'none';
+}
+checkLooks();
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
   guide: 'ghost', retry: 0, timer: 0, queue: [], pendingSync: {}, again: [false, false], games: 0, started: false,
-  lastAim: 0, aimSig: '', aimT: null, stateAfter: false, cloth: null, peerCue: 'house' };
+  lastAim: 0, aimSig: '', aimT: null, stateAfter: false, cloth: null, peerCue: 'house', peerGlove: 'none' };
 
 function guideLevel() {
   if (NET.on) return NET.guide;
@@ -249,9 +292,62 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawNeon);
 // ------------------------------------------------------------------ table
 const clothMat = new THREE.MeshLambertMaterial({ color: '#1d8a74' });
 const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
+// A patterned cloth (looks.js) is drawn onto the bed as a texture, metre for metre; a plain one is just a colour. The
+// bed's texture coordinates are its x and z in metres, so repeat and offset map the whole bed onto the picture once.
+let clothTex = null;
 function setCloth() {
-  const c = new THREE.Color((CLOTHS[NET.on && NET.cloth ? NET.cloth : S.cloth] || CLOTHS.teal)[0]);
-  clothMat.color.copy(c); cushMat.color.copy(c).multiplyScalar(0.84);
+  const id = NET.on && NET.cloth ? NET.cloth : S.cloth, base = (CLOTHS[id] || CLOTHS.teal)[0], it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : null;
+  const key = it ? id + T.key : '';
+  if (clothTex && clothTex.userData.key !== key) { clothTex.dispose(); clothTex = null; }
+  if (it && !clothTex) {
+    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = 300;
+    clothTex = canvasTex(Math.round(ex * ppm), Math.round(ez * ppm), (g, w, h) => drawPattern(g, it, w, h, ppm));
+    clothTex.repeat.set(1 / ex, 1 / ez); clothTex.offset.set(0.5, 0.5); clothTex.userData.key = key;
+    clothTex.minFilter = THREE.LinearMipmapLinearFilter; clothTex.generateMipmaps = true;   // no shimmer at a distance
+  }
+  if (clothMat.map !== clothTex) { clothMat.map = clothTex; clothMat.needsUpdate = true; }
+  clothMat.color.set(clothTex ? '#ffffff' : base); cushMat.color.set(base).multiplyScalar(0.84);
+}
+// draws a cloth's pattern over its colour; m is pixels per metre, so the patterns keep their real size
+function drawPattern(g, it, w, h, m) {
+  const r = K.rng(7), c2 = it.col2, lw = v => { g.lineWidth = Math.max(1, v * m); };
+  g.fillStyle = it.col; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = c2; g.beginPath();
+  const poly = pts => pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+  if (it.pat === 'pin') for (let y = 0; y < h; y += 0.07 * m) g.fillRect(0, y, w, Math.max(1, 0.005 * m));
+  else if (it.pat === 'dots') { const s = 0.09 * m; for (let y = 0, row = 0; y < h + s; y += s / 2, row++) for (let x = row % 2 * s / 2; x < w + s; x += s) { g.moveTo(x + 0.012 * m, y); g.arc(x, y, 0.012 * m, 0, 7); } g.fill(); }
+  else if (it.pat === 'herring') { const s = 0.05 * m; lw(0.008); for (let y = 0; y < h + s; y += s) for (let x = 0; x < w + s; x += 2 * s) poly([[x, y], [x + s, y + s * 0.6], [x + 2 * s, y]]); g.stroke(); }
+  else if (it.pat === 'diamond') { const s = 0.16 * m; lw(0.006); for (let k = -h; k < w + h; k += s) { poly([[k, 0], [k + h, h]]); poly([[k + h, 0], [k, h]]); } g.stroke(); }
+  else if (it.pat === 'wave') { const s = 0.1 * m; lw(0.008); for (let y = 0; y < h + s; y += s) for (let x = 0; x <= w; x += 3) { const yy = y + Math.sin(x / (0.16 * m) * 2 * Math.PI) * 0.02 * m; if (x) g.lineTo(x, yy); else g.moveTo(x, yy); } g.stroke(); }
+  else if (it.pat === 'tartan') {
+    const s = 0.3 * m; g.globalAlpha = 0.6; for (let x = 0; x < w; x += s) g.fillRect(x, 0, 0.1 * m, h); for (let y = 0; y < h; y += s) g.fillRect(0, y, w, 0.1 * m);
+    g.globalAlpha = 1; for (let x = 0.2 * m; x < w; x += s) g.fillRect(x, 0, Math.max(1, 0.008 * m), h); for (let y = 0.2 * m; y < h; y += s) g.fillRect(0, y, w, Math.max(1, 0.008 * m));
+  } else if (it.pat === 'hex') {
+    const s = 0.06 * m, hh = s * Math.sqrt(3); lw(0.005);
+    for (let row = 0, y = 0; y < h + hh; y += hh / 2, row++) for (let x = row % 2 * 1.5 * s; x < w + 3 * s; x += 3 * s) poly([0, 1, 2, 3, 4, 5, 6].map(i => [x + s * Math.cos(i * Math.PI / 3), y + s * Math.sin(i * Math.PI / 3)]));
+    g.stroke();
+  } else if (it.pat === 'stars') for (let i = 0; i < w * h / (m * m) * 60; i++) { const x = r() * w, y = r() * h, z = (r() < 0.15 ? 0.008 : 0.004) * m; g.fillRect(x - z, y - z / 3, 2 * z, z * 2 / 3); g.fillRect(x - z / 3, y - z, z * 2 / 3, 2 * z); }
+  else if (it.pat === 'circuit') {
+    const q = 0.04 * m; lw(0.006);
+    for (let i = 0; i < w * h / (m * m) * 14; i++) {
+      let x = Math.round(r() * w / q) * q, y = Math.round(r() * h / q) * q; g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 3; k++) { if (r() < 0.5) x += (r() < 0.5 ? -2 : 2) * q; else y += (r() < 0.5 ? -2 : 2) * q; g.lineTo(x, y); }
+      g.stroke(); g.fillRect(x - 0.01 * m, y - 0.01 * m, 0.02 * m, 0.02 * m);
+    }
+  } else if (it.pat === 'crown') {   // one large crown in a ring, in the middle of the bed
+    const x = w / 2, y = h / 2, s = Math.min(0.22 * m, h / 5); lw(0.012);
+    poly([[x - s, y + s * 0.5], [x - s, y - s * 0.45], [x - s * 0.5, y], [x, y - s * 0.65], [x + s * 0.5, y], [x + s, y - s * 0.45], [x + s, y + s * 0.5]]); g.closePath();
+    g.moveTo(x + s * 1.7, y); g.arc(x, y, s * 1.7, 0, 7); g.stroke();
+  } else if (it.pat === 'galaxy') {
+    for (let i = 0; i < 9; i++) {
+      const x = r() * w, y = r() * h, rad = (0.15 + r() * 0.3) * m, gr = g.createRadialGradient(x, y, 0, x, y, rad);
+      gr.addColorStop(0, c2); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 0.7; g.fillStyle = gr; g.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
+    }
+    g.globalAlpha = 1; g.fillStyle = '#c9c3ff'; for (let i = 0; i < w * h / (m * m) * 80; i++) { const z = Math.max(1, (r() < 0.1 ? 0.006 : 0.003) * m); g.fillRect(r() * w, r() * h, z, z); }
+  } else if (it.pat === 'synth') {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, it.col); gr.addColorStop(0.5, c2); gr.addColorStop(1, it.col); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ff4fa3'; g.globalAlpha = 0.45; for (let x = 0; x < w; x += 0.15 * m) g.fillRect(x, 0, Math.max(1, 0.005 * m), h); for (let y = 0; y < h; y += 0.15 * m) g.fillRect(0, y, w, Math.max(1, 0.005 * m));
+    g.globalAlpha = 1;
+  }
 }
 const RAIL_TOP = 0.045, CUSH_TOP = 0.041;
 let tableGroup = new THREE.Group(), LAMP = []; scene.add(tableGroup);
@@ -370,8 +466,44 @@ for (let id = 0; id <= 15; id++) { const k = new THREE.Sprite(markMat); k.visibl
 // design (the house cue, or one from the career shop, see CUE_COLS); applyCue() repaints them.
 const cueMesh = new THREE.Group(), CUE_MAT = {};
 let cueNow = 'house';
-const cueCols = id => CAREER.has(CAREER.ITEMS, id) && CAREER.ITEMS[id].kind === 'cue' ? CAREER.ITEMS[id].col : CAREER.HOUSE_CUE;
-function applyCue(id) { cueNow = id; const c = cueCols(id); for (const k in CUE_MAT) CUE_MAT[k].color.set(c[k]); }
+const cueCols = id => kindOf(id) === 'cue' ? LK.ALL[id].col : CAREER.HOUSE_CUE;
+// A design with a pattern (looks.js: pat in colour pc) has it drawn round the forearm: u runs round the cue, v along it
+// from the butt end (the bottom of the picture) towards the tip. Effects: glow lights the pattern up, neon pulses it
+// between two colours, rainbow runs the forearm and butt through the colours (cueFx, every frame).
+const CUE_TEX = {};
+function cuePattern(it, mask) {
+  return canvasTex(32, 128, (g, W, H) => {
+    const r = K.rng(3); g.fillStyle = mask ? '#000000' : it.col.fore; g.fillRect(0, 0, W, H); g.fillStyle = mask ? '#ffffff' : it.pc;
+    const poly = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); };
+    if (it.pat === 'spiral') for (let y = -W; y < H + W; y += 16) poly([[0, y], [W, y + W], [W, y + W + 7], [0, y + 7]]);
+    else if (it.pat === 'check') for (let y = 0; y < H; y += 8) for (let x = y / 8 % 2 * 8; x < W; x += 16) g.fillRect(x, y, 8, 8);
+    else if (it.pat === 'flame') for (let x = -4; x < W; x += 8) { const h = 50 + r() * 50; poly([[x, H], [x + 4, H - h * 0.55], [x + 2, H - h], [x + 8, H - h * 0.5], [x + 12, H]]); }
+    else if (it.pat === 'carbon') for (let y = 0; y < H; y += 4) for (let x = (y / 4 % 2) * 4; x < W; x += 8) g.fillRect(x, y, 4, 2);
+    else if (it.pat === 'tiger') for (let y = 6; y < H; y += 14 + r() * 8) poly([[0, y], [W * (0.5 + r() * 0.4), y + 3 + r() * 4], [0, y + 5], [W, y + 8], [W * (0.4 + r() * 0.3), y + 4]]);
+    else if (it.pat === 'zigzag') for (let y = 8; y < H; y += 20) for (let x = 0; x < W; x += 8) poly([[x, y], [x + 4, y - 5], [x + 8, y], [x + 8, y + 3], [x + 4, y - 2], [x, y + 3]]);
+    else if (it.pat === 'camo') for (let i = 0; i < 26; i++) { g.beginPath(); g.ellipse(r() * W, r() * H, 3 + r() * 5, 4 + r() * 8, r() * 3, 0, 7); g.fill(); }
+    else if (it.pat === 'bolt') for (let y = 4; y < H; y += 24) for (const x of [0, 16]) poly([[x + 1, y], [x + 14, y + 7], [x + 8, y + 9], [x + 16, y + 20], [x + 2, y + 11], [x + 7, y + 9]]);
+    else if (it.pat === 'scales') for (let y = 0; y < H + 8; y += 6) for (let x = y / 6 % 2 * 4; x < W + 8; x += 8) { g.beginPath(); g.arc(x, y, 4, 0, Math.PI); g.lineWidth = 1.5; g.strokeStyle = g.fillStyle; g.stroke(); }
+    else if (it.pat === 'crystal') for (let y = -W; y < H; y += 22) { poly([[0, y], [W, y + 18], [W, y + 20], [0, y + 2]]); poly([[W, y + 6], [0, y + 20], [0, y + 21], [W, y + 7]]); }
+    else if (it.pat === 'stars') for (let i = 0; i < 30; i++) { const x = r() * W, y = r() * H; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); }
+    else if (it.pat === 'rings') for (let y = 4; y < H; y += 18) g.fillRect(0, y, W, 4);
+  });
+}
+function applyCue(id) {
+  cueNow = id; const c = cueCols(id), it = kindOf(id) === 'cue' ? LK.ALL[id] : {};
+  for (const k in CUE_MAT) { CUE_MAT[k].color.set(c[k]); if (CUE_MAT[k].emissive) CUE_MAT[k].emissive.set('#000000'); }
+  if (it.pat && !CUE_TEX[id]) CUE_TEX[id] = [cuePattern(it, false), it.fx ? cuePattern(it, true) : null];
+  const [map, glow] = it.pat ? CUE_TEX[id] : [null, null], f = CUE_MAT.fore;
+  if (f.map !== map || f.emissiveMap !== glow) { f.map = map; f.emissiveMap = glow; f.needsUpdate = true; }
+  if (map) f.color.set('#ffffff');
+}
+function cueFx(now) {
+  const it = kindOf(cueNow) === 'cue' ? LK.ALL[cueNow] : null; if (!it || !it.fx) return;
+  const t = reduceMotion ? 0 : now / 1000, f = CUE_MAT.fore;
+  if (it.fx === 'rainbow') { f.color.setHSL(t * 0.12 % 1, 0.85, 0.55); CUE_MAT.butt.color.setHSL((t * 0.12 + 0.5) % 1, 0.85, 0.55); }
+  else if (it.fx === 'neon') f.emissive.set(it.pc).lerp(new THREE.Color(it.col.joint), 0.5 + 0.5 * Math.sin(t * 2.2));
+  else f.emissive.set(it.pc).multiplyScalar(0.7 + 0.3 * Math.sin(t * 2.6));
+}
 {
   const H = CAREER.HOUSE_CUE, parts = [
     [0.010, 0.0062, 0.0062, '#3d78e0'], [0.022, 0.0063, 0.0063, '#f1ead2'], [0.68, 0.0064, 0.0098, H.shaft, 'shaft'],
@@ -393,7 +525,7 @@ function applyCue(id) { cueNow = id; const c = cueCols(id); for (const k in CUE_
 let tableBuilt = false;
 function applyTable(key) {
   if (tableBuilt && T.key === key) return false;
-  C.setTable(key); R = P.R; rebuildTable(); tableBuilt = true;
+  C.setTable(key); R = P.R; rebuildTable(); tableBuilt = true; if (clothTex) setCloth();   // a pattern is drawn to the table's size
   const uk = key === 'uk7', k = R / R_US;
   for (let id = 0; id <= 15; id++) { BM[id].scale.setScalar(k); SH[id].scale.setScalar(k); BM[id].material.map = ballTex(id, uk); BM[id].material.needsUpdate = true; }
   return true;
@@ -409,6 +541,186 @@ const matchDone = () => raceTo() > 0 && Math.max(...matchWins) >= raceTo();
 const tableKeyFor = () => (M.mode === 'uk8' || (M.mode === 'practice' && M.rack === 'uk')) ? 'uk7' : 'us9';
 applyTable('us9');
 const qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vY = new THREE.Vector3(0, 1, 0), vZ = new THREE.Vector3(0, 0, 1);
+
+// ------------------------------------------------------------------ gloves
+// Floating gloves play the shot: one grips the back of the cue (a child of the cue, so it strokes with it) and one
+// makes the bridge on the cloth behind the cue ball, the cue resting between thumb and fingers. A third pops up for a
+// moment after a shot: a thumbs-up for a pot, a shrug for a foul, a fist pump for winning the frame. Each is built
+// from rounded parts as the design's glove type (looks.js: style), in its colours.
+// Whose gloves are at the table follows the cue (gloveFor); 'none' shows none.
+const gripGlove = new THREE.Group(), bridgeGlove = new THREE.Group(), cheerGlove = new THREE.Group();
+const GLM = {}, CHM = {}, GLOVE_KEYS = ['base', 'accent', 'cuff', 'skin', 'tip'];
+for (const k of GLOVE_KEYS) { GLM[k] = new THREE.MeshLambertMaterial(); CHM[k] = new THREE.MeshLambertMaterial(); }
+let gloveNow = null, cheerNow = null, tapFinger = null;
+const CHEER = { kind: '', t0: 0, x: 0, z: 0 };
+// The glove types, built onto the hand below. panel: a slim padded panel on the back of the hand (cuff colour); bar: a
+// low bar across the knuckles; knuckles: a small guard on each knuckle; guards: a pad on each finger; tab: a strap tab
+// on the cuff (all in the accent colour); cuffL: the cuff's length; tips: the fingers' second sections bare; wraps:
+// cloth bands round the palm with the fingers bare. The novelties: ball (a boxing glove), claw (three jointed metal
+// fingers with lit tips), bones (a skeleton hand).
+const STYLE = {
+  sport: { panel: 1, bar: 1, tab: 1 }, driver: { tab: 1 }, tactical: { panel: 1, knuckles: 1, cuffL: 0.03 }, moto: { panel: 1, knuckles: 1, guards: 1, tab: 1 },
+  fingerless: { tab: 1, tips: 1 }, wraps: { wraps: 1, cuffL: 0.022 }, boxing: { ball: 1, cuffL: 0.034 }, claw: { claw: 1 }, bones: { bones: 1 },
+};
+// The hand, built from rounded parts. It's a left hand in its own frame: the wrist at the origin, the fingers along +x
+// from the knuckles, the back of the hand up (+y), the thumb on +z. Each finger and the thumb is two jointed sections
+// ending in a rounded stub; a pose bends the joints. The cue hand is the same hand mirrored (a right hand).
+const FINGER = [   // knuckle position, section lengths, thickness, and how far each fans out
+  { at: [0.086, 0.002, 0.026], len: [0.039, 0.023], r: 0.0082, fan: -0.06 },
+  { at: [0.09, 0.003, 0.0085], len: [0.044, 0.027], r: 0.0085, fan: 0 },
+  { at: [0.087, 0.002, -0.009], len: [0.041, 0.025], r: 0.008, fan: 0.06 },
+  { at: [0.079, 0, -0.025], len: [0.031, 0.019], r: 0.007, fan: 0.14 },
+];
+const THUMB = { at: [0.016, -0.006, 0.024], len: [0.04, 0.031], r: 0.0105 };
+// poses: the bend of each finger's joints (negative curls towards the palm), how widely the fingers spread, and the
+// thumb's turn out (ty), lift (tz) and bend
+const HAND_POSE = {
+  bridge: { bend: [[-0.42, -0.35], [-0.46, -0.35], [-0.46, -0.35], [-0.42, -0.35]], spread: 1.9, ty: -0.3, tz: 0.75, tb: [-0.05] },
+  grip: { bend: [[-1.15, -1.35], [-1.2, -1.4], [-1.25, -1.4], [-1.3, -1.4]], spread: 0.4, ty: -1.1, tz: -0.3, tb: [-0.6] },
+  fist: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: 0.5, tz: -0.75, tb: [-0.6] },
+  thumb: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: -1.45, tz: 0.1, tb: [0.05] },
+  open: { bend: [[-0.15, -0.1], [-0.1, -0.1], [-0.15, -0.1], [-0.2, -0.1]], spread: 1.4, ty: -0.7, tz: 0, tb: [-0.1] },
+};
+const capsuleX = (r, len) => { const g = new THREE.CapsuleGeometry(r, Math.max(0.0001, len - 2 * r), 3, 8); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0); return g; };
+function handBuild(parent, it, st, M, pose) {
+  const P = HAND_POSE[pose], hand = new THREE.Group(); parent.add(hand);
+  const mesh = (geo, mat, g = hand) => { const m = new THREE.Mesh(geo, M[mat]); g.add(m); return m; };
+  const blob = (sx, sy, sz, mat, x, y, z, ry = 0, g = hand) => { const m = mesh(new THREE.SphereGeometry(1, 14, 10), mat, g); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = ry; return m; };
+  const ball = (r, mat, g, x = 0) => { const m = mesh(new THREE.SphereGeometry(r, 8, 6), mat, g); m.position.x = x; return m; };
+  const across = (r, len, mat, x, y, z) => { const m = mesh(capsuleX(r, len), mat); m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m; };   // along -z from z
+  // the cuff round the wrist (along -x), in the design's cuff colour
+  const L = st.cuffL || 0.016, cg = new THREE.CylinderGeometry(st.ball ? 0.031 : 0.027, 0.025, L, 14); cg.rotateZ(Math.PI / 2);
+  const cuff = mesh(cg, 'cuff'); cuff.position.x = 0.008 - L / 2; cuff.scale.set(1, 0.78, 1.12);
+  if (st.ball) {   // a boxing glove: one padded fist, the thumb along its side
+    blob(0.058, 0.031, 0.043, 'base', 0.054, 0.004, 0); blob(0.034, 0.015, 0.013, 'base', 0.046, -0.006, 0.039, -0.25);
+    return { hand, fingers: [], thumb: [] };
+  }
+  if (st.bones) {   // no palm: the small bones of the wrist, then one long bone out to each knuckle
+    blob(0.013, 0.007, 0.021, 'base', 0.012, 0, 0);
+    for (const f of FINGER) {
+      const z0 = f.at[2] * 0.55, b = new THREE.Group(); b.position.set(0.016, 0, z0); b.rotation.y = Math.atan2(z0 - f.at[2], f.at[0] - 0.016); hand.add(b);
+      mesh(capsuleX(0.0032, Math.hypot(f.at[0] - 0.016, f.at[2] - z0)), 'base', b);
+    }
+  } else {
+    blob(0.047, 0.0155, 0.041, 'base', 0.047, 0, 0);                  // the palm
+    blob(0.027, 0.0135, 0.017, 'base', 0.03, -0.003, 0.021, -0.5);    // the ball of the thumb
+  }
+  if (st.panel) blob(0.031, 0.0042, 0.017, 'cuff', 0.042, 0.0128, 0.002);
+  if (st.bar) across(0.0038, 0.058, 'accent', 0.084, 0.0085, 0.029);
+  if (st.tab) across(0.003, 0.022, 'accent', 0, 0.0185, 0.011);
+  if (st.wraps) for (const x of [0.03, 0.063]) {   // the edges of the wrapping, as thin rings hugging the palm
+    const k = Math.sqrt(1 - ((x - 0.047) / 0.047) ** 2) * 1.05, g = new THREE.TorusGeometry(1, 0.075, 5, 18); g.rotateY(Math.PI / 2);
+    const m = mesh(g, 'accent'); m.position.x = x; m.scale.set(0.003, 0.0155 * k, 0.041 * k);
+  }
+  // a jointed chain of sections: each joint is a group turned by the pose, each section a capsule along its +x; jr adds a
+  // ball at each joint, tip a lit ball at the end
+  const chain = (at, len, r, bends, mats, jr = 0, tip = 0) => {
+    let g = new THREE.Group(); g.position.set(...at); hand.add(g); const joints = [];
+    len.forEach((l, i) => {
+      g.rotation.z = bends[i]; joints.push(g);
+      const ri = r * (1 - i * 0.08); mesh(capsuleX(ri, l), mats[i], g); if (jr) ball(jr, 'accent', g);
+      if (i < len.length - 1) { const n = new THREE.Group(); n.position.x = l - ri * 0.4; g.add(n); g = n; }
+      else if (tip) ball(tip, 'tip', g, l - ri);
+    });
+    return joints;
+  };
+  const bare = st.wraps ? ['skin', 'skin'] : st.tips ? ['base', 'skin'] : ['base', 'base'];
+  const which = st.claw ? [0, 1, 3] : [0, 1, 2, 3], fr = st.bones ? () => 0.0034 : st.claw ? f => f.r * 1.2 : f => f.r;
+  const fingers = which.map((fi, i) => {
+    const f = FINGER[fi], j = chain(f.at, f.len, fr(f), P.bend[fi], bare, st.bones ? 0.0052 : st.claw ? fr(f) * 1.08 : 0, st.claw ? fr(f) * 0.85 : 0);
+    j[0].rotation.y = (st.claw ? [-0.12, 0, 0.16][i] : f.fan) * P.spread;
+    if (st.knuckles) blob(0.0068, 0.0034, 0.0072, 'accent', f.at[0] - 0.003, f.at[1] + 0.0082, f.at[2]);
+    if (st.guards) blob(f.len[0] * 0.3, 0.0028, f.r * 0.8, 'accent', f.len[0] * 0.5, f.r * 0.92, 0, 0, j[0]);
+    return j;
+  });
+  const thumb = chain(THUMB.at, THUMB.len, st.bones ? 0.0038 : THUMB.r * (st.claw ? 1.1 : 1), [P.tz, ...P.tb], st.wraps ? ['base', 'skin'] : bare, st.bones ? 0.0055 : 0);
+  thumb[0].rotation.y = P.ty; thumb[0].rotation.order = 'YZX';
+  return { hand, fingers, thumb };
+}
+// turns a group so its +x, +y and +z point along a, b and c
+const orient = (g, a, b, c) => g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...a), new THREE.Vector3(...b), new THREE.Vector3(...c)));
+function gloveBuild(root, it, kind, M) {
+  root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); root.clear();
+  const st = STYLE[it.style] || STYLE.sport, g = new THREE.Group(); root.add(g); tapFinger = null;
+  if (kind === 'bridge') {   // an open bridge: heel of the hand and fingertips on the cloth, knuckles up, the cue in the V of the thumb
+    const r = handBuild(g, it, st, M, 'bridge'); r.hand.position.set(-0.115, 0.016, -0.03); r.hand.rotation.z = 0.3;
+    const f = r.fingers[r.fingers.length - 1]; if (f) { tapFinger = f[0]; tapFinger.userData.bend = tapFinger.rotation.z; }
+  } else if (kind === 'grip') {   // the cue hand: hanging from the wrist, fingers wrapped round the cue near its butt
+    g.position.set(-1.2, 0, 0); const m = new THREE.Group(); m.scale.z = -1; g.add(m);   // mirrored: a right hand
+    const r = handBuild(m, it, st, M, 'grip');
+    orient(r.hand, [0, -1, 0], [0, 0, -1], [1, 0, 0]);   // fingers down, back of the hand outwards, thumb towards the tip
+    r.hand.position.set(0, 0.105, -0.022);
+  } else {   // the reaction hand, facing the camera (+z): a thumbs-up, a fist pump and a shrug
+    const mk = (pose, a, b, c) => { const p = new THREE.Group(); g.add(p); const r = handBuild(p, it, st, M, pose); orient(r.hand, a, b, c); r.hand.position.set(0, -0.05, 0); return p; };
+    const thumb = mk('thumb', [1, 0, 0], [0, 0, -1], [0, 1, 0]), pump = mk('fist', [1, 0, 0], [0, 0, -1], [0, 1, 0]), shrug = mk('open', [0, 0, 1], [0, -1, 0], [1, 0, 0]);
+    for (const p of [thumb, pump]) p.children[0].position.set(-0.045, -0.02, 0);
+    shrug.children[0].position.set(0, 0, -0.06); shrug.rotation.x = 0.3;
+    g.scale.setScalar(1.25); CHEER.poses = { thumb, pump, shrug };
+  }
+}
+// colours and effects: a design's base, accent and cuff (skin for fingerless gloves, tip for claws), a little of their
+// own colour in the shadows so the near faces never go grey, and a glow for the designs that have one
+function gloveColours(M, it) {
+  const glow = it.fx ? it.fxc : null;
+  for (const k of GLOVE_KEYS) {
+    const col = k === 'skin' ? it.skin || it.base : k === 'tip' ? it.fxc || it.accent : it[k];
+    M[k].color.set(col); M[k].emissive.set(col).multiplyScalar(0.3);
+    if (glow && (k === 'accent' || k === 'tip')) M[k].emissive.set(glow);
+    M[k].transparent = it.fx === 'ghost'; M[k].opacity = it.fx === 'ghost' ? 0.6 : 1; M[k].needsUpdate = true;
+  }
+}
+function applyGlove(id) {
+  gloveNow = id; const it = kindOf(id) === 'glove' ? LK.ALL[id] : null;
+  gripGlove.visible = bridgeGlove.visible = !!it; if (!it) return;
+  gloveBuild(gripGlove, it, 'grip', GLM); gloveBuild(bridgeGlove, it, 'bridge', GLM); gloveColours(GLM, it);
+}
+cueMesh.add(gripGlove); scene.add(bridgeGlove, cheerGlove); applyGlove('none'); cheerGlove.visible = false;
+// whose gloves are at the table: the same rules as the cue (cueFor)
+function gloveFor(pl) {
+  if (NET.on) return pl === NET.seat ? S.glove : NET.peerGlove;
+  if (M.opp === 'bot' && M.mode !== 'practice' && pl === 1) return CAR.on ? K.OPPONENTS[CAR.opp].glove || 'none' : 'none';
+  return S.glove;
+}
+// the glow effects: a slow pulse, a flame's flicker, a ghost's fading in and out
+function gloveFx(M, it, t) {
+  if (!it.fx) return;
+  const c = new THREE.Color(it.fxc), k = it.fx === 'flicker' ? 0.55 + 0.3 * Math.sin(t * 23) * Math.sin(t * 7.3) : 0.75 + 0.25 * Math.sin(t * 2.4);
+  M.accent.emissive.copy(c).multiplyScalar(k); M.tip.emissive.copy(c).multiplyScalar(k);
+  if (it.fx !== 'glow') M.base.emissive.set(it.base).multiplyScalar(0.3).lerp(c, 0.35 * k);
+  if (it.fx === 'ghost') for (const key of GLOVE_KEYS) M[key].opacity = 0.45 + 0.2 * Math.sin(t * 1.8);
+}
+const vG = new THREE.Vector3();
+// places the bridge hand behind the cue ball (on the rail if the cloth runs out), hides the cue hand when the camera
+// is right on top of it, and plays the small movements: a fingertip drumming while you line up, the reactions
+function updateGloves(show, now) {
+  const want = gloveFor(game.turn); if (want !== gloveNow) applyGlove(want);
+  const t = reduceMotion ? 0 : now / 1000, it = kindOf(gloveNow) === 'glove' ? LK.ALL[gloveNow] : null;
+  updateCheer(now);
+  if (!it) return;
+  bridgeGlove.visible = show; gloveFx(GLM, it, t); if (!show) return;
+  const cue = world.balls[0], dx = Math.cos(aim.phi), dz = Math.sin(aim.phi);
+  const bx = cue.x - dx * 0.25, bz = cue.z - dz * 0.25, off = Math.abs(bx) > T.hl || Math.abs(bz) > T.hw;
+  bridgeGlove.position.set(bx, off ? RAIL_TOP : 0, bz); bridgeGlove.rotation.y = -aim.phi;
+  if (tapFinger) tapFinger.rotation.z = tapFinger.userData.bend + (state === 'aim' ? Math.max(0, Math.sin(t * 3.2)) * 0.35 * (Math.sin(t * 0.9) > 0.4 ? 1 : 0) : 0);
+  gripGlove.children[0].position.y = state === 'aim' ? Math.sin(t * 1.7) * 0.0025 : 0;
+  gripGlove.getWorldPosition(vG); gripGlove.visible = vG.distanceTo(camera.position) > 0.3;
+}
+// a reaction after a shot, by the shooter's glove: 'thumb' (potted), 'pump' (won the frame) or 'shrug' (fouled),
+// floating above the cue ball for a moment and facing the camera. Off when the device asks for less motion.
+function cheer(kind, player) {
+  const id = gloveFor(player); if (reduceMotion || kindOf(id) !== 'glove' || replay) return;
+  const it = LK.ALL[id]; if (cheerNow !== id) { cheerNow = id; gloveBuild(cheerGlove, it, 'cheer', CHM); gloveColours(CHM, it); }
+  const cue = world.balls[0]; Object.assign(CHEER, { kind, t0: performance.now(), x: cue.x, z: cue.z, it });
+}
+function updateCheer(now) {
+  const u = (now - CHEER.t0) / 1400; cheerGlove.visible = !!CHEER.kind && u < 1 && !paused;
+  if (!cheerGlove.visible) { CHEER.kind = ''; return; }
+  const P = CHEER.poses; for (const k in P) P[k].visible = k === CHEER.kind;
+  const pop = Math.min(1, u * 7, (1 - u) * 6), t = (now - CHEER.t0) / 1000;
+  cheerGlove.scale.setScalar(pop); cheerGlove.position.set(CHEER.x, 0.09 + u * 0.03 + (CHEER.kind === 'pump' ? Math.abs(Math.sin(t * 9)) * 0.03 : 0), CHEER.z);
+  cheerGlove.rotation.set(0, Math.atan2(camera.position.x - CHEER.x, camera.position.z - CHEER.z), CHEER.kind === 'shrug' ? Math.sin(t * 10) * 0.3 : CHEER.kind === 'thumb' ? Math.sin(t * 6) * 0.12 : 0);
+  gloveFx(CHM, CHEER.it, t);
+}
 
 // ------------------------------------------------------------------ guide lines
 function mkLine(color, max = 800, loop = false) {
@@ -470,7 +782,7 @@ function sfx(kind, v = 1) {
 
 // ------------------------------------------------------------------ game state
 let world = C.makeWorld(C.rack8()), game = C.newGame('8ball');
-let state = 'menu', paused = false;
+let state = 'menu', paused = false, EARN = null;
 const aim = { phi: 0, power: 0.35, sx: 0, sy: 0 };
 let shotBefore = null, undoStack = [], shots = [0, 0], matchWins = [0, 0], breaker = 0, potAnims = [], acc = 0;
 let lastShot = null, replay = null, EDIT = false, touchTurn = { dir: 0, t: 0 }, remoteStrike = null, movingT = 0, aimDirty = true, lastPreview = 0, stroke = null, bot = null, botAim = null, lastRes = null;
@@ -529,6 +841,7 @@ function startGame(rematch, rerack = false, resume = null) {
 }
 
 function beginTurn() {
+  EARN = null;
   world.rec = C.newRec();
   aim.sx = 0; aim.sy = 0;
   if (!game.breakShot) aim.power = Math.min(aim.power, 0.5);
@@ -572,12 +885,15 @@ function endShot() {
   syncBallMeshes();
   const wasBreak = game.breakShot, hadVisits = game.visits || 1;
   game = C.nextGame(game, res, pl, world.balls);
+  if (game.over) cheer(game.winner === pl ? 'pump' : 'shrug', pl);
+  else if (res.foul) cheer('shrug', pl);
+  else if (res.keepTurn && world.rec.pots.some(id => id !== 0)) cheer('thumb', pl);
   if (res.foul) { toast(`Foul: ${res.reason}`, 'foul'); sfx('foul'); if (NET.on ? pl === NET.seat : !isBot(pl)) buzz([70, 60, 70]); }
   if (res.assign) toast(`${pname(res.assign.player)} ${isYou(res.assign.player) ? 'are' : 'is'} ${C.groupName(M.mode, res.assign.group)}`, 'good');
   res.msgs.forEach(m => toast(m, 'info'));
   if (game.over) {
     matchWins[game.winner]++; state = 'over'; updateHUD();
-    if (CAR.on) careerFrameOver();
+    frameEarn(); if (CAR.on) careerFrameOver();
     setTimeout(() => showOver(res, pl), 700);
     if (NET.on) netAfterShot(pl);
     return;
@@ -612,6 +928,23 @@ function trickResult(res) {
 function matchText() {
   return NET.on ? `you ${matchWins[NET.seat]}, ${NET.peerName} ${matchWins[1 - NET.seat]}` : `${pname(0)} ${matchWins[0]}, ${pname(1)} ${matchWins[1]}`;
 }
+// What a finished frame earns (looks.js): against the computer, money and a frame towards a case of the level's grade;
+// in the career, a frame towards the tier's case; online, the day's first win. Practice and same-device games earn
+// nothing. EARN keeps it for the result screen.
+const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function frameEarn() {
+  const w = game.winner; EARN = null;
+  if (NET.on) { if (w === NET.seat) EARN = lockerEdit(l => LK.onlineWon(l, localDay())); }
+  else if (M.opp === 'bot' && M.mode !== 'practice' && w === 0)
+    EARN = lockerEdit(l => CAR.on ? LK.careerFrameWon(l, K.EVENTS[CAR.view].tier) : LK.cpuFrameWon(l, M.diff));
+  if (EARN && EARN.grade) toast(`${LK.GRADES[EARN.grade].name} earned: open it in the Locker`, 'good');
+}
+function earnText(e) {
+  if (!e) return '';
+  const pay = e.pay ? `You earn ${money(e.pay)}` : '', got = e.grade ? `${pay ? ' and' : 'You earn'} a ${LK.GRADES[e.grade].name.toLowerCase()}!` : '';
+  if (NET.on) return `Your first online win today: ${money(e.pay)} and a ${LK.GRADES[e.grade].name.toLowerCase()}!`;
+  return got ? pay + got : `${pay}${pay ? '. ' : ''}${LK.GRADES[e.meter.grade].name}: ${e.meter.n} of ${LK.METER} frames.`;
+}
 function showOver(res, shooter) {
   const w = game.winner;
   const rt = raceTo(), done = matchDone(), what = rt ? (done ? ' the match' : ' the frame') : '';
@@ -627,6 +960,7 @@ function showOver(res, shooter) {
   else $('#bAgain').textContent = done ? (CAR.on ? 'Continue' : 'New match') : rt ? 'Next frame' : 'Play again';
   $('#bOverMenu').textContent = CAR.on ? 'Save and quit' : 'Main menu'; $('#bOverMenu').hidden = CAR.on && done;
   if (CAR.on && done) $('#overStats').textContent += ' ' + careerResultText();
+  $('#overEarn').textContent = earnText(EARN);
   if (NET.on ? w === NET.seat : (M.opp !== 'bot' || w === 0)) sfx('win'); else sfx('foul');
   $('#bAgain').focus();
 }
@@ -775,8 +1109,9 @@ function cueFor(pl) {
 function updateCue(dt) {
   const cue = world.balls[0];
   const show = (state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
-  cueMesh.visible = show; if (!show) return;
+  cueMesh.visible = show; updateGloves(show, performance.now()); if (!show) return;
   const want = cueFor(game.turn); if (want !== cueNow) applyCue(want);
+  cueFx(performance.now());
   const gap = state === 'stroke' ? strokeGap(dt) : idleGap();
   if (state === 'moving') return;
   const phi = aim.phi, dx = Math.cos(phi), dz = Math.sin(phi), sx = -dz, sz = dx;
@@ -1006,6 +1341,7 @@ addEventListener('keydown', e => {
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(k)) e.preventDefault();
   if (k === 'Escape') {
     if (!$('#help').hidden) { $('#help').hidden = true; return; }
+    if (!$('#reel').hidden) { closeReel(); return; }
     if (paused) { togglePause(false); return; }
     if (state === 'menu') { menuBack(); return; }
     if (state !== 'over') togglePause(true);
@@ -1203,26 +1539,6 @@ function segControl(el, opts, get, set) {
     el.appendChild(b);
   }
 }
-function swatches(el) {
-  el.innerHTML = '';
-  for (const [k, [hex, name]] of Object.entries(CLOTHS)) {
-    if (!owns(k)) continue;
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.style.background = hex; b.title = name; b.setAttribute('aria-label', name + ' cloth');
-    b.setAttribute('aria-pressed', String(S.cloth === k));
-    b.addEventListener('click', () => { S.cloth = k; saveS(); applyLook(); sendLook(); sfx('ui'); refreshMenus(); });
-    el.appendChild(b);
-  }
-}
-function cueButtons(el) {
-  el.innerHTML = '';
-  for (const id of ['house', ...K.SHOP.filter(it => it.kind === 'cue' && owns(it.id)).map(it => it.id)]) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn cueBtn'; b.append(cueImg(id, 64));
-    const name = id === 'house' ? 'House cue' : K.ITEMS[id].name; b.title = name; b.setAttribute('aria-label', name);
-    b.setAttribute('aria-pressed', String(S.cue === id));
-    b.addEventListener('click', () => { S.cue = id; saveS(); sendLook(); sfx('ui'); refreshMenus(); });
-    el.appendChild(b);
-  }
-}
 const DIFF_TXT = { easy: 'Misses often.', medium: 'Steady, some position play.', hard: 'Plays position and safeties.', expert: 'Near-flawless.' };
 const GUIDE_TXT = { full: 'Predicted paths for both balls.', line: 'Ghost ball and object-ball line.', ghost: 'Ghost ball only.', min: 'Short cue line only.' };
 const MODE_TXT = { '8ball': 'Solids and stripes, 9 ft', '9ball': 'Lowest ball first, 9 ft', uk8: 'Pub rules, 7 ft', practice: 'Free play' };
@@ -1298,6 +1614,7 @@ addEventListener('popstate', () => {
   if (NAV.skipPop) { NAV.skipPop = false; if (NAV.wantArm) { NAV.wantArm = false; armBack(); } return; }
   NAV.armed = false;
   if (!$('#help').hidden) $('#help').hidden = true;
+  else if (!$('#reel').hidden) closeReel();
   else if (paused) togglePause(false);
   else if (state === 'menu') menuBack(true);
   else if (state === 'lobby') $('#bLobbyCancel').click();
@@ -1414,6 +1731,7 @@ function drawBall2D(g, cx, cy, id, uk) {
 }
 const ART = {
   career: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawTrophy(g, 13, 4); }],
+  locker: [20, 14, g => drawParts(g, caseParts('gold'), 1, 0)],
   single: [16, 14, g => drawSprite(g, 'man', 4, 1, P1)],
   multi: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'man', 13, 1, P2); }],
   cpu: [22, 14, g => { drawSprite(g, 'man', 1, 1, P1); drawSprite(g, 'cpu', 13, 1); }],
@@ -1444,6 +1762,7 @@ for (const c of document.querySelectorAll('#menu .card')) {
   c.addEventListener('click', () => {
     ensureAudio(); sfx('ui');
     if (c.dataset.go === 'career') { menuGo(CAR.data ? 'career' : 'cnew'); return; }
+    if (c.dataset.go === 'locker') lockNote('');
     if (c.dataset.opp) M.opp = c.dataset.opp;
     if (c.dataset.rack) { M.mode = 'practice'; M.rack = c.dataset.rack; startGame(false); return; }
     if (c.dataset.mode) { M.mode = c.dataset.mode; menuGo('setup'); return; }
@@ -1480,8 +1799,13 @@ function refreshMenus() {
   for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
-  swatches($('#sCloth')); cueButtons($('#sCue')); $('#rowCue').hidden = !S.owned.some(id => K.ITEMS[id].kind === 'cue');
+  const foot = document.querySelector('#menuPanel .mFoot'); foot.hidden = ![...foot.children].some(b => !b.hidden);
+  lookPicker($('#sCloth'), 'cloth'); $('#rowCue').hidden = lookPicker($('#sCue'), 'cue') < 2; lookPicker($('#sGlove'), 'glove');
+  if (menuScreen() === 'locker' && state === 'menu') renderLocker();
+  const waiting = LK.GRADE_IDS.reduce((a, g) => a + LOCK.cases[g], 0);
+  $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
+  $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
@@ -1622,7 +1946,7 @@ function careerFrameOver() {
   const m = CAR.data && CAR.data.run && CAR.data.run.match; if (!m) return;
   m.wins = [...matchWins]; m.breaker = 1 - breaker; m.snap = null;   // the next frame: the other player breaks
   CAR.result = matchDone() ? K.recordMatch(CAR.data, [...matchWins]) : null;
-  careerStore();
+  careerPaid(CAR.result); careerStore();
 }
 function careerPlay() {
   const run = CAR.data && CAR.data.run; if (!run) return;
@@ -1635,12 +1959,19 @@ function careerPlay() {
 }
 function careerLeave() { Object.assign(M, CAR.stash || {}); CAR.stash = null; CAR.on = false; CAR.opp = null; saveM(); setVenue('home'); }
 const money = n => '£' + n.toLocaleString('en-GB');
+// a result's prize money goes into the locker, with the case an event win brings (r.cases, for the result screen)
+function careerPaid(r) {
+  if (!r || !(r.prize || r.champion)) return;
+  const e = K.EVENTS[r.event], champ = e.index === K.TIERS[e.tier].events.length - 1;
+  r.cases = lockerEdit(l => { l.money += r.prize; return r.champion ? LK.eventWon(l, e.tier, champ) : null; });
+}
+const caseText = c => c ? ` and ${c.n > 1 ? c.n + ' ' + LK.GRADES[c.grade].name.toLowerCase() + 's' : 'a ' + LK.GRADES[c.grade].name.toLowerCase()}` : '';
 function nextEvent(e) { return K.TIERS[e.tier].events[e.index + 1] || null; }
 function careerResultText() {
   const r = CAR.result; if (!r) return '';
   const e = K.EVENTS[r.event], first = (CAR.data.done[e.id] || {}).won === 1, nx = nextEvent(e);
   const nt = K.TIERS[e.tier + 1];
-  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. ${nt ? `${nt.name.replace(/^./, ch => ch.toUpperCase())} is now open.` : 'The world final opens in a coming update.'}` : first && nx ? ` ${nx.name} is now open.` : '');
+  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}${caseText(r.cases)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. ${nt ? `${nt.name.replace(/^./, ch => ch.toUpperCase())} is now open.` : 'The world final opens in a coming update.'}` : first && nx ? ` ${nx.name} is now open.` : '');
   if (r.won) return `Through to the ${K.ROUNDS[r.round + 1].toLowerCase()}, against ${K.OPPONENTS[CAR.data.run.match.opp].name}.`;
   return (r.round === K.ROUNDS.length - 1 ? 'Runner-up.' : `Out in the ${K.ROUNDS[r.round].toLowerCase()}.`) + ` Prize: ${money(r.prize)}.`;
 }
@@ -1702,7 +2033,7 @@ function careerTier() {
 }
 function renderCareerHub() {
   const c = CAR.data, me = $('#cMe'), list = $('#cEvents'); me.innerHTML = ''; list.innerHTML = '';
-  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(c.money)} to spend · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
+  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(LOCK.money)} to spend · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
   me.append(portrait(c.look, 3), txt);
   const shown = careerTier(), tabs = $('#cTiers'); tabs.innerHTML = '';
   K.TIERS.forEach((t, ti) => {
@@ -1758,7 +2089,6 @@ function careerMenus() {
   const sc = menuScreen(), c = CAR.data, bc = $('#bCareer'), ev = K.EVENTS[CAR.view];
   bc.hidden = true; $('#bWithdraw').hidden = true;
   if (!CAR.on && state === 'menu') { if (sc === 'cevent' && ev) setVenue(K.TIERS[ev.tier].id, ev.sign); else setVenue('home'); }
-  if (sc === 'cshop') { renderShop(); return; }
   if (sc === 'cnew') { renderCareerNew(); bc.hidden = false; bc.textContent = 'Start career'; return; }
   if (!c || (sc !== 'career' && sc !== 'cevent')) return;
   if (sc === 'career') {
@@ -1790,11 +2120,11 @@ $('#bCareer').addEventListener('click', () => {
 });
 $('#bWithdraw').addEventListener('click', () => {
   if (!CAR.data.run || !confirm(`Withdraw from ${K.EVENTS[CAR.data.run.event].name}? It counts as losing your current match.`)) return;
-  const r = K.withdraw(CAR.data); careerStore(); sfx('ui'); refreshMenus();
+  const r = K.withdraw(CAR.data); careerPaid(r); careerStore(); sfx('ui'); refreshMenus();
   if (r) $('#cNote').textContent = `Withdrawn. Prize: ${money(r.prize)}.`;
 });
 $('#cExport').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(CAR.data, null, 1)], { type: 'application/json' }), a = document.createElement('a');
+  const blob = new Blob([JSON.stringify({ ...CAR.data, locker: LOCK }, null, 1)], { type: 'application/json' }), a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `retro-rack-career-${CAR.data.name.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.json`;
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   $('#cNote').textContent = 'Saved. Keep the file somewhere safe, or load it on another device.';
@@ -1802,52 +2132,209 @@ $('#cExport').addEventListener('click', () => {
 $('#cImport').addEventListener('click', () => $('#cFile').click());
 $('#cFile').addEventListener('change', async () => {
   const f = $('#cFile').files[0]; $('#cFile').value = ''; if (!f) return;
-  let c = null; try { c = K.validate(JSON.parse(await f.text())); } catch (e) {}
+  let raw = null, c = null; try { raw = JSON.parse(await f.text()); c = K.validate(raw); } catch (e) {}
   if (!c) { $('#cNote').textContent = "That file isn't a Retro Rack career."; return; }
   if (CAR.data && !confirm(`Replace ${CAR.data.name}'s career on this device with ${c.name}'s from the file?`)) return;
-  CAR.data = c; CAR.tier = null; careerStore();
-  for (const id of c.bought) if (!S.owned.includes(id)) S.owned.push(id);   // the file's looks come with it
-  saveS(); refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
+  // the file's locker comes too, without taking anything away (an older file has its money and bought looks instead)
+  lockerEdit(l => LK.mergeLocker(l, raw.locker || { v: 1, money: c.money, owned: c.bought }));
+  delete c.money; delete c.bought; CAR.data = c; CAR.tier = null; careerStore();
+  refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
 });
-// the shop: cloths and cues bought with prize money; anything owned on this device can be put to use from here too
-const SHOP_TAB = { kind: 'cloth' };
-function cueImg(id, w = 96) {
-  const c = document.createElement('canvas'), g = c.getContext('2d'), col = cueCols(id); c.width = w; c.height = 6;
-  const parts = [[0.01, '#3d78e0', 2], [0.022, '#f1ead2', 2], [0.68, col.shaft, 2], [0.02, col.joint, 3], [0.3, col.fore, 3], [0.28, col.wrap, 4], [0.14, col.butt, 4], [0.012, '#141018', 4]];
-  const total = parts.reduce((a, p) => a + p[0], 0); let x = 0;
-  for (const [len, hex, hgt] of parts) { const pw = Math.max(1, Math.round(len / total * w)); g.fillStyle = hex; g.fillRect(x, 3 - hgt / 2, pw, hgt); x += pw; }
-  g.fillStyle = col.inlay; for (const fx of [0.6, 0.66]) g.fillRect(Math.round(fx * w), 1, 2, 1);
-  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = w; img.height = 12;
-  return img;
-}
-function useLook(it) { if (it.kind === 'cloth') S.cloth = it.id; else S.cue = it.id; saveS(); applyLook(); sendLook(); }
-function renderShop() {
-  const c = CAR.data; if (!c) return;
-  $('#shopMoney').textContent = `${money(c.money)} to spend (${money(c.earned)} won in all). Looks work in every game, online too.`;
-  segControl($('#shopTabs'), [['cloth', 'Cloths'], ['cue', 'Cues']], () => SHOP_TAB.kind, v => SHOP_TAB.kind = v);
-  const grid = $('#shopGrid'); grid.innerHTML = '';
-  const free = SHOP_TAB.kind === 'cloth' ? [] : [{ id: 'house', kind: 'cue', name: 'House cue', price: 0 }];
-  for (const it of [...free, ...K.SHOP.filter(x => x.kind === SHOP_TAB.kind)]) {
-    const own = owns(it.id), using = (it.kind === 'cloth' ? S.cloth : S.cue) === it.id, b = mk('button', 'shopItem'); b.type = 'button';
-    if (it.kind === 'cloth') { const sw = mk('span', 'shopSw'); sw.style.background = it.col; b.append(sw); } else b.append(cueImg(it.id, 46));
-    b.append(mk('span', 'shopName', it.name), mk('span', 'shopState', using ? 'In use' : own ? 'Owned: use it' : money(it.price)));
-    b.setAttribute('aria-pressed', String(using));
-    b.addEventListener('click', () => {
-      if (own) { useLook(it); sfx('ui'); refreshMenus(); return; }
-      if (CAR.data.money < it.price) { $('#shopNote').textContent = `You need ${money(it.price - CAR.data.money)} more for ${it.name}.`; return; }
-      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) return;
-      if (K.buy(CAR.data, it.id) !== 'ok') return;
-      S.owned.push(it.id); careerStore(); useLook(it); sfx('win');
-      $('#shopNote').textContent = `${it.name} is yours, and in use.`; refreshMenus();
-    });
-    grid.append(b);
-  }
-}
-$('#cShop').addEventListener('click', () => { sfx('ui'); $('#shopNote').textContent = ''; menuGo('cshop'); });
 $('#cRetire').addEventListener('click', () => {
-  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device. Looks you've bought stay.`)) return;
+  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device. Your money, cases and looks stay in the locker.`)) return;
   CAR.data = null; CAR.tier = null; careerStore(); sfx('ui'); NAV.stack.pop(); menuGo('cnew');
 });
+
+// ------------------------------------------------------------------ locker
+// The locker screen: cases to open or buy (src/looks.js has the odds and prices), then every cloth, cue and glove,
+// owned or not. Tap a look you own to use it, a shop look to buy it; a look from cases says which cases hold it.
+// Opening a case spins a reel of the case's items that stops on the prize (see showReel).
+const LOCKV = { tab: 'cases', page: 0 }, PAGE = 12;
+function shade(hex, k) { return '#' + [1, 3, 5].map(i => Math.round(Math.min(255, parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join(''); }
+// pixel pictures from rectangles: parts are [x, y, w, h, colour, no outline]; outlined parts get a 1-pixel ink edge
+function drawParts(g, parts, ox = 0, oy = 0) {
+  g.fillStyle = '#141018'; for (const [x, y, pw, ph, , bare] of parts) if (!bare) g.fillRect(ox + x - 1, oy + y - 1, pw + 2, ph + 2);
+  for (const [x, y, pw, ph, col] of parts) { g.fillStyle = col; g.fillRect(ox + x, oy + y, pw, ph); }
+}
+function pixImg(w, h, parts, scale) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; drawParts(c.getContext('2d'), parts);
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = w * scale; img.height = h * scale;
+  return img;
+}
+// a case: a chest in the grade's colour, 18 × 14
+function caseParts(grade) {
+  const col = LK.GRADES[grade].col, dk = shade(col, 0.62), lt = shade(col, 1.25);
+  return [[1, 4, 16, 9, col], [1, 4, 16, 3, dk, 1], [2, 5, 14, 1, lt, 1], [1, 7, 16, 1, '#141018', 1], [7, 6, 4, 4, '#141018', 1], [8, 7, 2, 2, lt, 1],
+    [3, 1, 12, 3, col], [3, 1, 12, 1, lt, 1], [1, 12, 16, 1, dk, 1]];
+}
+const caseImg = (grade, scale) => pixImg(18, 14, caseParts(grade), scale);
+// a glove from its type, as the back of the hand: fingers up, thumb out to the left, cuff below
+function gloveImg(id, scale) {
+  if (id === 'none') return pixImg(16, 18, [[3, 4, 10, 10, '#4e3270'], [5, 6, 6, 6, '#2a2238', 1], [3, 8, 10, 2, '#4e3270', 1]], scale);
+  const it = LK.ALL[id], b = it.base, a = it.accent, cf = it.cuff, sk = it.skin || b, st = it.style, P = [], f = (...p) => P.push(p), tops = [3, 1, 2, 4];
+  if (st === 'boxing') f(3, 2, 13, 11, b);
+  else if (st === 'claw') for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 9 - [3, 1, 3][i], b);
+  else for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], st === 'bones' ? 1 : 2, 9 - tops[i], st === 'wraps' ? sk : b);
+  if (st !== 'boxing') f(4, 7, 11, 6, st === 'bones' ? cf : b);   // the palm
+  f(1, 8, 4, 3, st === 'wraps' ? sk : b);                          // the thumb
+  f(5, 13, 9, st === 'tactical' ? 5 : 3, cf);                      // the cuff
+  if (st === 'sport') { f(6, 8, 7, 3, cf, 1); f(4, 7, 11, 1, a, 1); }
+  else if (st === 'moto' || st === 'tactical') for (let i = 0; i < 4; i++) { f(4 + i * 3, 7, 2, 1, a, 1); if (st === 'moto') f(4 + i * 3, tops[i] + 2, 2, 1, a, 1); }
+  else if (st === 'fingerless') for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], 2, 2, sk, 1);
+  else if (st === 'wraps') for (const y of [8, 11]) f(4, y, 11, 1, a, 1);
+  else if (st === 'claw') for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 1, it.fxc || a, 1);
+  else if (st === 'bones') for (const x of [5, 7, 9, 11]) f(x, 8, 1, 4, b, 1);
+  else if (st === 'boxing') f(4, 4, 2, 7, a, 1);
+  if (['sport', 'driver', 'fingerless', 'moto'].includes(st)) f(10, 14, 3, 1, a, 1);   // the strap tab
+  return pixImg(17, 19, P, scale);
+}
+function clothImg(id, px) {
+  const c = document.createElement('canvas'), it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : { col: CLOTHS[id][0] }; c.width = c.height = px;
+  drawPattern(c.getContext('2d'), it, px, px, px / 0.4);
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'shopSw'; img.alt = ''; img.width = img.height = px;
+  return img;
+}
+// a cue, drawn corner to corner: butt sleeve, wrap, forearm (with its pattern), joint, shaft and tip
+function cueIcon(id, scale) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'), it = kindOf(id) === 'cue' ? LK.ALL[id] : {}, col = cueCols(id); c.width = c.height = 16;
+  for (let i = 0; i < 15; i++) {
+    const f = i / 14, x = 1 + i, y = 14 - i, thick = f < 0.5;
+    let hex = f < 0.06 ? '#141018' : f < 0.13 ? col.butt : f < 0.3 ? col.wrap : f < 0.5 ? col.fore : f < 0.56 ? col.joint : f < 0.95 ? col.shaft : '#3d78e0';
+    if (it.fx === 'rainbow' && f >= 0.06 && f < 0.5) hex = `hsl(${Math.round(f * 600)},85%,58%)`;
+    else if (it.pat && (f >= 0.3 && f < 0.5 || f >= 0.06 && f < 0.13) && i % 2) hex = it.pc;
+    g.fillStyle = hex; g.fillRect(x, y, 1, 1); if (thick) { g.fillRect(x - 1, y, 1, 1); g.fillRect(x, y + 1, 1, 1); }
+  }
+  g.fillStyle = col.inlay; g.fillRect(8, 8, 1, 1);
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = img.height = 16 * scale;
+  return img;
+}
+const lookKind = id => id === 'house' ? 'cue' : id === 'none' ? 'glove' : kindOf(id) || 'cloth';
+const lookName = id => id === 'house' ? 'House cue' : id === 'none' ? 'No gloves' : K.has(LK.ALL, id) ? LK.ALL[id].name : CLOTHS[id][1];
+const lookIcon = (id, size) => { const k = lookKind(id); return k === 'cloth' ? clothImg(id, size) : k === 'cue' ? cueIcon(id, Math.max(1, Math.round(size / 16))) : gloveImg(id, Math.max(1, Math.round(size / 17))); };
+// every look of a kind, in the order shown: the free ones, the shop's (cheapest first), then the cases' (commonest first)
+function looksOf(kind) {
+  const free = kind === 'cloth' ? Object.keys(CLOTHS).filter(id => !K.has(LK.ALL, id)) : kind === 'cue' ? ['house'] : ['none', LK.FREE_GLOVE.id];
+  return [...free, ...K.SHOP.filter(it => it.kind === kind).map(it => it.id), ...LK.CASE_ITEMS.filter(it => it.kind === kind).map(it => it.id)];
+}
+function useLook(id) { S[lookKind(id)] = id; saveS(); applyLook(); sendLook(); }
+const gradeList = ids => ids.map(g => LK.GRADES[g].name.replace(' case', '')).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]*)$/, ' or $1');
+const lockNote = t => { $('#lockNote').textContent = t; };
+function renderLocker() {
+  const l = LOCK, waiting = LK.GRADE_IDS.reduce((a, g) => a + l.cases[g], 0);
+  $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open`;
+  segControl($('#lockTabs'), [['cases', 'Cases'], ['cloth', 'Cloths'], ['cue', 'Cues'], ['glove', 'Gloves']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.page = 0; lockNote(''); });
+  const body = $('#lockBody'), pager = $('#lockPages'); body.innerHTML = ''; pager.innerHTML = '';
+  body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'shopGrid';
+  if (LOCKV.tab === 'cases') {
+    for (const g of LK.GRADE_IDS) {
+      const G = LK.GRADES[g], n = l.cases[g], card = mk('div', 'caseCard'), btns = mk('div', 'caseBtns');
+      const odds = G.odds.map((o, i) => o ? `${o}% ${LK.RARITY[LK.RARITIES[i]].name.toLowerCase()}` : '').filter(Boolean).join(', ');
+      const open = mk('button', 'btn', `Open ${money(G.open)}`), buy = mk('button', 'btn', `Buy ${money(G.price)}`); open.type = buy.type = 'button';
+      open.classList.toggle('dim', !n); open.dataset.grade = buy.dataset.grade = g;   // still tappable: it says how to get one
+      open.addEventListener('click', () => openCaseUI(g));
+      buy.addEventListener('click', () => {
+        if (LOCK.money < G.price) { lockNote(`A ${G.name.toLowerCase()} costs ${money(G.price)}: you need ${money(G.price - LOCK.money)} more.`); return; }
+        if (!confirm(`Buy a ${G.name.toLowerCase()} for ${money(G.price)}? Opening it costs ${money(G.open)} more.`)) return;
+        if (lockerEdit(lk => LK.buyCase(lk, g)) === 'ok') { sfx('ui'); lockNote(`A ${G.name.toLowerCase()} is yours. Open it when you like.`); }
+        refreshMenus();
+      });
+      btns.append(open, buy);
+      card.append(caseImg(g, 3), mk('div', 'caseName', G.name), mk('div', 'caseN', n ? `${n} to open` : 'None yet'), mk('div', 'caseOdds', odds), btns);
+      body.append(card);
+    }
+    const meters = LK.GRADE_IDS.map(g => `${LK.GRADES[g].name.replace(' case', '')} ${l.meter[g]}/${LK.METER}`).join(' · ');
+    pager.textContent = `Frames won towards cases: ${meters}. Epic or better within ${LK.PITY - l.pity} ${LK.PITY - l.pity === 1 ? 'case' : 'cases'}.`;
+    return;
+  }
+  const ids = looksOf(LOCKV.tab), pages = Math.ceil(ids.length / PAGE); LOCKV.page = clamp(LOCKV.page, 0, pages - 1);
+  for (const id of ids.slice(LOCKV.page * PAGE, LOCKV.page * PAGE + PAGE)) {
+    const it = K.has(LK.ALL, id) ? LK.ALL[id] : null, own = owns(id), using = S[lookKind(id)] === id, shop = K.has(K.ITEMS, id), cased = it && !shop && it.rarity && id !== LK.FREE_GLOVE.id;
+    const b = mk('button', 'shopItem' + (own ? '' : ' locked')); b.type = 'button'; b.dataset.id = id;
+    const state = mk('span', 'shopState', using ? 'In use' : own ? 'Owned' : shop ? money(it.price) : LK.RARITY[it.rarity].name);
+    if (cased) state.style.color = LK.RARITY[it.rarity].col;
+    b.append(lookIcon(id, 30), mk('span', 'shopName', lookName(id)), state); b.setAttribute('aria-pressed', String(using));
+    b.addEventListener('click', () => {
+      if (own) { useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
+      if (cased) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases.`); return; }
+      if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}.`); return; }
+      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) return;
+      if (lockerEdit(lk => LK.buyLook(lk, id)) !== 'ok') { refreshMenus(); return; }
+      useLook(id); sfx('win'); lockNote(`${it.name} is yours, and in use.`); refreshMenus();
+    });
+    body.append(b);
+  }
+  const have = ids.filter(owns).length;
+  pager.append(mk('span', '', `${have} of ${ids.length} owned`));
+  if (pages > 1) {
+    const prev = mk('button', 'btn', '<'), next = mk('button', 'btn', '>'); prev.type = next.type = 'button';
+    prev.setAttribute('aria-label', 'Previous page'); next.setAttribute('aria-label', 'Next page');
+    prev.addEventListener('click', () => { LOCKV.page = (LOCKV.page + pages - 1) % pages; sfx('ui'); refreshMenus(); });
+    next.addEventListener('click', () => { LOCKV.page = (LOCKV.page + 1) % pages; sfx('ui'); refreshMenus(); });
+    pager.append(prev, mk('span', 'pageNo', `${LOCKV.page + 1}/${pages}`), next);
+  }
+}
+// a compact chooser for Settings: the look in use, with arrows to step through the ones owned
+function lookPicker(el, kind) {
+  el.innerHTML = ''; const ids = looksOf(kind).filter(owns), i = Math.max(0, ids.indexOf(S[kind]));
+  const prev = mk('button', 'btn', '<'), next = mk('button', 'btn', '>'), cur = mk('span', 'pickCur');
+  prev.type = next.type = 'button'; prev.setAttribute('aria-label', `Previous ${kind}`); next.setAttribute('aria-label', `Next ${kind}`);
+  cur.append(lookIcon(ids[i], 22), mk('span', '', lookName(ids[i])));
+  const go = d => { useLook(ids[(i + d + ids.length) % ids.length]); sfx('ui'); refreshMenus(); };
+  prev.addEventListener('click', () => go(-1)); next.addEventListener('click', () => go(1));
+  el.append(prev, cur, next);
+  return ids.length;
+}
+
+// opening a case: the locker pays and picks the prize first (looks.js), then the reel spins to it. The other items on
+// the reel are drawn from the case's own odds, and where the marker stops within the prize's tile is random, so the
+// reel never fakes a near miss.
+const REEL = { anim: 0, res: null, grade: null, at: 40 };
+function openCaseUI(g) {
+  const G = LK.GRADES[g];
+  if (!LOCK.cases[g]) { lockNote(`No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
+  if (LOCK.money < G.open) { lockNote(`Opening a ${G.name.toLowerCase()} costs ${money(G.open)}: you need ${money(G.open - LOCK.money)} more.`); return; }
+  const r = lockerEdit(l => LK.openCase(l, g, Math.random));
+  if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first
+  ensureAudio(); showReel(g, r);
+}
+function reelTile(id) { const t = mk('div', 'reelTile'), it = LK.ALL[id]; t.style.borderColor = LK.RARITY[it.rarity].col; t.append(lookIcon(id, 34)); return t; }
+function showReel(g, r) {
+  const strip = $('#reelStrip'), items = LK.reelItems(g, REEL.at + 6, Math.random); items[REEL.at] = r.id;
+  REEL.res = r; REEL.grade = g; strip.innerHTML = ''; strip.style.transform = 'translateX(0)';
+  for (const id of items) strip.append(reelTile(id));
+  $('#reelTitle').textContent = LK.GRADES[g].name; $('#reelTxt').textContent = 'Tap the reel to skip'; $('#reelBtns').hidden = true; $('#reel').hidden = false;
+  const tw = strip.children[1].offsetLeft - strip.children[0].offsetLeft, win = $('#reelWin').clientWidth;
+  REEL.end = REEL.at * tw + tw / 2 - win / 2 + (Math.random() - 0.5) * tw * 0.7; REEL.tw = tw; REEL.win = win;
+  if (reduceMotion) { reelDone(); return; }
+  const T = 4600, t0 = performance.now(); let last = 0;
+  const step = now => {
+    const u = Math.min(1, (now - t0) / T), x = REEL.end * (1 - Math.pow(1 - u, 4));
+    strip.style.transform = `translateX(${-x}px)`;
+    const k = Math.floor((x + win / 2) / tw); if (k !== last) { last = k; blipTick(); }
+    if (u < 1) REEL.anim = requestAnimationFrame(step); else reelDone();
+  };
+  REEL.anim = requestAnimationFrame(step);
+}
+const blipTick = () => { if (S.volume && AU.ctx) try { blip(1400, 0.02, 0.035, 'square'); } catch (e) {} };
+function reelDone() {
+  if (!REEL.res || $('#reelBtns').hidden === false) return;
+  cancelAnimationFrame(REEL.anim); REEL.anim = 0;
+  const r = REEL.res, it = LK.ALL[r.id], R = LK.RARITY[r.rarity], strip = $('#reelStrip');
+  strip.style.transform = `translateX(${-REEL.end}px)`; strip.children[REEL.at].classList.add('won');
+  const txt = $('#reelTxt'); txt.innerHTML = ''; const rr = mk('span', 'reelRarity', R.name + ' '); rr.style.color = R.col;
+  txt.append(rr, mk('span', '', `${it.kind === 'cloth' ? 'cloth' : it.kind}: ${it.name}. ${r.dup ? `Already yours, so it's sold for ${money(r.sold)}.` : 'New!'}`));
+  sfx(r.rarity === 'common' || r.dup ? 'ui' : 'win');
+  const g = REEL.grade; $('#bReelUse').hidden = r.dup || S[it.kind] === r.id;
+  $('#bReelAgain').hidden = !(LOCK.cases[g] > 0 && LOCK.money >= LK.GRADES[g].open); $('#bReelAgain').textContent = `Open another (${money(LK.GRADES[g].open)})`;
+  $('#reelBtns').hidden = false; $(r.dup ? '#bReelDone' : '#bReelUse').focus();
+  refreshMenus();
+}
+function closeReel() { if (REEL.anim) reelDone(); $('#reel').hidden = true; REEL.res = null; refreshMenus(); }
+$('#reelWin').addEventListener('click', () => { if (REEL.anim) reelDone(); });
+$('#bReelUse').addEventListener('click', () => { const id = REEL.res && REEL.res.id; closeReel(); if (id) { useLook(id); lockNote(`${LK.ALL[id].name} is in use.`); refreshMenus(); } });
+$('#bReelAgain').addEventListener('click', () => { const g = REEL.grade; $('#reel').hidden = true; REEL.res = null; openCaseUI(g); });
+$('#bReelDone').addEventListener('click', closeReel);
+$('#cShop').addEventListener('click', () => { sfx('ui'); lockNote(''); menuGo('locker'); });
 
 // ------------------------------------------------------------------ online play
 // Each browser runs the full game. Only shot inputs travel over the network; the receiving browser
@@ -1881,13 +2368,14 @@ try {
   document.addEventListener('resume', () => mark('1'));
 } catch (e) {}
 function netSend(o) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(o)); }
-function sendHello() { netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n, v: BUILD, cue: S.cue, cloth: S.cloth }); }
+function sendHello() { netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n, v: BUILD, cue: S.cue, cloth: S.cloth, glove: S.glove }); }
 // looks: each player's cue is shown on both screens, and the table wears the host's cloth (the host is seat 0).
 // Ids from the other player are checked against the known designs; anything else falls back to the defaults.
-const lookCue = id => K.has(K.ITEMS, id) && K.ITEMS[id].kind === 'cue' ? id : 'house';
+const lookCue = id => kindOf(id) === 'cue' ? id : 'house';
+const lookGlove = id => kindOf(id) === 'glove' ? id : 'none';
 const lookCloth = id => K.has(CLOTHS, id) ? id : null;
-function takeLooks(m) { NET.peerCue = lookCue(m.cue); if (NET.seat === 1) { NET.cloth = lookCloth(m.cloth); setCloth(); } }
-function sendLook() { if (NET.on) netSend({ t: 'look', cue: S.cue, cloth: S.cloth }); }
+function takeLooks(m) { NET.peerCue = lookCue(m.cue); NET.peerGlove = lookGlove(m.glove); if (NET.seat === 1) { NET.cloth = lookCloth(m.cloth); setCloth(); } }
+function sendLook() { if (NET.on) netSend({ t: 'look', cue: S.cue, cloth: S.cloth, glove: S.glove }); }
 function netConnect() {
   let ws;
   const listQ = NET.list && !NET.started ? `&list=1&name=${encodeURIComponent(NET.myName)}&mode=${encodeURIComponent(M.mode)}` : '';
@@ -1983,7 +2471,7 @@ function startOnline(code, listed = false, rejoin = null) {
 function leaveOnline() {
   if (!NET.on) return;
   netSend({ t: 'bye' });
-  NET.on = false; NET.started = false; clearTimeout(NET.timer); freeSeat(); NET.cloth = null; NET.peerCue = 'house'; setCloth();
+  NET.on = false; NET.started = false; clearTimeout(NET.timer); freeSeat(); NET.cloth = null; NET.peerCue = 'house'; NET.peerGlove = 'none'; setCloth();
   const ws = NET.ws; NET.ws = null; if (ws) { try { ws.close(1000, 'bye'); } catch (e) {} }
   try { history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
   $('#lobby').hidden = true; $('#thinking').hidden = true; updateNetBadge();
@@ -2145,7 +2633,7 @@ function concedeFrame(fromRemote, loser) {
   const w = 1 - loser;
   game = { ...game, over: true, winner: w }; matchWins[w]++;
   state = 'over'; bot = null; $('#thinking').hidden = true; $('#offer').hidden = true; updateHUD();
-  if (CAR.on) careerFrameOver();
+  frameEarn(); if (CAR.on) careerFrameOver();
   showOver({ reason2: 'Conceded the frame' }, loser);
   return true;
 }
@@ -2234,10 +2722,28 @@ $('#bCopyLink').addEventListener('click', async () => {
   } catch (e) { const i = $('#lobbyLink'); i.focus(); i.select(); try { document.execCommand('copy'); lobbyStatus('Invite link copied.'); } catch (e2) { lobbyStatus('Copy the link below and send it to your friend.'); } }
 });
 try { $('#netName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) {}
+// dev mode (see the settings section): checked as each letter is typed, so it's done before Create or Join is pressed
+async function isDevWord(v) {
+  if (!v || !(window.crypto && crypto.subtle)) return false;
+  try { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('retroRack:' + v.trim().toLowerCase())); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('') === DEVW.print; }
+  catch (e) { return false; }
+}
+function setDev(on) {
+  DEV = on; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
+  LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
+  checkLooks(); saveS(); applyLook(); sendLook(); refreshMenus();
+  toast(on ? 'Dev mode on: every look, £100,000 and 50 of each case, in a test locker' : 'Dev mode off: your own locker is back', 'good');
+}
+$('#netName').addEventListener('input', async () => {
+  const v = $('#netName').value; if (!(await isDevWord(v)) || $('#netName').value !== v) return;
+  try { $('#netName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) { $('#netName').value = ''; }
+  setDev(!DEV);
+});
+$('#sDev').addEventListener('click', () => { sfx('ui'); setDev(false); });
 
 // ------------------------------------------------------------------ installable app
 // Only on a real web address: a downloaded copy opened from disk can't install or use a service worker.
-$('#ver').textContent = `Version ${BUILD}`;
+$('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
 if (/^https?:$/.test(location.protocol)) {
   const link = document.createElement('link'); link.rel = 'manifest'; link.href = 'manifest.webmanifest';
   const icon = document.createElement('link'); icon.rel = 'apple-touch-icon'; icon.href = 'icons/icon-192.png';
@@ -2261,11 +2767,23 @@ function toggleFull() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
 }
+// the menu's corner icons: drawn as pixel art from these rows (x = a pixel)
+const ICONS = {
+  gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
+  full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
+  unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],
+};
+function setIcon(btn, name) {
+  const rows = ICONS[name], cells = [];
+  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === 'x') cells.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`); });
+  const old = btn.querySelector('svg'); if (old) old.remove();
+  btn.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" fill="currentColor" aria-hidden="true">${cells.join('')}</svg>`);
+}
+setIcon($('#bMenuSettings'), 'gear');
 function updateFullBtns() {
-  for (const b of [$('#bFull'), $('#bMenuFull')]) {
-    b.hidden = !canFull; b.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
-    b.setAttribute('aria-pressed', String(!!document.fullscreenElement));
-  }
+  const on = !!document.fullscreenElement, word = on ? 'Exit fullscreen' : 'Fullscreen';
+  $('#bFull').hidden = !canFull; $('#bFull').textContent = word; $('#bFull').setAttribute('aria-pressed', String(on));
+  const m = $('#bMenuFull'); m.hidden = !canFull; m.title = word; m.querySelector('.vh').textContent = word; m.setAttribute('aria-pressed', String(on)); setIcon(m, on ? 'unfull' : 'full');
 }
 $('#bFull').addEventListener('click', () => { sfx('ui'); toggleFull(); });
 $('#bMenuFull').addEventListener('click', () => { ensureAudio(); sfx('ui'); toggleFull(); });
@@ -2312,8 +2830,8 @@ requestAnimationFrame(frame);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
-  get matchWins() { return matchWins; }, CAR, concedeFrame,
-  get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth }; },
+  get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
+  get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();

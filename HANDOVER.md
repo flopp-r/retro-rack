@@ -95,6 +95,16 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **Online, looks are shared:** each player's cue shows on both screens, and the table wears the host's cloth (one table, one cloth, like the host choosing the game). Unknown ids from the other side fall back to the defaults.
 - **A room per tier:** carpet, walls, skirting and the neon sign (with the event's name) change; the table and lighting don't.
 
+**Looks: cases, the locker and gloves (October 2026)**
+- **Earning, as the owner chose:** cases from career event wins (a better grade for championships), from frames won against the computer (a better grade on harder levels), from the day's first online win, and bought with money; every case costs money to open. Duplicates are sold for money (the owner chose this over a crafting currency). Practice and same-device games earn nothing, because they're too easy to farm.
+- **One wallet per device, in the locker:** opening cases needs money outside the career too, so the career's prize money, the pay for frames won against the computer, the daily online win and sold duplicates all go into one locker. It survives retiring a career and travels inside a career file. Loading a file merges its locker in and never takes anything away (re-loading the same file can't stack money).
+- **Fair randomness:** the odds are shown on every case, an epic or better is guaranteed within 8 cases, and legendaries only come in silver cases and better. The reel decides the prize first and then lands on it honestly: the other items on the strip are drawn from the case's own odds, and where it stops within the prize's tile is random, so it never fakes a near miss (the trick real-money loot boxes use).
+- **A starter case:** a new locker has one silver case and £40 to open it, so everyone sees the reel straight away.
+- **Gloves look like the sports and tactical gloves in shooting games (the owner asked for "CS gloves"),** after three rounds of prototypes: blocky cartoon gloves, then smooth realistic hands, then simplified ones. The owner asked for less wrist, less surface detail and no fingertips, so each hand is a rounded palm, two jointed sections per finger and thumb ending in a stub, and a short cuff. The glove types differ by small, low parts (a slim back panel, a knuckle bar or guards, finger pads, a strap tab, wraps), kept subtle at the owner's request. Most novelty gloves (oven mitt, washing-up, goalkeeper and so on) were replaced by real glove types; boxing, robot and skeleton stay as novelties. Gloves (and their reactions) add a little of their own colour as glow, because the faces towards the camera get little light and otherwise look grey. Reactions are off with reduced motion.
+- **Dev mode exists so the owner can try every look:** a secret word, typed as the online name, swaps in a test locker with everything; the real locker is untouched. The word is known only to the owner; the public code holds just its fingerprint.
+- **Cloth patterns stay low-contrast:** each pattern's colour is close to its cloth's, and every one was checked in screenshots with the balls on the table.
+- **Two open pages share one locker:** every change re-reads the stored locker first, and the other page updates when it hears about the change. Chromium only passes these changes between pages reliably over http(s), so the locker's browser test runs on the local web server rather than from disk.
+
 ---
 
 ## 5. Reference numbers
@@ -131,6 +141,20 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 | Camera fill | 0.2π |
 | Two point lights | 0.51π each, distance 6, decay 0.43 (fitted to the old falloff) |
 
+**Cases** (`GRADES` in `looks.js`; a first guess, to be tuned once the owner has played)
+
+| Grade | Common | Rare | Epic | Legendary | Open | Buy |
+|---|---|---|---|---|---|---|
+| Bronze | 72% | 24% | 4% | 0% | £15 | £45 |
+| Silver | 50% | 36% | 12% | 2% | £40 | £110 |
+| Gold | 25% | 45% | 24% | 6% | £90 | £260 |
+| Diamond | 0% | 50% | 36% | 14% | £200 | £600 |
+
+- **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary).
+- **Frames won against the computer pay** £5 (Easy), £15 (Medium), £30 (Hard), £50 (Expert), and every 3 at a level fill a case of its grade (bronze, silver, gold, diamond). Career frames fill the circuit's grade (pub bronze, club silver, hall gold, national diamond) without pay.
+- **The day's first online win:** £30 and a gold case. **A new locker:** £40 and a silver case.
+- **The collection:** 54 looks in cases (12 cloths, 18 cues, 24 gloves; 17 common, 18 rare, 12 epic, 7 legendary), plus the shop's 5 cloths and 6 cues and the free white gloves.
+
 **CPU** (`DIFF` in `core.js`)
 - **Aim error, by level:** 1.3° on Easy, 0.55° on Medium, 0.22° on Hard, 0.09° on Expert.
 - **Hard and Expert:** also plan position, play safeties and re-test their best options under noise.
@@ -140,7 +164,8 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 ## 6. How things are tested
 
-- **Career rules:** `tests/career.test.js` (23 tests): tour data, tiers, draws, results and money, the shop, saving and loading, and the opponents' CPU settings.
+- **Career rules:** `tests/career.test.js` (24 tests): tour data, tiers, draws, results and money, saving and loading (including saves from before the locker), and the opponents' CPU settings.
+- **Looks:** `tests/looks.test.js` (16 tests): the catalogue, case odds over many openings, the guarantee, opening, buying, duplicates, earning, the saved locker, and career opponents' gloves.
 - **Physics and rules:** `tests/physics.test.js` (27 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, the trick demos, and that the context packs are up to date.
 - **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader). The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy. The browser tests have lived in `tests/browser/` since 7 October 2026; `node tests/browser/run-all.js` runs them all (see `AGENTS.md`, Testing).
 - **Online:** the real Cloudflare runtime runs locally (`npx wrangler dev`), and the game is opened with `?relay=ws://127.0.0.1:8787` in **separate browser contexts**, so each gets its own client id. After every shot, the ball positions and the `game` objects of both clients are compared, and they must be identical. Covered: reload rejoin, Rejoin from the home screen, a full room, rematch, re-rack and concede, chat, replaying while the opponent shoots, duplicated tabs, and version mismatches.
@@ -154,6 +179,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **A pulsing marker on your own balls:** built, chosen instead of colour-blind markings. A gold halo round each ball you're on, shown only on your shot once groups are decided, with an on/off setting. A ring flat on the cloth was tried first but vanished in the cue view, so the halo faces the camera.
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser. Set aside by the owner in favour of a career mode.
 - **Career mode:** Stages 1 and 2 built (the pub, club, hall and national tiers, the shop and venues). Stage 3 is planned; see section 4, "Career".
+- **Cosmetics overhaul:** built: the locker, cases with a spinning reel, patterned cloths, patterned and glowing cues, and floating gloves with small reactions; Settings and Fullscreen became corner icons in the menus. See section 4, "Looks".
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
 - **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame. Possible next step: keep the table when both players leave (each page saves its snapshot and the room restores the newest), which changes how online games start.
@@ -197,6 +223,7 @@ Every change since the move to Claude Code, newest last. The version is the fing
 | 7 Oct 2026 | #10 | 1dcd4655 (game unchanged) | Browser tests moved into `tests/browser/`; `AGENTS.md` guide; `CONTEXT.md` and `CONTEXT-SHORT.md` for other AIs; notes checked against the code. |
 | 7 Oct 2026 | #11 | d768a32b | Career mode, Stage 1: the pub circuit (three reds & yellows knockout events, nine named computer opponents with measured strengths), saving after every shot, Save to file / Load from file. Also fixed: closing Pause with its button now redraws the aim guide and keeps the phone's back gesture working first time; with "reduce motion" on, menu cards no longer lift on hover. |
 | 8 Oct 2026 | #12 | e6611735 | Career mode, Stage 2: the club and hall circuits (8-ball) and the national tour (9-ball), 27 new opponents with measured strengths, a shop of cloths and cues (looks work in every game; online, both players see each other's cue and the host's cloth), a room per tier. Also fixed: the event screen's list of players was squashed into one row. |
+| 8 Oct 2026 | #13 | 31287894 | Cosmetics: the Locker (one wallet per device, cases and every look), cases in four grades with their odds shown, a guarantee and duplicates sold, opened on a spinning reel; money and cases for frames won against the computer, career events and the day's first online win; 12 patterned cloths, 18 patterned or glowing cues and 24 gloves in real glove types (shown to the other player online) with small reactions; dev mode with a test locker for the owner; Settings and Fullscreen as corner icons in the menus. |
 
 **Lessons worth keeping**
 - #5 deleted CSS that Settings and the overlays also used (`.row`, `.lbl`, `.seg` and others), and nobody noticed until the live site looked wrong. The `fit` browser test now checks those styles.
