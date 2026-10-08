@@ -67,7 +67,7 @@ const OPPONENTS = {
   kaz:     { name: 'Kaz', full: 'Kaz Nakamura', look: { s: 'glasses', skin: '#f2d0a4', hair: '#1a1206', shirt: '#5a2d1b' },
     blurb: 'A safety specialist. Patience is the whole game.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 80, robust: 1 }, rating: 1680, glove: 'g-robot' },
   professor: { name: 'The Professor', full: 'Alan Whitby', look: { s: 'beard', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#5a2d1b' },
-    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1705, cue: 'ebony', glove: 'g-wizard' },
+    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1705, cue: 'ebony', glove: 'g-royal' },
   // the national tour (9-ball)
   callum:  { name: 'Callum', full: 'Callum Fraser', look: { s: 'man', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1e3263' },
     blurb: 'A big break and a bigger grin.', base: 'hard', cfg: { aimSd: 0.42, robust: 0, brk: 1, brkSpin: 0 }, rating: 1590 },
@@ -86,7 +86,7 @@ const OPPONENTS = {
   erin:    { name: 'Erin', full: 'Erin Gallagher', look: { s: 'long', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1d8a74' },
     blurb: 'Last year\'s runner-up, and hungry.', base: 'hard', cfg: { aimSd: 0.28, robust: 2 }, rating: 1610, cue: 'racing', glove: 'g-racing' },
   viktor:  { name: 'The Metronome', full: 'Viktor Strand', look: { s: 'bald', skin: '#f2c49b', hair: '#3b2a1a', shirt: '#141018' },
-    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.22, robust: 3, nerves: 1.25 }, rating: 1655, cue: 'champion', glove: 'g-knight' },
+    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.22, robust: 3, nerves: 1.25 }, rating: 1655, cue: 'champion', glove: 'g-carbon' },
 };
 
 // The shop: looks bought outright with money from the locker (see looks.js, which also holds the looks that come in

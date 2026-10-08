@@ -546,24 +546,26 @@ const qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vY = new THREE.V
 // Floating gloves play the shot: one grips the back of the cue (a child of the cue, so it strokes with it) and one
 // makes the bridge on the cloth behind the cue ball, the cue resting between thumb and fingers. A third pops up for a
 // moment after a shot: a thumbs-up for a pot, a shrug for a foul, a fist pump for winning the frame. Each is built
-// from boxes, chunky enough to read in the pixel look, in the shape of the design (looks.js: style) and its colours.
+// from rounded parts as the design's glove type (looks.js: style), in its colours.
 // Whose gloves are at the table follows the cue (gloveFor); 'none' shows none.
 const gripGlove = new THREE.Group(), bridgeGlove = new THREE.Group(), cheerGlove = new THREE.Group();
 const GLM = {}, CHM = {}, GLOVE_KEYS = ['base', 'accent', 'cuff', 'skin', 'tip'];
 for (const k of GLOVE_KEYS) { GLM[k] = new THREE.MeshLambertMaterial(); CHM[k] = new THREE.MeshLambertMaterial(); }
 let gloveNow = null, cheerNow = null, tapFinger = null;
 const CHEER = { kind: '', t0: 0, x: 0, z: 0 };
-// the shape of each style: fingers (n, width fw, length fl, thickness ft), and what else it has
+// The glove types, built onto the hand below. panel: a slim padded panel on the back of the hand (cuff colour); bar: a
+// low bar across the knuckles; knuckles: a small guard on each knuckle; guards: a pad on each finger; tab: a strap tab
+// on the cuff (all in the accent colour); cuffL: the cuff's length; tips: the fingers' second sections bare; wraps:
+// cloth bands round the palm with the fingers bare. The novelties: ball (a boxing glove), claw (three jointed metal
+// fingers with lit tips), bones (a skeleton hand).
 const STYLE = {
-  glove: { real: 1 }, long: { real: 1, cuffL: 0.04 }, flare: { real: 1, flare: 1 }, fingerless: { real: 1, tips: 1 },
-  padded: { n: 4, fw: 0.016, fl: 0.044, ft: 0.02, bands: 1 }, gauntlet: { n: 4, fw: 0.013, fl: 0.046, ft: 0.015, plates: 1, flare: 1 },
-  mitt: { n: 1, fw: 0.062, fl: 0.044, ft: 0.018 }, boxing: { n: 0, ball: 1 }, claw: { n: 3, fw: 0.017, fl: 0.052, ft: 0.016, claws: 1 },
-  bones: { n: 4, fw: 0.006, fl: 0.05, ft: 0.007, bones: 1 },
+  sport: { panel: 1, bar: 1, tab: 1 }, driver: { tab: 1 }, tactical: { panel: 1, knuckles: 1, cuffL: 0.03 }, moto: { panel: 1, knuckles: 1, guards: 1, tab: 1 },
+  fingerless: { tab: 1, tips: 1 }, wraps: { wraps: 1, cuffL: 0.022 }, boxing: { ball: 1, cuffL: 0.034 }, claw: { claw: 1 }, bones: { bones: 1 },
 };
-// The realistic hand, built from rounded parts. It's a left hand in its own frame: the wrist at the origin, the fingers
-// along +x from the knuckles, the back of the hand up (+y), the thumb on +z. Each finger is three jointed sections and
-// the thumb three more; a pose bends the joints. The cue hand is the same hand mirrored (a right hand).
-const FINGER = [   // knuckle position, section lengths (no fingertips: each finger stops, rounded, after two), thickness, fan
+// The hand, built from rounded parts. It's a left hand in its own frame: the wrist at the origin, the fingers along +x
+// from the knuckles, the back of the hand up (+y), the thumb on +z. Each finger and the thumb is two jointed sections
+// ending in a rounded stub; a pose bends the joints. The cue hand is the same hand mirrored (a right hand).
+const FINGER = [   // knuckle position, section lengths, thickness, and how far each fans out
   { at: [0.086, 0.002, 0.026], len: [0.039, 0.023], r: 0.0082, fan: -0.06 },
   { at: [0.09, 0.003, 0.0085], len: [0.044, 0.027], r: 0.0085, fan: 0 },
   { at: [0.087, 0.002, -0.009], len: [0.041, 0.025], r: 0.008, fan: 0.06 },
@@ -574,50 +576,75 @@ const THUMB = { at: [0.016, -0.006, 0.024], len: [0.04, 0.031], r: 0.0105 };
 // thumb's turn out (ty), lift (tz) and bend
 const HAND_POSE = {
   bridge: { bend: [[-0.42, -0.35], [-0.46, -0.35], [-0.46, -0.35], [-0.42, -0.35]], spread: 1.9, ty: -0.3, tz: 0.75, tb: [-0.05] },
-  grip: { bend: [[-1.15, -1.35, -0.9], [-1.2, -1.4, -0.9], [-1.25, -1.4, -0.9], [-1.3, -1.4, -0.9]], spread: 0.4, ty: -1.1, tz: -0.3, tb: [-0.6, -0.5] },
-  fist: { bend: [[-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1]], spread: 0.2, ty: 0.5, tz: -0.75, tb: [-0.6, -0.4] },
-  thumb: { bend: [[-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1], [-1.5, -1.6, -1.1]], spread: 0.2, ty: -1.45, tz: 0.1, tb: [0.05, 0] },
-  open: { bend: [[-0.15, -0.1, -0.05], [-0.1, -0.1, -0.05], [-0.15, -0.1, -0.05], [-0.2, -0.1, -0.05]], spread: 1.4, ty: -0.7, tz: 0, tb: [-0.1, 0] },
+  grip: { bend: [[-1.15, -1.35], [-1.2, -1.4], [-1.25, -1.4], [-1.3, -1.4]], spread: 0.4, ty: -1.1, tz: -0.3, tb: [-0.6] },
+  fist: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: 0.5, tz: -0.75, tb: [-0.6] },
+  thumb: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: -1.45, tz: 0.1, tb: [0.05] },
+  open: { bend: [[-0.15, -0.1], [-0.1, -0.1], [-0.15, -0.1], [-0.2, -0.1]], spread: 1.4, ty: -0.7, tz: 0, tb: [-0.1] },
 };
 const capsuleX = (r, len) => { const g = new THREE.CapsuleGeometry(r, Math.max(0.0001, len - 2 * r), 3, 8); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0); return g; };
 function handBuild(parent, it, st, M, pose) {
   const P = HAND_POSE[pose], hand = new THREE.Group(); parent.add(hand);
   const mesh = (geo, mat, g = hand) => { const m = new THREE.Mesh(geo, M[mat]); g.add(m); return m; };
-  const blob = (sx, sy, sz, mat, x, y, z, ry = 0) => { const m = mesh(new THREE.SphereGeometry(1, 14, 10), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = ry; return m; };
-  blob(0.047, 0.0155, 0.041, 'base', 0.047, 0, 0);                    // the palm
-  blob(0.027, 0.0135, 0.017, 'base', 0.03, -0.003, 0.021, -0.5);      // the ball of the thumb
-  // a short cuff round the wrist (along -x), in the design's cuff colour
-  const L = st.cuffL || 0.016, g = new THREE.CylinderGeometry(st.flare ? 0.033 : 0.027, 0.025, L, 14); g.rotateZ(Math.PI / 2);
-  const cuff = mesh(g, 'cuff'); cuff.position.x = 0.008 - L / 2; cuff.scale.set(1, 0.78, 1.12);
-  // built like a sports glove: a padded panel over the back of the hand in the cuff colour, and a bar across the
-  // knuckles and a strap tab on the cuff in the accent colour
-  blob(0.029, 0.0075, 0.028, 'cuff', 0.043, 0.0105, -0.002);
-  const across = (r, len, mat, x, y, z) => { const m = mesh(capsuleX(r, len), mat); m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m; };   // a capsule along -z from z
-  across(0.0065, 0.064, 'accent', 0.084, 0.01, 0.032); across(0.0045, 0.03, 'accent', 0, 0.019, 0.016);
-  // a jointed chain of sections: each joint is a group turned by the pose, each section a capsule along its +x
-  const chain = (at, len, r, bends, tip) => {
+  const blob = (sx, sy, sz, mat, x, y, z, ry = 0, g = hand) => { const m = mesh(new THREE.SphereGeometry(1, 14, 10), mat, g); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = ry; return m; };
+  const ball = (r, mat, g, x = 0) => { const m = mesh(new THREE.SphereGeometry(r, 8, 6), mat, g); m.position.x = x; return m; };
+  const across = (r, len, mat, x, y, z) => { const m = mesh(capsuleX(r, len), mat); m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m; };   // along -z from z
+  // the cuff round the wrist (along -x), in the design's cuff colour
+  const L = st.cuffL || 0.016, cg = new THREE.CylinderGeometry(st.ball ? 0.031 : 0.027, 0.025, L, 14); cg.rotateZ(Math.PI / 2);
+  const cuff = mesh(cg, 'cuff'); cuff.position.x = 0.008 - L / 2; cuff.scale.set(1, 0.78, 1.12);
+  if (st.ball) {   // a boxing glove: one padded fist, the thumb along its side
+    blob(0.058, 0.031, 0.043, 'base', 0.054, 0.004, 0); blob(0.034, 0.015, 0.013, 'base', 0.046, -0.006, 0.039, -0.25);
+    return { hand, fingers: [], thumb: [] };
+  }
+  if (st.bones) {   // no palm: the small bones of the wrist, then one long bone out to each knuckle
+    blob(0.013, 0.007, 0.021, 'base', 0.012, 0, 0);
+    for (const f of FINGER) {
+      const z0 = f.at[2] * 0.55, b = new THREE.Group(); b.position.set(0.016, 0, z0); b.rotation.y = Math.atan2(z0 - f.at[2], f.at[0] - 0.016); hand.add(b);
+      mesh(capsuleX(0.0032, Math.hypot(f.at[0] - 0.016, f.at[2] - z0)), 'base', b);
+    }
+  } else {
+    blob(0.047, 0.0155, 0.041, 'base', 0.047, 0, 0);                  // the palm
+    blob(0.027, 0.0135, 0.017, 'base', 0.03, -0.003, 0.021, -0.5);    // the ball of the thumb
+  }
+  if (st.panel) blob(0.031, 0.0042, 0.017, 'cuff', 0.042, 0.0128, 0.002);
+  if (st.bar) across(0.0038, 0.058, 'accent', 0.084, 0.0085, 0.029);
+  if (st.tab) across(0.003, 0.022, 'accent', 0, 0.0185, 0.011);
+  if (st.wraps) for (const x of [0.03, 0.063]) {   // the edges of the wrapping, as thin rings hugging the palm
+    const k = Math.sqrt(1 - ((x - 0.047) / 0.047) ** 2) * 1.05, g = new THREE.TorusGeometry(1, 0.075, 5, 18); g.rotateY(Math.PI / 2);
+    const m = mesh(g, 'accent'); m.position.x = x; m.scale.set(0.003, 0.0155 * k, 0.041 * k);
+  }
+  // a jointed chain of sections: each joint is a group turned by the pose, each section a capsule along its +x; jr adds a
+  // ball at each joint, tip a lit ball at the end
+  const chain = (at, len, r, bends, mats, jr = 0, tip = 0) => {
     let g = new THREE.Group(); g.position.set(...at); hand.add(g); const joints = [];
     len.forEach((l, i) => {
       g.rotation.z = bends[i]; joints.push(g);
-      const ri = r * (1 - i * 0.08), skin = tip && i >= 1;
-      mesh(capsuleX(ri, l), skin ? 'skin' : 'base', g);
+      const ri = r * (1 - i * 0.08); mesh(capsuleX(ri, l), mats[i], g); if (jr) ball(jr, 'accent', g);
       if (i < len.length - 1) { const n = new THREE.Group(); n.position.x = l - ri * 0.4; g.add(n); g = n; }
+      else if (tip) ball(tip, 'tip', g, l - ri);
     });
     return joints;
   };
-  const fingers = FINGER.map((f, i) => { const j = chain(f.at, f.len, f.r * (st.fat || 1), P.bend[i], st.tips); j[0].rotation.y = f.fan * P.spread; return j; });
-  const thumb = chain(THUMB.at, THUMB.len, THUMB.r * (st.fat || 1), [P.tz, ...P.tb], false);
+  const bare = st.wraps ? ['skin', 'skin'] : st.tips ? ['base', 'skin'] : ['base', 'base'];
+  const which = st.claw ? [0, 1, 3] : [0, 1, 2, 3], fr = st.bones ? () => 0.0034 : st.claw ? f => f.r * 1.2 : f => f.r;
+  const fingers = which.map((fi, i) => {
+    const f = FINGER[fi], j = chain(f.at, f.len, fr(f), P.bend[fi], bare, st.bones ? 0.0052 : st.claw ? fr(f) * 1.08 : 0, st.claw ? fr(f) * 0.85 : 0);
+    j[0].rotation.y = (st.claw ? [-0.12, 0, 0.16][i] : f.fan) * P.spread;
+    if (st.knuckles) blob(0.0068, 0.0034, 0.0072, 'accent', f.at[0] - 0.003, f.at[1] + 0.0082, f.at[2]);
+    if (st.guards) blob(f.len[0] * 0.3, 0.0028, f.r * 0.8, 'accent', f.len[0] * 0.5, f.r * 0.92, 0, 0, j[0]);
+    return j;
+  });
+  const thumb = chain(THUMB.at, THUMB.len, st.bones ? 0.0038 : THUMB.r * (st.claw ? 1.1 : 1), [P.tz, ...P.tb], st.wraps ? ['base', 'skin'] : bare, st.bones ? 0.0055 : 0);
   thumb[0].rotation.y = P.ty; thumb[0].rotation.order = 'YZX';
   return { hand, fingers, thumb };
 }
 // turns a group so its +x, +y and +z point along a, b and c
 const orient = (g, a, b, c) => g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...a), new THREE.Vector3(...b), new THREE.Vector3(...c)));
-function handGlove(root, it, kind, M, st) {
+function gloveBuild(root, it, kind, M) {
   root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); root.clear();
-  const g = new THREE.Group(); root.add(g);
+  const st = STYLE[it.style] || STYLE.sport, g = new THREE.Group(); root.add(g); tapFinger = null;
   if (kind === 'bridge') {   // an open bridge: heel of the hand and fingertips on the cloth, knuckles up, the cue in the V of the thumb
     const r = handBuild(g, it, st, M, 'bridge'); r.hand.position.set(-0.115, 0.016, -0.03); r.hand.rotation.z = 0.3;
-    tapFinger = r.fingers[3][0]; tapFinger.userData.bend = tapFinger.rotation.z;
+    const f = r.fingers[r.fingers.length - 1]; if (f) { tapFinger = f[0]; tapFinger.userData.bend = tapFinger.rotation.z; }
   } else if (kind === 'grip') {   // the cue hand: hanging from the wrist, fingers wrapped round the cue near its butt
     g.position.set(-1.2, 0, 0); const m = new THREE.Group(); m.scale.z = -1; g.add(m);   // mirrored: a right hand
     const r = handBuild(m, it, st, M, 'grip');
@@ -629,70 +656,6 @@ function handGlove(root, it, kind, M, st) {
     for (const p of [thumb, pump]) p.children[0].position.set(-0.045, -0.02, 0);
     shrug.children[0].position.set(0, 0, -0.06); shrug.rotation.x = 0.3;
     g.scale.setScalar(1.25); CHEER.poses = { thumb, pump, shrug };
-  }
-}
-function gloveBuild(root, it, kind, M) {
-  const st = STYLE[it.style] || STYLE.glove; if (st.real) { handGlove(root, it, kind, M, st); return; }
-  root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); root.clear();
-  const g = new THREE.Group(); root.add(g);
-  const box = (w, h, d, mat, x, y, z, rz = 0, ry = 0, parent = g) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M[mat]); m.position.set(x, y, z); m.rotation.set(0, ry, rz); parent.add(m); return m; };
-  const cuff = (x, y, z, vertical) => {   // the cuff and its band; vertical: hanging below the hand, else lying behind it
-    const L = st.cuffL || 0.036, wide = st.flare ? 0.016 : 0;
-    if (vertical) { box(0.05 + wide, L + 0.008, 0.05 + wide, 'cuff', x, y - L / 2, z); box(0.054 + wide, 0.008, 0.054 + wide, 'accent', x, y - L * 0.55, z); }
-    else { box(L, 0.03 + wide, 0.05 + wide, 'cuff', x - L / 2, 0.016 + wide / 2, z); box(0.008, 0.034 + wide, 0.054 + wide, 'accent', x - L * 0.55, 0.017 + wide / 2, z); }
-  };
-  if (kind === 'bridge') {   // flat on the cloth facing the shot (+x), thumb raised on the right (+z) beside the cue
-    g.position.z = -0.022; g.scale.setScalar(1.3); tapFinger = null;
-    if (st.ball) { box(0.1, 0.05, 0.074, 'base', 0.02, 0.025, 0); box(0.08, 0.012, 0.06, 'base', 0.02, 0.054, 0); box(0.012, 0.03, 0.06, 'accent', 0.072, 0.025, 0); }
-    else if (st.bones) for (const z of [-0.024, -0.008, 0.008, 0.024]) box(0.066, 0.006, 0.006, 'base', 0, 0.006, z);
-    else box(0.066, 0.02, 0.068, 'base', 0, 0.01, 0);
-    for (let i = 0; i < st.n; i++) {
-      const z = st.n > 1 ? (i - (st.n - 1) / 2) * 0.0173 * (st.n === 3 ? 1.35 : 1) : 0, fan = st.n > 1 ? (i - (st.n - 1) / 2) * -0.12 : 0;
-      if (!st.bones && st.n > 1) box(0.014, 0.012, Math.min(0.014, st.fw + 0.002), 'base', 0.03, 0.024, z);   // knuckles
-      const f = box(st.fl, st.ft, st.fw, 'base', 0.033 + st.fl / 2 - 0.002, st.ft / 2, z, 0, fan); if (i === 0) { tapFinger = f; f.userData.bend = 0; }
-      if (st.tips) box(0.014, st.ft + 0.002, st.fw + 0.002, 'skin', 0.033 + st.fl - 0.008, st.ft / 2, z, 0, fan);
-      if (st.claws) box(0.012, st.ft + 0.002, st.fw + 0.002, 'tip', 0.033 + st.fl + 0.002, st.ft / 2, z, 0, fan);
-      if (st.plates) for (const fx of [0.4, 0.75]) box(0.004, st.ft + 0.003, st.fw + 0.003, 'accent', 0.033 + st.fl * fx, st.ft / 2, z, 0, fan);
-      if (st.bones) box(0.008, 0.009, 0.009, 'accent', 0.034, 0.006, z);
-    }
-    if (st.bands) for (const x of [0.045, 0.062]) box(0.005, st.ft + 0.003, 0.07, 'accent', x, st.ft / 2, 0);
-    if (st.lines) for (const z of [-0.016, 0, 0.016]) box(0.036, 0.004, 0.005, 'accent', -0.004, 0.021, z);
-    if (!st.ball) box(0.03, 0.04, 0.016, 'base', 0.012, 0.03, 0.03, 0.55);   // thumb up beside the cue
-    else box(0.03, 0.03, 0.02, 'base', 0.01, 0.04, 0.042, 0.4);
-    cuff(-0.032, 0, 0, false);
-  } else if (kind === 'grip') {   // a fist round the cue near its butt (the cue runs along -x from its tip), wrist hanging below
-    g.position.set(-1.2, 0, 0); g.scale.setScalar(1.35);
-    if (st.ball) box(0.09, 0.075, 0.07, 'base', 0, -0.012, 0); else if (!st.bones) box(0.07, 0.056, 0.052, 'base', 0, -0.014, 0);
-    else for (const z of [-0.018, 0, 0.018]) box(0.06, 0.008, 0.008, 'base', 0, -0.03, z);
-    if (st.n === 1) box(0.066, 0.014, 0.05, 'base', 0, 0.016, 0);
-    else for (let i = 0; i < st.n; i++) {
-      const x = (i - (st.n - 1) / 2) * 0.0175 * (st.n === 3 ? 1.35 : 1);
-      box(Math.max(0.008, st.fw + 0.001), st.bones ? 0.008 : 0.012, st.bones ? 0.04 : 0.05, 'base', x, 0.016, 0);
-      if (st.claws) box(st.fw, 0.012, 0.012, 'tip', x, 0.002, 0.03);
-      if (st.tips) box(0.012, 0.012, 0.01, 'skin', x, -0.004, 0.03);
-      if (st.plates) box(0.004, 0.016, 0.054, 'accent', x + 0.008, 0.016, 0);
-    }
-    if (!st.ball) box(0.04, 0.015, 0.018, 'base', 0.03, 0.019, 0.026);   // thumb along the cue
-    if (st.lines) for (const z of [-0.016, 0, 0.016]) box(0.004, 0.032, 0.005, 'accent', 0.036, -0.016, z);
-    if (st.bands) box(0.074, 0.006, 0.056, 'accent', 0, 0.004, 0);
-    cuff(-0.004, -0.04, 0, true);
-  } else {   // the reaction hand, facing the camera (+z): poses for a thumbs-up, a fist pump and a shrug
-    const thumb = new THREE.Group(), pump = new THREE.Group(), shrug = new THREE.Group(); g.add(thumb, pump, shrug); g.scale.setScalar(1.5);
-    for (const [p, up] of [[thumb, true], [pump, false]]) {
-      if (st.ball) box(0.07, 0.07, 0.06, 'base', 0, 0, 0, 0, 0, p); else box(0.056, 0.06, 0.05, 'base', 0, 0, 0, 0, 0, p);
-      const n = Math.max(1, st.n);
-      for (let i = 0; i < n && !st.ball; i++) {   // the curled fingers seen from the front, with a dark line between each
-        const y = n === 1 ? 0 : 0.021 - i * 0.042 / Math.max(1, n - 1);
-        box(0.05, n === 1 ? 0.04 : 0.012, 0.012, st.claws ? 'tip' : 'base', 0.004, y, 0.03, 0, 0, p);
-        if (i < n - 1) box(0.046, 0.003, 0.004, 'accent', 0.004, y - 0.021 / Math.max(1, n - 1), 0.0365, 0, 0, p);
-      }
-      if (up) box(0.018, 0.045, 0.02, 'base', -0.02, 0.05, 0.004, 0, 0, p); else box(0.036, 0.014, 0.016, 'base', -0.006, -0.02, 0.038, 0, 0, p);
-      const L = st.cuffL || 0.036; box(0.05, L, 0.05, 'cuff', 0, -0.03 - L / 2, 0, 0, 0, p); box(0.054, 0.008, 0.054, 'accent', 0, -0.03 - L * 0.55, 0, 0, 0, p);
-    }
-    box(0.066, 0.02, 0.068, 'base', 0, 0, 0, 0, 0, shrug);   // palm up, fingers towards the camera
-    for (let i = 0; i < Math.max(1, st.n); i++) box(st.n === 1 ? 0.062 : st.fw || 0.013, 0.014, 0.044, 'base', st.n > 1 ? (i - (st.n - 1) / 2) * 0.0173 : 0, 0, 0.054, 0, 0, shrug);
-    box(0.016, 0.014, 0.034, 'base', -0.042, 0.004, 0.02, 0, 0.5, shrug); box(0.05, 0.03, 0.036, 'cuff', 0, 0, -0.05, 0, 0, shrug); shrug.rotation.x = 0.6;
-    CHEER.poses = { thumb, pump, shrug };
   }
 }
 // colours and effects: a design's base, accent and cuff (skin for fingerless gloves, tip for claws), a little of their
@@ -2205,25 +2168,25 @@ function caseParts(grade) {
     [3, 1, 12, 3, col], [3, 1, 12, 1, lt, 1], [1, 12, 16, 1, dk, 1]];
 }
 const caseImg = (grade, scale) => pixImg(18, 14, caseParts(grade), scale);
-// a glove from its shape, as the back of the hand: fingers up, thumb out to the left, cuff below
+// a glove from its type, as the back of the hand: fingers up, thumb out to the left, cuff below
 function gloveImg(id, scale) {
   if (id === 'none') return pixImg(16, 18, [[3, 4, 10, 10, '#4e3270'], [5, 6, 6, 6, '#2a2238', 1], [3, 8, 10, 2, '#4e3270', 1]], scale);
-  const it = LK.ALL[id], b = it.base, a = it.accent, cf = it.cuff, st = it.style, P = [], f = (...p) => P.push(p);
-  const fingers = (n, fw, tops) => { for (let i = 0; i < n; i++) f(4 + i * (fw + 1), tops[i], fw, 9 - tops[i], b); };
-  if (st === 'mitt' || st === 'padded') f(4, 2, 11, 7, b); else if (st === 'boxing') f(3, 2, 13, 11, b);
-  else if (st === 'claw') fingers(3, 3, [3, 1, 3]); else if (st === 'bones') fingers(4, 1, [3, 1, 2, 4]); else fingers(4, 2, [3, 1, 2, 4]);
-  if (st !== 'boxing') f(4, 7, 11, 6, st === 'bones' ? cf : b);
-  f(1, 8, 4, 3, b);   // thumb
-  if (st === 'long') f(5, 13, 9, 5, cf); else if (st === 'flare' || st === 'gauntlet') f(3, 13, 13, 4, cf); else f(5, 13, 9, 4, cf);
-  f(st === 'flare' || st === 'gauntlet' ? 3 : 5, 13, st === 'flare' || st === 'gauntlet' ? 13 : 9, 1, a, 1);   // the band round the cuff
-  if (st === 'fingerless') for (let i = 0; i < 4; i++) f(4 + i * 3, [3, 1, 2, 4][i], 2, 2, it.skin, 1);
-  else if (st === 'gauntlet') { for (const y of [4, 7, 10]) f(4, y, 11, 1, a, 1); }
-  else if (st === 'claw') { for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 1, it.fxc || a, 1); }
-  else if (st === 'bones') { f(5, 8, 1, 4, b, 1); f(7, 8, 1, 4, b, 1); f(9, 8, 1, 4, b, 1); f(11, 8, 1, 4, b, 1); }
-  else if (st === 'boxing') { f(4, 4, 2, 7, a, 1); f(8, 14, 3, 1, a, 1); f(8, 16, 3, 1, a, 1); }
-  else if (st === 'padded') { for (const y of [3, 5]) f(4, y, 11, 1, a, 1); }
-  else for (const x of [6, 9, 12]) f(x, 8, 1, 3, a, 1);
-  return pixImg(17, 19, P.map(([x, y, w, h, c, bare]) => [x, y, w, h, c, bare]), scale);
+  const it = LK.ALL[id], b = it.base, a = it.accent, cf = it.cuff, sk = it.skin || b, st = it.style, P = [], f = (...p) => P.push(p), tops = [3, 1, 2, 4];
+  if (st === 'boxing') f(3, 2, 13, 11, b);
+  else if (st === 'claw') for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 9 - [3, 1, 3][i], b);
+  else for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], st === 'bones' ? 1 : 2, 9 - tops[i], st === 'wraps' ? sk : b);
+  if (st !== 'boxing') f(4, 7, 11, 6, st === 'bones' ? cf : b);   // the palm
+  f(1, 8, 4, 3, st === 'wraps' ? sk : b);                          // the thumb
+  f(5, 13, 9, st === 'tactical' ? 5 : 3, cf);                      // the cuff
+  if (st === 'sport') { f(6, 8, 7, 3, cf, 1); f(4, 7, 11, 1, a, 1); }
+  else if (st === 'moto' || st === 'tactical') for (let i = 0; i < 4; i++) { f(4 + i * 3, 7, 2, 1, a, 1); if (st === 'moto') f(4 + i * 3, tops[i] + 2, 2, 1, a, 1); }
+  else if (st === 'fingerless') for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], 2, 2, sk, 1);
+  else if (st === 'wraps') for (const y of [8, 11]) f(4, y, 11, 1, a, 1);
+  else if (st === 'claw') for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 1, it.fxc || a, 1);
+  else if (st === 'bones') for (const x of [5, 7, 9, 11]) f(x, 8, 1, 4, b, 1);
+  else if (st === 'boxing') f(4, 4, 2, 7, a, 1);
+  if (['sport', 'driver', 'fingerless', 'moto'].includes(st)) f(10, 14, 3, 1, a, 1);   // the strap tab
+  return pixImg(17, 19, P, scale);
 }
 function clothImg(id, px) {
   const c = document.createElement('canvas'), it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : { col: CLOTHS[id][0] }; c.width = c.height = px;

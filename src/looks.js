@@ -38,8 +38,9 @@ const START = { money: 40, cases: { silver: 1 } };
 
 // The catalogue. Cloths: col, and a pattern (pat: kind, col2 its colour, kept close to the cloth so the balls stay
 // easy to see). Cues: the six colours of a design (see career.js), plus an optional pattern on the forearm and butt
-// (pat: kind and colour) and an effect (fx: glow, rainbow, neon). Gloves: base, accent and cuff colours, a shape
-// (style) and an optional effect (fx: glow, flicker, ghost; fxc the glow colour).
+// (pat: kind and colour) and an effect (fx: glow, rainbow, neon). Gloves: base, accent and cuff colours, a glove type
+// (style; skin for the bare fingers of wraps and fingerless gloves) and an optional effect (fx: glow, flicker, ghost;
+// fxc the glow colour).
 const cue = (shaft, joint, fore, wrap, butt, inlay) => ({ shaft, joint, fore, wrap, butt, inlay });
 const CASE_ITEMS = [
   // cloths
@@ -74,34 +75,34 @@ const CASE_ITEMS = [
   { id: 'q-stars', kind: 'cue', name: 'Starlight', rarity: 'epic', col: cue('#e3c68f', '#cfd0dc', '#1b1f4a', '#141018', '#1b1f4a', '#ffffff'), pat: 'stars', pc: '#ffffff', fx: 'glow' },
   { id: 'q-rainbow', kind: 'cue', name: 'Spectrum', rarity: 'legendary', col: cue('#f1e4c4', '#ffffff', '#ff4d4d', '#141018', '#4d6bff', '#ffffff'), fx: 'rainbow' },
   { id: 'q-neon', kind: 'cue', name: 'Neon', rarity: 'legendary', col: cue('#2a2238', '#ff4fd8', '#141018', '#141018', '#141018', '#4ff0ff'), pat: 'rings', pc: '#4ff0ff', fx: 'neon' },
-  // gloves
-  { id: 'g-leather', kind: 'glove', name: 'Leather', rarity: 'common', base: '#7a4a2a', accent: '#d9a441', cuff: '#3b2416', style: 'glove' },
-  { id: 'g-garden', kind: 'glove', name: 'Gardening', rarity: 'common', base: '#6fae4a', accent: '#ff8fb8', cuff: '#f1e4c4', style: 'glove' },
-  { id: 'g-oven', kind: 'glove', name: 'Oven mitt', rarity: 'common', base: '#d6303b', accent: '#f7ead2', cuff: '#f7ead2', style: 'mitt' },
-  { id: 'g-mitten', kind: 'glove', name: 'Mitten', rarity: 'common', base: '#2461b0', accent: '#f7ead2', cuff: '#f7ead2', style: 'mitt' },
-  { id: 'g-rubber', kind: 'glove', name: 'Washing-up', rarity: 'common', base: '#ffd23f', accent: '#e0a800', cuff: '#ffd23f', style: 'long' },
+  // gloves: style is the glove type (sport, driver, tactical, moto, fingerless, wraps), or a novelty (boxing, claw, bones)
+  { id: 'g-leather', kind: 'glove', name: 'Leather', rarity: 'common', base: '#7a4a2a', accent: '#3b2416', cuff: '#5a341c', style: 'driver' },
+  { id: 'g-golf', kind: 'glove', name: 'Golf', rarity: 'common', base: '#f7f4ee', accent: '#1e3263', cuff: '#1e3263', style: 'driver' },
   { id: 'g-biker', kind: 'glove', name: 'Biker', rarity: 'common', base: '#1d1a22', accent: '#9aa3b2', cuff: '#1d1a22', style: 'fingerless', skin: '#e0ac7e' },
-  { id: 'g-golf', kind: 'glove', name: 'Golf', rarity: 'common', base: '#f7f4ee', accent: '#1e3263', cuff: '#1e3263', style: 'glove' },
-  { id: 'g-driving', kind: 'glove', name: 'Driving', rarity: 'common', base: '#b8875a', accent: '#5a3a22', cuff: '#5a3a22', style: 'fingerless', skin: '#c68a5e' },
+  { id: 'g-driving', kind: 'glove', name: 'Tan driver', rarity: 'common', base: '#b8875a', accent: '#5a3a22', cuff: '#5a3a22', style: 'fingerless', skin: '#c68a5e' },
+  { id: 'g-olive', kind: 'glove', name: 'Olive drab', rarity: 'common', base: '#5d6b3a', accent: '#2f3520', cuff: '#4a5530', style: 'tactical' },
+  { id: 'g-wraps', kind: 'glove', name: 'Hand wraps', rarity: 'common', base: '#e8e4da', accent: '#b9b2a2', cuff: '#e8e4da', style: 'wraps', skin: '#e0ac7e' },
+  { id: 'g-navy', kind: 'glove', name: 'Navy sport', rarity: 'common', base: '#1e3263', accent: '#6cb8ff', cuff: '#2a4a8a', style: 'sport' },
+  { id: 'g-slate', kind: 'glove', name: 'Slate moto', rarity: 'common', base: '#4a5160', accent: '#1d1a22', cuff: '#3a404c', style: 'moto' },
   { id: 'g-boxing', kind: 'glove', name: 'Boxing', rarity: 'rare', base: '#c0262e', accent: '#f7ead2', cuff: '#f7ead2', style: 'boxing' },
-  { id: 'g-keeper', kind: 'glove', name: 'Goalkeeper', rarity: 'rare', base: '#9be22d', accent: '#141018', cuff: '#141018', style: 'padded' },
-  { id: 'g-cowboy', kind: 'glove', name: 'Cowboy', rarity: 'rare', base: '#c08a4a', accent: '#6b4422', cuff: '#a06a32', style: 'flare' },
-  { id: 'g-wizard', kind: 'glove', name: 'Wizard', rarity: 'rare', base: '#5a2d9a', accent: '#ffd36b', cuff: '#2a1a5e', style: 'glove', fx: 'glow', fxc: '#ffd36b' },
-  { id: 'g-racing', kind: 'glove', name: 'Racing', rarity: 'rare', base: '#f7f4ee', accent: '#d6303b', cuff: '#d6303b', style: 'glove' },
-  { id: 'g-puffy', kind: 'glove', name: 'Snowboard', rarity: 'rare', base: '#ff7a2f', accent: '#1d1a22', cuff: '#1d1a22', style: 'padded' },
-  { id: 'g-hockey', kind: 'glove', name: 'Ice hockey', rarity: 'rare', base: '#1d1a22', accent: '#d6303b', cuff: '#d6303b', style: 'boxing' },
-  { id: 'g-disco', kind: 'glove', name: 'Disco', rarity: 'rare', base: '#d8dde8', accent: '#ff4fd8', cuff: '#4ff0ff', style: 'glove', fx: 'glow', fxc: '#ff4fd8' },
-  { id: 'g-knight', kind: 'glove', name: 'Knight', rarity: 'epic', base: '#aeb6c4', accent: '#5e6675', cuff: '#c9d1dc', style: 'gauntlet' },
-  { id: 'g-robot', kind: 'glove', name: 'Robot', rarity: 'epic', base: '#9aa3b2', accent: '#ff4d4d', cuff: '#4a5160', style: 'claw', fx: 'glow', fxc: '#ff4d4d' },
+  { id: 'g-racing', kind: 'glove', name: 'Racing', rarity: 'rare', base: '#f7f4ee', accent: '#d6303b', cuff: '#d6303b', style: 'sport' },
+  { id: 'g-desert', kind: 'glove', name: 'Desert', rarity: 'rare', base: '#c9a46a', accent: '#6b4f2a', cuff: '#a8844f', style: 'tactical' },
+  { id: 'g-redwrap', kind: 'glove', name: 'Red wraps', rarity: 'rare', base: '#a8202c', accent: '#5a0f16', cuff: '#a8202c', style: 'wraps', skin: '#c68a5e' },
+  { id: 'g-royal', kind: 'glove', name: 'Royal sport', rarity: 'rare', base: '#4b2a8a', accent: '#ffd36b', cuff: '#2a1a5e', style: 'sport' },
+  { id: 'g-hivis', kind: 'glove', name: 'Hi-vis', rarity: 'rare', base: '#ff7a2f', accent: '#1d1a22', cuff: '#1d1a22', style: 'moto' },
+  { id: 'g-midnight', kind: 'glove', name: 'Midnight moto', rarity: 'rare', base: '#141018', accent: '#2461b0', cuff: '#1d1a22', style: 'moto' },
+  { id: 'g-mint', kind: 'glove', name: 'Mint sport', rarity: 'rare', base: '#3fbf9f', accent: '#ff6f9f', cuff: '#f7ead2', style: 'sport' },
+  { id: 'g-carbon', kind: 'glove', name: 'Carbon', rarity: 'epic', base: '#2a2d33', accent: '#9aa3b2', cuff: '#141018', style: 'tactical' },
+  { id: 'g-robot', kind: 'glove', name: 'Robot', rarity: 'epic', base: '#9aa3b2', accent: '#4a5160', cuff: '#4a5160', style: 'claw', fx: 'glow', fxc: '#ff4d4d' },
   { id: 'g-bones', kind: 'glove', name: 'Skeleton', rarity: 'epic', base: '#ece6d2', accent: '#c9c0a4', cuff: '#2a2238', style: 'bones' },
-  { id: 'g-slime', kind: 'glove', name: 'Slime', rarity: 'epic', base: '#5fe07a', accent: '#2fa84a', cuff: '#5fe07a', style: 'mitt', fx: 'glow', fxc: '#3fd060' },
-  { id: 'g-frost', kind: 'glove', name: 'Frost', rarity: 'epic', base: '#bfe9ff', accent: '#ffffff', cuff: '#7fc8e8', style: 'gauntlet', fx: 'glow', fxc: '#7fe8ff' },
-  { id: 'g-gold', kind: 'glove', name: 'Golden gauntlet', rarity: 'legendary', base: '#ffd36b', accent: '#b8862a', cuff: '#ffe9a8', style: 'gauntlet', fx: 'glow', fxc: '#ffd36b' },
-  { id: 'g-flame', kind: 'glove', name: 'Inferno', rarity: 'legendary', base: '#ff7a2f', accent: '#ffd23f', cuff: '#c0262e', style: 'glove', fx: 'flicker', fxc: '#ff9a3f' },
-  { id: 'g-ghost', kind: 'glove', name: 'Phantom', rarity: 'legendary', base: '#b9a6ff', accent: '#ffffff', cuff: '#6d5ad6', style: 'glove', fx: 'ghost', fxc: '#9f8bff' },
+  { id: 'g-acid', kind: 'glove', name: 'Acid', rarity: 'epic', base: '#7ad63a', accent: '#1d1a22', cuff: '#1d1a22', style: 'sport', fx: 'glow', fxc: '#9be22d' },
+  { id: 'g-arctic', kind: 'glove', name: 'Arctic', rarity: 'epic', base: '#e8f4ff', accent: '#7fc8e8', cuff: '#bfe9ff', style: 'moto', fx: 'glow', fxc: '#7fe8ff' },
+  { id: 'g-gold', kind: 'glove', name: 'Gold leaf', rarity: 'legendary', base: '#ffd36b', accent: '#141018', cuff: '#b8862a', style: 'driver', fx: 'glow', fxc: '#ffd36b' },
+  { id: 'g-flame', kind: 'glove', name: 'Blaze', rarity: 'legendary', base: '#ff7a2f', accent: '#ffd23f', cuff: '#c0262e', style: 'sport', fx: 'flicker', fxc: '#ff9a3f' },
+  { id: 'g-ghost', kind: 'glove', name: 'Phantom', rarity: 'legendary', base: '#b9a6ff', accent: '#ffffff', cuff: '#6d5ad6', style: 'tactical', fx: 'ghost', fxc: '#9f8bff' },
 ];
 // the free glove everyone starts with ('none' shows no gloves at all)
-const FREE_GLOVE = { id: 'g-white', kind: 'glove', name: 'Classic white', rarity: 'common', base: '#f4f1ea', accent: '#1a1433', cuff: '#ffffff', style: 'glove' };
+const FREE_GLOVE = { id: 'g-white', kind: 'glove', name: 'Classic white', rarity: 'common', base: '#f4f1ea', accent: '#1a1433', cuff: '#ffffff', style: 'sport' };
 // every look by id: the shop's (career.js), the cases', and the free glove
 const ALL = Object.fromEntries([...K.SHOP, ...CASE_ITEMS, FREE_GLOVE].map(it => [it.id, it]));
 const POOL = Object.fromEntries(RARITIES.map(r => [r, CASE_ITEMS.filter(it => it.rarity === r).map(it => it.id)]));
