@@ -1,6 +1,6 @@
 // The locker: old saves moving in, opening a case (the reel stops on the prize, honestly), buying cases, duplicates
 // sold, two open pages kept in step, earning from frames against the computer (and nothing from same-device games),
-// and the looks from cases in use: a patterned cloth and a glove.
+// the looks from cases in use (a patterned cloth and a glove), and dev mode's test locker.
 const { chromium, SITE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -111,6 +111,37 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await until(() => p.evaluate(() => __rr.state !== 'over' && __rr.concedeFrame(false, 1))); await until(() => p.isVisible('#over'), 5000);
   ok(await p.textContent('#overEarn') === '' && (await lock()).money === 90, 'same-device games earn nothing');
   await p.click('#bOverMenu'); await sleep(500);
+
+  console.log('--- dev mode: a test locker with everything (tested with a stand-in word; the real one stays secret)');
+  await p.goto(SITE.new + '?relay=ws://127.0.0.1:8787'); await sleep(1200);
+  const real = JSON.stringify(await lock());
+  await p.evaluate(async () => { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('retroRack:testword')); __rr.DEVW.print = [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); });
+  await p.evaluate(() => localStorage.setItem('retroRack.name', 'Sol'));
+  await p.click('[data-go="multi"]'); await p.click('[data-go="online"]'); await sleep(300);
+  await p.fill('#netName', 'notit'); await sleep(300);
+  ok(!(await p.evaluate(() => __rr.dev)), 'a wrong word does nothing');
+  await p.fill('#netName', 'TestWord'); await sleep(500);
+  ok(await p.evaluate(() => __rr.dev) && await p.inputValue('#netName') === 'Sol', 'the word (any capitals) switches dev mode on, and the name box goes back to your name');
+  let D = await p.evaluate(() => __rr.lock);
+  ok(D.money === 100000 && D.cases.diamond === 50 && JSON.stringify(await lock()) === real, 'a test locker: £100,000 and 50 of each case; the real locker is untouched');
+  ok(await p.evaluate(() => Object.keys(__rr.LK.ALL).every(id => __rr.LK.owns(__rr.lock, id))), 'every look is owned in the test locker');
+  for (let i = 0; i < 6; i++) if (await p.isVisible('#mBack')) await p.click('#mBack');
+  await sleep(300); ok(/Version [0-9a-f]{8} · DEV/.test(await p.textContent('#ver')), `the version line says DEV ("${await p.textContent('#ver')}")`);
+  await p.click('[data-go="locker"]'); await sleep(400);
+  ok(/^Test locker: £100,000 to spend/.test(await p.textContent('#lockMoney')), 'the locker says it is the test locker');
+  await p.click('.caseCard:nth-child(4) .btn:nth-child(1)'); await sleep(300); await p.click('#reelWin'); await sleep(300); await p.click('#bReelDone');
+  ok((await p.evaluate(() => __rr.lock)).cases.diamond === 49 && JSON.stringify(await lock()) === real, 'opening a case uses the test locker only');
+  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(200); await p.click('.shopItem[data-id="champion"]'); await sleep(200);
+  ok(await p.evaluate(() => __rr.S.cue) === 'champion', 'the dearest shop cue can be used without buying it');
+  await p.reload(); await sleep(1200);
+  ok(await p.evaluate(() => __rr.dev && __rr.lock.cases.diamond === 49 && __rr.S.cue === 'champion'), 'dev mode stays on after a reload, test locker and all');
+  await p.click('#bMenuSettings'); await sleep(300);
+  ok(await p.isVisible('#rowDev'), 'Settings shows a Dev mode row');
+  await p.click('#sDev'); await sleep(300);
+  ok(!(await p.evaluate(() => __rr.dev)) && JSON.stringify(await lock()) === real && (await p.evaluate(() => __rr.lock.money)) === JSON.parse(real).money && await p.isHidden('#rowDev'), 'Switch off: your own locker is back');
+  ok(await p.evaluate(() => __rr.S.cue) === 'house', 'and the cue you don\'t own goes back to the house cue');
+  await p.click('#bResume'); await sleep(200);
+  ok(!/DEV/.test(await p.textContent('#ver')), 'and the version line is back to normal');
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));
   await b.close();
