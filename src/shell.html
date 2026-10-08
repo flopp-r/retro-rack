@@ -94,14 +94,27 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .lockFoot{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:17px}.lockFoot>span:first-child{margin-right:auto;opacity:.85}.lockFoot .btn{font-size:9px;padding:5px 9px}
 #lockNote{grid-column:auto;margin:6px 0 0}#lockNote:empty{display:none}
 .picker{align-items:center;flex-wrap:nowrap}.pickCur{display:inline-flex;align-items:center;gap:8px;min-width:170px;font-size:19px}.pickCur .shopSw{width:22px;height:22px;border-width:2px}
-/* opening a case: a reel of the case's items glides past a marker and stops on the prize */
-.reelPanel{width:min(560px,94vw);text-align:center;padding:16px 18px}
-#reelWin{position:relative;overflow:hidden;height:72px;margin:10px 0;border:3px solid var(--ink);background:#0d0a1c;cursor:pointer}
-#reelStrip{display:flex;gap:6px;padding:6px 0;will-change:transform}
-.reelTile{flex:none;width:58px;height:54px;display:flex;align-items:center;justify-content:center;background:var(--plum);border:3px solid}
-.reelTile.won{background:var(--plum2);outline:3px solid var(--lamp)}
-.reelMark{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--lamp);box-shadow:0 0 6px var(--lamp)}
-#reelTxt{min-height:1.3em;margin:0 0 6px;font-size:20px}.reelRarity{font-family:'Press Start 2P',monospace;font-size:10px}
+/* opening a case: the screen goes dark, a big reel of the case's items glides past a marker and stops on the prize,
+   and the background (#reelFx, drawn in game.js) lights up in the prize's colours */
+#reel{z-index:20;background:rgba(4,3,9,.92);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);padding:0;flex-direction:column}
+#reelFx{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;pointer-events:none}
+.reelPanel{position:relative;width:100%;text-align:center;padding:0;--tile:min(40vh,22vw)}
+#reelTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(14px,2.4vw,26px);color:var(--paper);margin:0 0 3vh;text-shadow:3px 3px 0 #05030a,-2px -2px 0 #05030a,0 0 14px currentColor}
+#reelWin{position:relative;overflow:hidden;height:calc(var(--tile) + 28px);margin:0;border-top:4px solid var(--ink);border-bottom:4px solid var(--ink);background:rgba(13,10,28,.72);cursor:pointer}
+#reelStrip{display:flex;gap:12px;padding:10px 0;will-change:transform}
+.reelTile{flex:none;width:var(--tile);height:var(--tile);display:flex;align-items:center;justify-content:center;background:var(--plum);border:5px solid;box-sizing:border-box}
+.reelTile img{width:66%;height:auto;max-height:80%;image-rendering:pixelated}.reelTile img.shopSw{width:62%;height:62%;border-width:4px}
+.reelTile.won{background:var(--plum2);outline:5px solid var(--lamp);box-shadow:0 0 28px var(--glow,var(--lamp))}
+.reelMark{position:absolute;top:0;bottom:0;left:50%;width:4px;margin-left:-2px;background:var(--lamp);box-shadow:0 0 10px var(--lamp)}
+.reelMark::before,.reelMark::after{content:'';position:absolute;left:-8px;border:10px solid transparent}.reelMark::before{top:0;border-top-color:var(--lamp)}.reelMark::after{bottom:0;border-bottom-color:var(--lamp)}
+#reelTxt{min-height:2.6em;margin:3vh auto 2vh;max-width:90vw;font-size:clamp(20px,2.6vw,34px);text-shadow:2px 2px 0 #05030a}
+.reelRarity{display:block;font-family:'Press Start 2P',monospace;font-size:clamp(13px,2vw,24px);margin-bottom:10px;text-shadow:3px 3px 0 #05030a,-2px -2px 0 #05030a,0 0 14px currentColor}
+#reelBtns{justify-content:center}#reelBtns .btn{font-size:12px;padding:12px 16px}
+.reelPanel.shake{animation:reelShake .6s linear}
+@keyframes reelShake{0%,100%{transform:none}20%{transform:translate(-5px,2px)}40%{transform:translate(5px,-2px)}60%{transform:translate(-3px,-1px)}80%{transform:translate(3px,1px)}}
+#reelTitle.big{animation:reelBig 1.6s ease-in-out infinite}
+@keyframes reelBig{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){.reelPanel.shake,#reelTitle.big{animation:none}}
 .cTier{font-size:19px;color:var(--lamp);margin:0}
 .cEvt{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;text-align:left;padding:7px 11px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
 .cEvt:hover:not([aria-disabled="true"]){background:var(--plum2);border-color:var(--lamp)}
@@ -145,7 +158,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   .lockTop{margin-bottom:5px}.lockTop .cInfo{font-size:16px}.shopItem>img.portrait{max-height:24px;width:auto}.caseGrid{gap:5px}.caseCard{padding:4px 4px;gap:2px}
   .caseCard>img{width:36px;height:28px}.caseName{font-size:8px}.caseN{font-size:16px}.caseOdds{font-size:14px}.caseBtns .btn{padding:5px 5px}
   .lockFoot{margin-top:5px;font-size:15px}.lockFoot .btn{padding:4px 8px}#lockNote{margin-top:3px;font-size:16px}
-  #reelWin{height:64px;margin:6px 0}.reelTile{width:52px;height:48px}.reelPanel{padding:10px 14px}
+  #reelTitle{margin-bottom:2vh}#reelTxt{margin:2vh auto 1vh;min-height:2.2em}#reelBtns .btn{font-size:10px;padding:9px 12px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -472,7 +485,8 @@ input:focus{border-color:var(--chalk)}
 </div>
 
 <div id="reel" class="overlay" hidden>
-  <div class="panel reelPanel" role="dialog" aria-labelledby="reelTitle">
+  <canvas id="reelFx"></canvas>
+  <div class="reelPanel" role="dialog" aria-labelledby="reelTitle">
     <h2 id="reelTitle"></h2>
     <div id="reelWin"><div id="reelStrip"></div><div class="reelMark"></div></div>
     <p id="reelTxt" role="status"></p>

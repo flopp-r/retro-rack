@@ -295,24 +295,39 @@ const clothMat = new THREE.MeshLambertMaterial({ color: '#1d8a74' });
 const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
 // A patterned cloth (looks.js) is drawn onto the bed as a texture, metre for metre; a plain one is just a colour. The
 // bed's texture coordinates are its x and z in metres, so repeat and offset map the whole bed onto the picture once.
-let clothTex = null;
+// A mythic cloth moves (clothFx, every frame): 'flow' drifts its pattern slowly along the table (the picture repeats
+// end to end), 'pulse' makes its cracks glow and fade through a glow map drawn from the same pattern.
+let clothTex = null, clothGlow = null;
 function setCloth() {
   const id = NET.on && NET.cloth ? NET.cloth : S.cloth, base = (CLOTHS[id] || CLOTHS.teal)[0], it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : null;
   const key = it ? id + T.key : '';
-  if (clothTex && clothTex.userData.key !== key) { clothTex.dispose(); clothTex = null; }
+  if (clothTex && clothTex.userData.key !== key) { clothTex.dispose(); clothTex = null; if (clothGlow) { clothGlow.dispose(); clothGlow = null; } }
   if (it && !clothTex) {
-    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = 300;
-    clothTex = canvasTex(Math.round(ex * ppm), Math.round(ez * ppm), (g, w, h) => drawPattern(g, it, w, h, ppm));
-    clothTex.repeat.set(1 / ex, 1 / ez); clothTex.offset.set(0.5, 0.5); clothTex.userData.key = key;
-    clothTex.minFilter = THREE.LinearMipmapLinearFilter; clothTex.generateMipmaps = true;   // no shimmer at a distance
+    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = 300, make = mask => {
+      const t = canvasTex(Math.round(ex * ppm), Math.round(ez * ppm), (g, w, h) => drawPattern(g, it, w, h, ppm, mask));
+      t.repeat.set(1 / ex, 1 / ez); t.offset.set(0.5, 0.5); t.userData.key = key;
+      t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;   // no shimmer at a distance
+      if (it.anim === 'flow') t.wrapS = THREE.RepeatWrapping;
+      return t;
+    };
+    clothTex = make(false); if (it.anim === 'pulse') clothGlow = make(true);
   }
-  if (clothMat.map !== clothTex) { clothMat.map = clothTex; clothMat.needsUpdate = true; }
-  clothMat.color.set(clothTex ? '#ffffff' : base); cushMat.color.set(base).multiplyScalar(0.84);
+  if (clothMat.map !== clothTex || clothMat.emissiveMap !== clothGlow) { clothMat.map = clothTex; clothMat.emissiveMap = clothGlow; clothMat.needsUpdate = true; }
+  clothMat.color.set(clothTex ? '#ffffff' : base); clothMat.emissive.set('#000000'); cushMat.color.set(base).multiplyScalar(0.84);
+  CLOTH_FX.it = it && it.anim ? it : null;
 }
-// draws a cloth's pattern over its colour; m is pixels per metre, so the patterns keep their real size
-function drawPattern(g, it, w, h, m) {
+const CLOTH_FX = { it: null };
+function clothFx(now) {
+  const it = CLOTH_FX.it; if (!it || !clothTex) return;
+  const t = reduceMotion ? 0 : now / 1000;
+  if (it.anim === 'flow') clothTex.offset.x = 0.5 + t * 0.012;
+  else if (it.anim === 'pulse') clothMat.emissive.set(it.col2).multiplyScalar(0.35 + 0.3 * (0.5 + 0.5 * Math.sin(t * 1.6)));
+}
+// draws a cloth's pattern over its colour; m is pixels per metre, so the patterns keep their real size. mask: the glow
+// map of a pulsing cloth instead (black, with its glowing parts white)
+function drawPattern(g, it, w, h, m, mask) {
   const r = K.rng(7), c2 = it.col2, lw = v => { g.lineWidth = Math.max(1, v * m); };
-  g.fillStyle = it.col; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = c2; g.beginPath();
+  g.fillStyle = mask ? '#000000' : it.col; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = c2; g.beginPath();
   const poly = pts => pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
   if (it.pat === 'pin') for (let y = 0; y < h; y += 0.07 * m) g.fillRect(0, y, w, Math.max(1, 0.005 * m));
   else if (it.pat === 'dots') { const s = 0.09 * m; for (let y = 0, row = 0; y < h + s; y += s / 2, row++) for (let x = row % 2 * s / 2; x < w + s; x += s) { g.moveTo(x + 0.012 * m, y); g.arc(x, y, 0.012 * m, 0, 7); } g.fill(); }
@@ -347,6 +362,30 @@ function drawPattern(g, it, w, h, m) {
   } else if (it.pat === 'synth') {
     const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, it.col); gr.addColorStop(0.5, c2); gr.addColorStop(1, it.col); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     g.fillStyle = '#ff4fa3'; g.globalAlpha = 0.45; for (let x = 0; x < w; x += 0.15 * m) g.fillRect(x, 0, Math.max(1, 0.005 * m), h); for (let y = 0; y < h; y += 0.15 * m) g.fillRect(0, y, w, Math.max(1, 0.005 * m));
+    g.globalAlpha = 1;
+  } else if (it.pat === 'aurora') {   // soft curtains of light; each wave fits the width a whole number of times, so the picture repeats end to end
+    g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 5; k++) {
+      const n = [1, 2, 1, 3, 2][k], yc = h * (0.14 + 0.18 * k), A = h * 0.07;
+      g.strokeStyle = k % 2 ? it.col3 : c2;
+      for (const [wd, al] of [[0.18, 0.07], [0.09, 0.12], [0.035, 0.28]]) {
+        g.globalAlpha = al; lw(wd); g.beginPath();
+        for (let x = 0; x <= w; x += 4) { const y = yc + A * Math.sin(2 * Math.PI * n * x / w + k * 1.7); if (x) g.lineTo(x, y); else g.moveTo(x, y); }
+        g.stroke();
+      }
+    }
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.8; g.fillStyle = '#e8f8ff';
+    for (let i = 0; i < w * h / (m * m) * 40; i++) { const z = Math.max(1, 0.003 * m); g.fillRect(r() * w, r() * h, z, z); }
+    g.globalAlpha = 1;
+  } else if (it.pat === 'lava') {   // cracks in cooling rock, with hot spots; the mask has the same cracks in white
+    const crack = (wd, col, al) => { g.strokeStyle = col; g.globalAlpha = al; lw(wd); const rr = K.rng(11);
+      for (let i = 0; i < w * h / (m * m) * 9; i++) {
+        let x = rr() * w, y = rr() * h, a = rr() * 6.28; g.beginPath(); g.moveTo(x, y);
+        for (let k = 0; k < 6; k++) { a += (rr() - 0.5) * 1.6; x += Math.cos(a) * 0.06 * m; y += Math.sin(a) * 0.06 * m; g.lineTo(x, y); }
+        g.stroke();
+      } };
+    if (mask) { crack(0.03, '#ffffff', 0.35); crack(0.008, '#ffffff', 1); }
+    else { crack(0.03, it.col3, 0.18); crack(0.008, c2, 0.95); }
     g.globalAlpha = 1;
   }
 }
@@ -488,7 +527,18 @@ function cuePattern(it, mask) {
     else if (it.pat === 'crystal') for (let y = -W; y < H; y += 22) { poly([[0, y], [W, y + 18], [W, y + 20], [0, y + 2]]); poly([[W, y + 6], [0, y + 20], [0, y + 21], [W, y + 7]]); }
     else if (it.pat === 'stars') for (let i = 0; i < 30; i++) { const x = r() * W, y = r() * H; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); }
     else if (it.pat === 'rings') for (let y = 4; y < H; y += 18) g.fillRect(0, y, W, 4);
-  });
+    else if (it.pat === 'swirl' || it.pat === 'plasma') {   // drawn point by point from waves that repeat round and along the cue, so it can turn and flow
+      const img = g.getImageData(0, 0, W, H), d = img.data, lo = new THREE.Color(it.col.fore), hi = new THREE.Color(it.pc), hot = new THREE.Color(it.col.inlay), c = new THREE.Color(), P = 2 * Math.PI;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const u = x / W, v = y / H;
+        const s = it.pat === 'swirl' ? 0.5 + 0.5 * Math.sin(P * (2 * u + 3 * v)) : (Math.sin(P * u) + Math.sin(P * (2 * v + u)) + Math.sin(P * (4 * v - 2 * u)) + 3) / 6;
+        const k = Math.pow(s, it.pat === 'swirl' ? 3 : 1.6);
+        if (mask) c.setScalar(k); else { c.copy(lo).lerp(hi, Math.min(1, k * 1.4)); if (k > 0.8) c.lerp(hot, (k - 0.8) * 5); }
+        const i = 4 * (y * W + x); d[i] = c.r * 255; d[i + 1] = c.g * 255; d[i + 2] = c.b * 255; d[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+    }
+  }, it.fx === 'spin' || it.fx === 'plasma' ? [1, 1] : undefined);
 }
 function applyCue(id) {
   cueNow = id; const c = cueCols(id), it = kindOf(id) === 'cue' ? LK.ALL[id] : {};
@@ -503,6 +553,10 @@ function cueFx(now) {
   const t = reduceMotion ? 0 : now / 1000, f = CUE_MAT.fore;
   if (it.fx === 'rainbow') { f.color.setHSL(t * 0.12 % 1, 0.85, 0.55); CUE_MAT.butt.color.setHSL((t * 0.12 + 0.5) % 1, 0.85, 0.55); }
   else if (it.fx === 'neon') f.emissive.set(it.pc).lerp(new THREE.Color(it.col.joint), 0.5 + 0.5 * Math.sin(t * 2.2));
+  else if (it.fx === 'spin' || it.fx === 'plasma') {   // mythic: the pattern turns round the cue, or flows along it
+    for (const tex of CUE_TEX[cueNow] || []) if (tex) { if (it.fx === 'spin') tex.offset.x = t * 0.45; else tex.offset.set(t * 0.06, t * 0.22); }
+    f.emissive.set(it.pc).multiplyScalar(0.75 + 0.25 * Math.sin(t * 1.8)); CUE_MAT.joint.emissive.set(it.col.joint).multiplyScalar(0.5 + 0.3 * Math.sin(t * 1.8 + 1));
+  }
   else f.emissive.set(it.pc).multiplyScalar(0.7 + 0.3 * Math.sin(t * 2.6));
 }
 {
@@ -685,6 +739,13 @@ function gloveFor(pl) {
 // the glow effects: a slow pulse, a flame's flicker, a ghost's fading in and out
 function gloveFx(M, it, t) {
   if (!it.fx) return;
+  if (it.fx === 'molten' || it.fx === 'prism') {   // mythic: the glove itself changes colour, glowing as it goes
+    if (it.fx === 'molten') M.base.color.setHSL(0.015 + 0.05 * (0.5 + 0.5 * Math.sin(t * 0.9)), 1, 0.5 + 0.06 * Math.sin(t * 2.3));
+    else M.base.color.setHSL(t * 0.09 % 1, 0.85, 0.58);
+    M.base.emissive.copy(M.base.color).multiplyScalar(0.45 + 0.1 * Math.sin(t * 1.7));
+    M.accent.emissive.set(it.fxc).multiplyScalar(0.6 + 0.3 * Math.sin(t * 2.1)); M.tip.emissive.copy(M.accent.emissive);
+    return;
+  }
   const c = new THREE.Color(it.fxc), k = it.fx === 'flicker' ? 0.55 + 0.3 * Math.sin(t * 23) * Math.sin(t * 7.3) : 0.75 + 0.25 * Math.sin(t * 2.4);
   M.accent.emissive.copy(c).multiplyScalar(k); M.tip.emissive.copy(c).multiplyScalar(k);
   if (it.fx !== 'glow') M.base.emissive.set(it.base).multiplyScalar(0.3).lerp(c, 0.35 * k);
@@ -778,6 +839,12 @@ function sfx(kind, v = 1) {
     else if (kind === 'ui') blip(660, 0.05, 0.06, 'square');
     else if (kind === 'foul') { blip(220, 0.16, 0.08, 'square', 140); blip(165, 0.2, 0.07, 'square', 110, 0.14); }
     else if (kind === 'win') [523, 659, 784, 1046].forEach((f, i) => blip(f, 0.14, 0.07, 'square', 0, i * 0.1));
+    else if (kind === 'fanfare') {   // a case's prize: longer and brighter the rarer it is (v: 0 common to 4 mythic)
+      const notes = [[659], [523, 659, 784], [523, 659, 784, 1046], [392, 523, 659, 784, 1046, 1318], [392, 523, 659, 784, 1046, 1318, 1568, 2093]][clamp(v, 0, 4)];
+      notes.forEach((f, i) => blip(f, 0.15, 0.07, 'square', 0, i * 0.085));
+      if (v >= 3) blip(98, 0.6, 0.14, 'sine', 49);
+      if (v >= 4) [1046, 1318, 1568].forEach(f => blip(f, 0.9, 0.05, 'triangle', 0, notes.length * 0.085));
+    }
   } catch (e) {}
 }
 
@@ -2307,11 +2374,13 @@ function showReel(g, r) {
   const strip = $('#reelStrip'), items = LK.reelItems(g, REEL.at + 6, Math.random); items[REEL.at] = r.id;
   REEL.res = r; REEL.grade = g; strip.innerHTML = ''; strip.style.transform = 'translateX(0)';
   for (const id of items) strip.append(reelTile(id));
-  $('#reelTitle').textContent = LK.GRADES[g].name; $('#reelTxt').textContent = 'Tap the reel to skip'; $('#reelBtns').hidden = true; $('#reel').hidden = false;
+  const title = $('#reelTitle'); title.textContent = LK.GRADES[g].name; title.style.color = ''; title.classList.remove('big');
+  $('#reelTxt').textContent = 'Tap the reel to skip'; $('#reelBtns').hidden = true; $('#reel').hidden = false; $('.reelPanel').classList.remove('shake');
   const tw = strip.children[1].offsetLeft - strip.children[0].offsetLeft, win = $('#reelWin').clientWidth;
   REEL.end = REEL.at * tw + tw / 2 - win / 2 + (Math.random() - 0.5) * tw * 0.7; REEL.tw = tw; REEL.win = win;
+  fxStart(-1, ['#6d5a96']);
   if (reduceMotion) { reelDone(); return; }
-  const T = 4600, t0 = performance.now(); let last = 0;
+  const T = 5400, t0 = performance.now(); let last = 0;
   const step = now => {
     const u = Math.min(1, (now - t0) / T), x = REEL.end * (1 - Math.pow(1 - u, 4));
     strip.style.transform = `translateX(${-x}px)`;
@@ -2321,20 +2390,91 @@ function showReel(g, r) {
   REEL.anim = requestAnimationFrame(step);
 }
 const blipTick = () => { if (S.volume && AU.ctx) try { blip(1400, 0.02, 0.035, 'square'); } catch (e) {} };
+// a look's own main colour, for the show behind the reel
+const lookCol = it => it.kind === 'cloth' ? it.col2 || it.col : it.kind === 'cue' ? it.pc || it.col.fore : it.base;
 function reelDone() {
   if (!REEL.res || $('#reelBtns').hidden === false) return;
   cancelAnimationFrame(REEL.anim); REEL.anim = 0;
-  const r = REEL.res, it = LK.ALL[r.id], R = LK.RARITY[r.rarity], strip = $('#reelStrip');
-  strip.style.transform = `translateX(${-REEL.end}px)`; strip.children[REEL.at].classList.add('won');
-  const txt = $('#reelTxt'); txt.innerHTML = ''; const rr = mk('span', 'reelRarity', R.name + ' '); rr.style.color = R.col;
-  txt.append(rr, mk('span', '', `${it.kind === 'cloth' ? 'cloth' : it.kind}: ${it.name}. ${r.dup ? `Already yours, so it's sold for ${money(r.sold)}.` : 'New!'}`));
-  sfx(r.rarity === 'common' || r.dup ? 'ui' : 'win');
+  const r = REEL.res, it = LK.ALL[r.id], R = LK.RARITY[r.rarity], tier = LK.RARITIES.indexOf(r.rarity), strip = $('#reelStrip'), tile = strip.children[REEL.at];
+  strip.style.transform = `translateX(${-REEL.end}px)`; tile.classList.add('won'); tile.style.setProperty('--glow', R.col);
+  const txt = $('#reelTxt'); txt.innerHTML = ''; const rr = mk('span', 'reelRarity', R.name); rr.style.color = R.col;
+  txt.append(rr, mk('span', '', `${it.kind[0].toUpperCase() + it.kind.slice(1)}: ${it.name}. ${r.dup ? `Already yours, so it's sold for ${money(r.sold)}.` : 'New!'}`));
+  if (tier >= 3) { const title = $('#reelTitle'); title.textContent = `${R.name}!`; title.style.color = R.col; title.classList.add('big'); }
+  if (tier >= 4 && !reduceMotion) $('.reelPanel').classList.add('shake');
+  const b = tile.getBoundingClientRect(), cols = tier === 4 ? ['#ff3b3b', '#ff4fd8', '#ff9a1f', '#ffd36b', lookCol(it)] : [R.col, lookCol(it), R.col];
+  fxStart(tier, cols, [b.left + b.width / 2, b.top + b.height / 2]);
+  sfx('fanfare', tier);
   const g = REEL.grade; $('#bReelUse').hidden = r.dup || S[it.kind] === r.id;
   $('#bReelAgain').hidden = !(LOCK.cases[g] > 0 && LOCK.money >= LK.GRADES[g].open); $('#bReelAgain').textContent = `Open another (${money(LK.GRADES[g].open)})`;
   $('#reelBtns').hidden = false; $(r.dup ? '#bReelDone' : '#bReelUse').focus();
   refreshMenus();
 }
-function closeReel() { if (REEL.anim) reelDone(); $('#reel').hidden = true; REEL.res = null; refreshMenus(); }
+function closeReel() { if (REEL.anim) reelDone(); $('#reel').hidden = true; REEL.res = null; fxStop(); refreshMenus(); }
+
+// The show behind the reel, drawn small and scaled up like the game. While the reel spins, a few faint stripes drift
+// in the dark. When it stops, stripes in the prize's colours bounce round the screen, more of them and livelier the
+// rarer it is: sparkles from epic, turning rays from legendary, and for a mythic, shifting colours, rings and confetti.
+// Nothing flashes: brightness only ever changes smoothly and slowly. With reduced motion it's one still picture.
+const FX = { raf: 0, tier: -1, stripes: [], parts: [], cols: [], last: 0, t0: 0, spawn: 0 };
+const fxRgba = (c, a) => `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+function fxStart(tier, cols, at) {
+  const c = $('#reelFx'), W = c.width = Math.ceil(innerWidth / 4), H = c.height = Math.ceil(innerHeight / 4), r = Math.random, d = Math.hypot(W, H);
+  Object.assign(FX, { tier, W, H, t0: performance.now(), last: performance.now(), spawn: 0, cols: cols.map(h => new THREE.Color(h)), parts: [] });
+  const n = tier < 0 ? 5 : [5, 8, 12, 18, 26][tier], sp = tier < 0 ? 5 : [14, 26, 40, 58, 80][tier];
+  FX.stripes = Array.from({ length: n }, (_, i) => ({ x: r() * W, y: r() * H, a: r() * Math.PI, va: (r() - 0.5) * (tier >= 2 ? 0.5 : 0.12),
+    vx: (r() - 0.5) * 2 * sp, vy: (r() - 0.5) * 2 * sp, len: (0.25 + r() * 0.35) * d, th: 2 + r() * (2 + 2 * Math.max(0, tier)), ci: i % cols.length, ph: r() * 6.28,
+    al: tier < 0 ? 0.05 : 0.16 + 0.07 * tier + r() * 0.08 }));
+  if (tier >= 0 && at) for (let i = 0; i < [10, 22, 40, 70, 120][tier]; i++) {   // a burst from the prize
+    const a = r() * 6.28, s = (20 + r() * 60) * (1 + tier * 0.4); FX.parts.push({ x: at[0] / 4, y: at[1] / 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.8 + r() * 1.4, age: 0, ci: i % cols.length, sz: 1 + (r() * 2 | 0), kind: 'burst' });
+  }
+  cancelAnimationFrame(FX.raf); FX.raf = requestAnimationFrame(fxFrame);
+}
+function fxStop() { cancelAnimationFrame(FX.raf); FX.raf = 0; }
+function fxCol(i, t) {   // a mythic's colours drift from one to the next; everything else keeps its own
+  const cs = FX.cols; if (FX.tier < 4) return cs[i % cs.length];
+  const k = (i * 0.37 + Math.max(0, t) * 0.35) % cs.length, a = cs[Math.floor(k)], b = cs[(Math.floor(k) + 1) % cs.length];
+  return a.clone().lerp(b, k % 1);
+}
+function fxFrame(now) {
+  if ($('#reel').hidden) { FX.raf = 0; return; }
+  const c = $('#reelFx'), g = c.getContext('2d'), { W, H, tier } = FX, dt = clamp((now - FX.last) / 1000, 0, 0.05), t = Math.max(0, now - FX.t0) / 1000, r = Math.random;
+  FX.last = Math.max(FX.last, now); const move = reduceMotion ? 0 : dt;
+  g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);   // the dim itself is #reel's background, so the room shows faintly
+  g.globalCompositeOperation = 'lighter';
+  if (tier >= 0) {   // a glow behind the reel, breathing slowly
+    const gr = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.65);
+    gr.addColorStop(0, fxRgba(fxCol(0, t), (0.1 + 0.08 * tier) * (0.85 + 0.15 * Math.sin(t * 1.8)))); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  }
+  if (tier >= 3) {   // rays turning round the centre
+    g.save(); g.translate(W / 2, H / 2); g.rotate(reduceMotion ? 0 : t * (tier === 4 ? 0.3 : 0.15));
+    for (let i = 0; i < 14; i++) { g.rotate(Math.PI * 2 / 14); g.fillStyle = fxRgba(fxCol(i, t), tier === 4 ? 0.09 : 0.06); g.beginPath(); g.moveTo(0, 0); g.lineTo(W, -W * 0.08); g.lineTo(W, W * 0.08); g.fill(); }
+    g.restore();
+  }
+  for (const s of FX.stripes) {   // the stripes, bouncing off the edges of the screen
+    s.x += s.vx * move; s.y += s.vy * move; s.a += s.va * move;
+    if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); }
+    if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); }
+    g.save(); g.translate(s.x, s.y); g.rotate(s.a); g.fillStyle = fxRgba(fxCol(s.ci, t), s.al * (0.85 + 0.15 * Math.sin(t * 1.3 + s.ph))); g.fillRect(-s.len / 2, -s.th / 2, s.len, s.th); g.restore();
+  }
+  if (tier === 4) for (let k = 0; k < 2; k++) {   // rings spreading from the centre, one every 1.6 s
+    const u = ((reduceMotion ? 0.3 : t) / 1.6 + k / 2) % 1; g.strokeStyle = fxRgba(fxCol(k, t), 0.45 * (1 - u)); g.lineWidth = 2 + 3 * (1 - u);
+    g.beginPath(); g.arc(W / 2, H / 2, u * Math.max(W, H) * 0.75, 0, 7); g.stroke();
+  }
+  if (tier >= 2 && !reduceMotion) {   // new sparkles (and for a mythic, confetti from the top)
+    FX.spawn += dt * [0, 0, 10, 18, 30][tier];
+    while (FX.spawn >= 1) { FX.spawn--; FX.parts.push({ x: r() * W, y: r() * H, vx: 0, vy: 0, life: 1 + r(), age: 0, ci: r() * 9 | 0, sz: 1, kind: 'spark' });
+      if (tier === 4) FX.parts.push({ x: r() * W, y: -4, vx: (r() - 0.5) * 20, vy: 25 + r() * 30, life: 6, age: 0, ci: r() * 9 | 0, sz: 2, kind: 'confetti', a: r() * 6 }); }
+  }
+  FX.parts = FX.parts.filter(p => (p.age += move) < p.life && p.y < H + 8);
+  for (const p of FX.parts) {
+    const k = p.age / p.life, col = fxCol(p.ci, t);
+    if (p.kind === 'burst') { p.vx *= 1 - 1.5 * move; p.vy *= 1 - 1.5 * move; p.x += p.vx * move; p.y += p.vy * move; g.fillStyle = fxRgba(col, 0.9 * (1 - k)); g.fillRect(p.x, p.y, p.sz, p.sz); }
+    else if (p.kind === 'spark') { const a = Math.sin(Math.PI * k); g.fillStyle = fxRgba(col, 0.8 * a); g.fillRect(p.x - 1, p.y, 3, 1); g.fillRect(p.x, p.y - 1, 1, 3); }
+    else { p.x += p.vx * move; p.y += p.vy * move; p.a += move * 4; g.fillStyle = fxRgba(col, 0.75); g.fillRect(p.x, p.y, 1 + Math.abs(Math.cos(p.a)) * 2, 2); }
+  }
+  FX.raf = reduceMotion ? 0 : requestAnimationFrame(fxFrame);
+}
 $('#reelWin').addEventListener('click', () => { if (REEL.anim) reelDone(); });
 $('#bReelUse').addEventListener('click', () => { const id = REEL.res && REEL.res.id; closeReel(); if (id) { useLook(id); lockNote(`${LK.ALL[id].name} is in use.`); refreshMenus(); } });
 $('#bReelAgain').addEventListener('click', () => { const g = REEL.grade; $('#reel').hidden = true; REEL.res = null; openCaseUI(g); });
@@ -2821,7 +2961,7 @@ function frame(now) {
   updateCue(paused ? 0 : dt);
   if (aimDirty) updateAimTxt();
   updateGuides(now);
-  updateMarkers(now);
+  updateMarkers(now); clothFx(now);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
   cam.update(dt);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
@@ -2836,6 +2976,7 @@ requestAnimationFrame(frame);
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
+  get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.color.getHexString(), show: FX.raf }; },
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };

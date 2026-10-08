@@ -11,15 +11,17 @@ const RARITY = {
   rare: { name: 'Rare', col: '#6cb8ff', sell: 30 },
   epic: { name: 'Epic', col: '#c17bff', sell: 80 },
   legendary: { name: 'Legendary', col: '#ffc56b', sell: 200 },
+  mythic: { name: 'Mythic', col: '#ff3b3b', sell: 500 },   // animated looks, in every case but very rarely
 };
 const RARITIES = Object.keys(RARITY);
 // Case grades, from playing the easier levels up to the hardest. odds: percent chance of each rarity, in RARITIES
-// order (legendaries only in the two best). open: what opening one costs. price: what buying one costs.
+// order (legendaries in silver and better, mythics in all of them, very rarely). open: what opening one costs. price:
+// what buying one costs.
 const GRADES = {
-  bronze: { name: 'Bronze case', col: '#c98a4b', odds: [72, 24, 4, 0], open: 15, price: 45 },
-  silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 12, 2], open: 40, price: 110 },
-  gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 24, 6], open: 90, price: 260 },
-  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 36, 14], open: 200, price: 600 },
+  bronze: { name: 'Bronze case', col: '#c98a4b', odds: [72, 24, 3.8, 0, 0.2], open: 15, price: 45 },
+  silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 11.5, 2, 0.5], open: 40, price: 110 },
+  gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 23, 6, 1], open: 90, price: 260 },
+  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 34, 13, 3], open: 200, price: 600 },
 };
 const GRADE_IDS = Object.keys(GRADES);
 const PITY = 8;   // at least one epic or better in every 8 cases opened
@@ -40,7 +42,8 @@ const START = { money: 40, cases: { silver: 1 } };
 // easy to see). Cues: the six colours of a design (see career.js), plus an optional pattern on the forearm and butt
 // (pat: kind and colour) and an effect (fx: glow, rainbow, neon). Gloves: base, accent and cuff colours, a glove type
 // (style; skin for the bare fingers of wraps and fingerless gloves) and an optional effect (fx: glow, flicker, ghost;
-// fxc the glow colour).
+// fxc the glow colour). Mythic looks move: anim on a cloth (flow: the pattern drifts across the table; pulse: its
+// cracks glow and fade), and on cues and gloves an fx of their own (spin, plasma, molten, prism).
 const cue = (shaft, joint, fore, wrap, butt, inlay) => ({ shaft, joint, fore, wrap, butt, inlay });
 const CASE_ITEMS = [
   // cloths
@@ -56,6 +59,8 @@ const CASE_ITEMS = [
   { id: 'c-crown', kind: 'cloth', name: 'Royal', rarity: 'epic', col: '#2a3f8f', pat: 'crown', col2: '#3a52a6' },
   { id: 'c-galaxy', kind: 'cloth', name: 'Galaxy', rarity: 'legendary', col: '#150f33', pat: 'galaxy', col2: '#3d2479' },
   { id: 'c-synth', kind: 'cloth', name: 'Synthwave', rarity: 'legendary', col: '#2b0f3f', pat: 'synth', col2: '#6d2a78' },
+  { id: 'c-aurora', kind: 'cloth', name: 'Aurora', rarity: 'mythic', col: '#0b2a2e', pat: 'aurora', col2: '#3dffb0', col3: '#b45cff', anim: 'flow' },
+  { id: 'c-magma', kind: 'cloth', name: 'Magma', rarity: 'mythic', col: '#2a0d08', pat: 'lava', col2: '#ff6a1a', col3: '#ffd23f', anim: 'pulse' },
   // cues
   { id: 'q-maple', kind: 'cue', name: 'Maple', rarity: 'common', col: cue('#f0dcae', '#e8e8ee', '#d9b77e', '#2d2344', '#8a5a32', '#2d2344') },
   { id: 'q-mint', kind: 'cue', name: 'Mint', rarity: 'common', col: cue('#e3c68f', '#f7ead2', '#3fbf9f', '#f7ead2', '#2a8c74', '#f7ead2') },
@@ -75,6 +80,8 @@ const CASE_ITEMS = [
   { id: 'q-stars', kind: 'cue', name: 'Starlight', rarity: 'epic', col: cue('#e3c68f', '#cfd0dc', '#1b1f4a', '#141018', '#1b1f4a', '#ffffff'), pat: 'stars', pc: '#ffffff', fx: 'glow' },
   { id: 'q-rainbow', kind: 'cue', name: 'Spectrum', rarity: 'legendary', col: cue('#f1e4c4', '#ffffff', '#ff4d4d', '#141018', '#4d6bff', '#ffffff'), fx: 'rainbow' },
   { id: 'q-neon', kind: 'cue', name: 'Neon', rarity: 'legendary', col: cue('#2a2238', '#ff4fd8', '#141018', '#141018', '#141018', '#4ff0ff'), pat: 'rings', pc: '#4ff0ff', fx: 'neon' },
+  { id: 'q-horizon', kind: 'cue', name: 'Event horizon', rarity: 'mythic', col: cue('#2a2238', '#ff8a3d', '#05030a', '#05030a', '#05030a', '#ffd36b'), pat: 'swirl', pc: '#ff8a3d', fx: 'spin' },
+  { id: 'q-plasma', kind: 'cue', name: 'Plasma', rarity: 'mythic', col: cue('#e8f4ff', '#7fe8ff', '#1a0f3a', '#141018', '#1a0f3a', '#ff4fd8'), pat: 'plasma', pc: '#7fe8ff', fx: 'plasma' },
   // gloves: style is the glove type (sport, driver, tactical, moto, fingerless, wraps), or a novelty (boxing, claw, bones)
   { id: 'g-leather', kind: 'glove', name: 'Leather', rarity: 'common', base: '#7a4a2a', accent: '#3b2416', cuff: '#5a341c', style: 'driver' },
   { id: 'g-golf', kind: 'glove', name: 'Golf', rarity: 'common', base: '#f7f4ee', accent: '#1e3263', cuff: '#1e3263', style: 'driver' },
@@ -100,6 +107,8 @@ const CASE_ITEMS = [
   { id: 'g-gold', kind: 'glove', name: 'Gold leaf', rarity: 'legendary', base: '#ffd36b', accent: '#141018', cuff: '#b8862a', style: 'driver', fx: 'glow', fxc: '#ffd36b' },
   { id: 'g-flame', kind: 'glove', name: 'Blaze', rarity: 'legendary', base: '#ff7a2f', accent: '#ffd23f', cuff: '#c0262e', style: 'sport', fx: 'flicker', fxc: '#ff9a3f' },
   { id: 'g-ghost', kind: 'glove', name: 'Phantom', rarity: 'legendary', base: '#b9a6ff', accent: '#ffffff', cuff: '#6d5ad6', style: 'tactical', fx: 'ghost', fxc: '#9f8bff' },
+  { id: 'g-molten', kind: 'glove', name: 'Molten', rarity: 'mythic', base: '#ff5a1f', accent: '#ffd23f', cuff: '#3a0d05', style: 'tactical', fx: 'molten', fxc: '#ff8a1f' },
+  { id: 'g-prism', kind: 'glove', name: 'Prism', rarity: 'mythic', base: '#ff4d4d', accent: '#ffffff', cuff: '#1d1a22', style: 'sport', fx: 'prism', fxc: '#ffffff' },
 ];
 // the free glove everyone starts with ('none' shows no gloves at all)
 const FREE_GLOVE = { id: 'g-white', kind: 'glove', name: 'Classic white', rarity: 'common', base: '#f4f1ea', accent: '#1a1433', cuff: '#ffffff', style: 'sport' };

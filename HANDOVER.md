@@ -105,6 +105,8 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **One wallet per device, in the locker:** opening cases needs money outside the career too, so the career's prize money, the pay for frames won against the computer, the daily online win and sold duplicates all go into one locker. It survives retiring a career and travels inside a career file. Loading a file merges its locker in and never takes anything away (re-loading the same file can't stack money).
 - **Fair randomness:** the odds are shown on every case, an epic or better is guaranteed within 8 cases, and legendaries only come in silver cases and better. The reel decides the prize first and then lands on it honestly: the other items on the strip are drawn from the case's own odds, and where it stops within the prize's tile is random, so it never fakes a near miss (the trick real-money loot boxes use).
 - **A starter case:** a new locker has one silver case and £40 to open it, so everyone sees the reel straight away.
+- **Mythic, a fifth rarity, in every case (the owner chose "every case, tiny"):** 0.2% in bronze, 0.5% silver, 1% gold, 3% diamond, so even a bronze case can hold one. It counts for the guarantee like any epic or better. Six mythics, two of each kind (the owner's pick), and each one moves, which nothing else does.
+- **The case opening is a show (the owner asked for a dimmed room, a reel filling most of the screen and a background in the prize's colours, livelier the rarer it is):** the room stays barely visible behind the dim rather than going black, so it still feels like the same room. Nothing flashes: brightness changes smoothly, no faster than about 3 times a second, and with reduced motion the reel doesn't spin, the screen doesn't shake and the background is one still picture.
 - **Gloves look like the sports and tactical gloves in shooting games (the owner asked for "CS gloves"),** after three rounds of prototypes: blocky cartoon gloves, then smooth realistic hands, then simplified ones. The owner asked for less wrist, less surface detail and no fingertips, so each hand is a rounded palm, two jointed sections per finger and thumb ending in a stub, and a short cuff. The glove types differ by small, low parts (a slim back panel, a knuckle bar or guards, finger pads, a strap tab, wraps), kept subtle at the owner's request. Most novelty gloves (oven mitt, washing-up, goalkeeper and so on) were replaced by real glove types; boxing, robot and skeleton stay as novelties. Gloves (and their reactions) add a little of their own colour as glow, because the faces towards the camera get little light and otherwise look grey. Reactions are off with reduced motion.
 - **Dev mode exists so the owner can try every look:** a secret word, typed as the online name, swaps in a test locker with everything; the real locker is untouched. The word is known only to the owner; the public code holds just its fingerprint.
 - **Cloth patterns stay low-contrast:** each pattern's colour is close to its cloth's, and every one was checked in screenshots with the balls on the table.
@@ -148,17 +150,17 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 **Cases** (`GRADES` in `looks.js`; a first guess, to be tuned once the owner has played)
 
-| Grade | Common | Rare | Epic | Legendary | Open | Buy |
-|---|---|---|---|---|---|---|
-| Bronze | 72% | 24% | 4% | 0% | £15 | £45 |
-| Silver | 50% | 36% | 12% | 2% | £40 | £110 |
-| Gold | 25% | 45% | 24% | 6% | £90 | £260 |
-| Diamond | 0% | 50% | 36% | 14% | £200 | £600 |
+| Grade | Common | Rare | Epic | Legendary | Mythic | Open | Buy |
+|---|---|---|---|---|---|---|---|
+| Bronze | 72% | 24% | 3.8% | 0% | 0.2% | £15 | £45 |
+| Silver | 50% | 36% | 11.5% | 2% | 0.5% | £40 | £110 |
+| Gold | 25% | 45% | 23% | 6% | 1% | £90 | £260 |
+| Diamond | 0% | 50% | 34% | 13% | 3% | £200 | £600 |
 
-- **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary).
+- **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary), £500 (mythic).
 - **Frames won against the computer pay** £5 (Easy), £15 (Medium), £30 (Hard), £50 (Expert), and every 3 at a level fill a case of its grade (bronze, silver, gold, diamond). Career frames fill the circuit's grade (pub bronze, club silver, hall gold, national diamond) without pay.
 - **The day's first online win:** £30 and a gold case. **A new locker:** £40 and a silver case.
-- **The collection:** 54 looks in cases (12 cloths, 18 cues, 24 gloves; 17 common, 18 rare, 12 epic, 7 legendary), plus the shop's 5 cloths and 6 cues and the free white gloves.
+- **The collection:** 60 looks in cases (14 cloths, 20 cues, 26 gloves; 17 common, 18 rare, 12 epic, 7 legendary, 6 mythic), plus the shop's 5 cloths and 6 cues and the free white gloves.
 
 **CPU** (`DIFF` in `core.js`)
 - **Aim error, by level:** 1.3° on Easy, 0.55° on Medium, 0.22° on Hard, 0.09° on Expert.
@@ -170,7 +172,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 ## 6. How things are tested
 
 - **Career rules:** `tests/career.test.js` (24 tests): tour data, tiers, draws, results and money, saving and loading (including saves from before the locker), and the opponents' CPU settings.
-- **Looks:** `tests/looks.test.js` (16 tests): the catalogue, case odds over many openings, the guarantee, opening, buying, duplicates, earning, the saved locker, and career opponents' gloves.
+- **Looks:** `tests/looks.test.js` (17 tests): the catalogue, case odds over many openings, the guarantee, mythics, opening, buying, duplicates, earning, the saved locker, and career opponents' gloves.
 - **Physics and rules:** `tests/physics.test.js` (27 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, the trick demos, and that the context packs are up to date.
 - **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader). The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy. The browser tests have lived in `tests/browser/` since 7 October 2026; `node tests/browser/run-all.js` runs them all (see `AGENTS.md`, Testing).
 - **Online:** the real Cloudflare runtime runs locally (`npx wrangler dev`), and the game is opened with `?relay=ws://127.0.0.1:8787` in **separate browser contexts**, so each gets its own client id. After every shot, the ball positions and the `game` objects of both clients are compared, and they must be identical. Covered: reload rejoin, Rejoin from the home screen, a full room, rematch, re-rack and concede, chat, replaying while the opponent shoots, duplicated tabs, and version mismatches.
@@ -185,6 +187,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **Stats:** pot percentage, wins per CPU level, longest run and break-and-dish, stored in the browser. Set aside by the owner in favour of a career mode.
 - **Career mode:** Stages 1 and 2 built (the pub, club, hall and national tiers, the shop and venues). Stage 3 is planned; see section 4, "Career".
 - **Cosmetics overhaul:** built: the locker, cases with a spinning reel, patterned cloths, patterned and glowing cues, and floating gloves with small reactions; Settings and Fullscreen became corner icons in the menus. See section 4, "Looks".
+- **A bigger case opening and a mythic rarity:** built: a dimmed room, a reel filling most of the screen, a background show in the prize's colours, and six moving mythic looks.
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
 - **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame. Possible next step: keep the table when both players leave (each page saves its snapshot and the room restores the newest), which changes how online games start.
