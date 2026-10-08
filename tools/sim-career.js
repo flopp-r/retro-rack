@@ -1,17 +1,19 @@
 // Measures how strong each career opponent really is, by playing frames against the Medium CPU with the real physics
-// and rules (reds & yellows on the 7 ft table), and turns the win rate into a rating (Medium = 1500). The ratings in
-// src/career.js come from this. Runs on all CPU cores; a full run takes a while.
-//   node tools/sim-career.js                 every opponent, 60 frames each
-//   node tools/sim-career.js ray shona 100   only these opponents, 100 frames each
+// and rules of their tier's game (reds & yellows on the 7 ft table for the pubs, 8-ball or 9-ball on the 9 ft table
+// after that), and turns the win rate into a rating (Medium = 1500 in that game). The ratings in src/career.js come
+// from this. Runs on all CPU cores; a full run takes a while.
+//   node tools/sim-career.js                  every opponent, 60 frames each
+//   node tools/sim-career.js ray shona 100    only these opponents, 100 frames each
+//   node tools/sim-career.js @hard:9ball 80   a CPU level as a yardstick, in a given game (uk8, 8ball or 9ball)
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const os = require('os');
 const C = require('../src/core.js'), K = require('../src/career.js');
 
 // one frame between two CPU players; cfgs[i] is a function giving player i's settings for the position
-function playFrame(cfgs, breaker, seed) {
+function playFrame(cfgs, breaker, seed, mode) {
   const rnd = K.rng(seed);
-  C.setTable('uk7');
-  let balls = C.rack8(rnd), game = C.newGame('uk8');
+  C.setTable(mode === 'uk8' ? 'uk7' : 'us9');
+  let balls = mode === '9ball' ? C.rack9(rnd) : C.rack8(rnd), game = C.newGame(mode);
   game.turn = breaker;
   for (let n = 0; n < 300 && !game.over; n++) {
     const pl = game.turn, gen = C.planBot(game, balls, pl, cfgs[pl](game, balls, pl), rnd);
@@ -30,15 +32,15 @@ function playFrame(cfgs, breaker, seed) {
 
 if (isMainThread) {
   const args = process.argv.slice(2), frames = +args.find(a => /^\d+$/.test(a)) || 60;
-  const ids = args.filter(a => K.OPPONENTS[a]); if (!ids.length) ids.push(...Object.keys(K.OPPONENTS));
+  const ids = args.filter(a => K.OPPONENTS[a] || /^@(easy|medium|hard|expert):(uk8|8ball|9ball)$/.test(a)); if (!ids.length) ids.push(...Object.keys(K.OPPONENTS));
   const jobs = []; for (const id of ids) for (let f = 0; f < frames; f++) jobs.push({ id, f });
   const tally = Object.fromEntries(ids.map(id => [id, { won: 0, played: 0, unfinished: 0 }]));
   let next = 0, busy = 0; const t0 = Date.now();
   const report = () => {
-    console.log(`\n${'opponent'.padEnd(10)} won/played   win rate   rating (now in career.js)`);
+    console.log(`\n${'opponent'.padEnd(12)} won/played   win rate   rating (now in career.js)`);
     for (const id of ids) {
       const t = tally[id], p = Math.min(0.97, Math.max(0.03, t.won / Math.max(1, t.played)));
-      console.log(`${id.padEnd(10)} ${String(t.won).padStart(3)}/${String(t.played).padEnd(4)}     ${(100 * t.won / Math.max(1, t.played)).toFixed(0).padStart(3)}%      ${Math.round(1500 + 400 * Math.log10(p / (1 - p)))} (${K.OPPONENTS[id].rating})${t.unfinished ? `, ${t.unfinished} unfinished` : ''}`);
+      console.log(`${id.padEnd(12)} ${String(t.won).padStart(3)}/${String(t.played).padEnd(4)}     ${(100 * t.won / Math.max(1, t.played)).toFixed(0).padStart(3)}%      ${Math.round(1500 + 400 * Math.log10(p / (1 - p)))} (${K.OPPONENTS[id] ? K.OPPONENTS[id].rating : 'a CPU level'})${t.unfinished ? `, ${t.unfinished} unfinished` : ''}`);
     }
     console.log(`\n${Math.round((Date.now() - t0) / 1000)} s`);
   };
@@ -52,7 +54,8 @@ if (isMainThread) {
   for (let i = 0; i < Math.max(1, os.cpus().length); i++) start();
 } else {
   // player 0 is the opponent being measured, player 1 the Medium CPU; breaks alternate frame by frame
-  const { id, f } = workerData;
-  const opp = (game, balls, pl) => K.profileFor(id, { onFinal: K.onFinalBall(game, balls, pl) });
-  parentPort.postMessage(playFrame([opp, () => 'medium'], f % 2, 1000 + f * 7919 + id.length));
+  const { id, f } = workerData, level = /^@(\w+):(\w+)$/.exec(id);
+  const mode = level ? level[2] : K.TIERS[K.tierOf(id)].mode;
+  const opp = level ? () => level[1] : (game, balls, pl) => K.profileFor(id, { onFinal: K.onFinalBall(game, balls, pl) });
+  parentPort.postMessage(playFrame([opp, () => 'medium'], f % 2, 1000 + f * 7919 + id.length, mode));
 }

@@ -78,6 +78,45 @@ test('computer players: the stronger wins more often', () => {
   assert.ok(w > 1500 && w < 2000, `${w} of 2000`);
 });
 
+console.log('\nThe tiers and the shop');
+test('four tiers, three events each: pub reds & yellows, club and hall 8-ball, national 9-ball', () => {
+  assert.deepStrictEqual(K.TIERS.map(t => t.mode), ['uk8', '8ball', '8ball', '9ball']);
+  assert.ok(K.TIERS.every(t => t.events.length === 3 && t.short && t.champ));
+});
+test('each tier opens when the one before is won, event by event', () => {
+  const c = fresh();
+  assert.ok(!K.unlocked(c, 'oakfield'));
+  playEvent(c, 'redlion', 1, [true, true, true]); playEvent(c, 'crown', 2, [true, true, true]);
+  assert.ok(!K.unlocked(c, 'oakfield'), 'club open before the pub tier is won');
+  const r = playEvent(c, 'pubchamp', 3, [true, true, true]);
+  assert.ok(r.tierDone && K.unlocked(c, 'oakfield') && !K.unlocked(c, 'riverside') && !K.unlocked(c, 'downtown'));
+});
+test('opponents play in one tier each, get stronger tier by tier, and use real cue designs', () => {
+  const avg = ti => { const ids = Object.keys(K.OPPONENTS).filter(id => K.tierOf(id) === ti); return ids.reduce((a, id) => a + K.OPPONENTS[id].rating, 0) / ids.length; };
+  for (let ti = 1; ti < K.TIERS.length; ti++) assert.ok(avg(ti) > avg(ti - 1), `tier ${ti}`);
+  for (const [id, o] of Object.entries(K.OPPONENTS)) {
+    assert.ok(K.tierOf(id) >= 0, id);
+    assert.ok(!o.cue || (K.ITEMS[o.cue] && K.ITEMS[o.cue].kind === 'cue'), id);
+  }
+  const st = Object.keys(K.OPPONENTS).map(K.stars);
+  assert.ok(Math.min(...st) === 1 && Math.max(...st) === 5, 'stars use the whole 1 to 5 range');
+});
+test('the shop: buying needs the money, takes it, and only once', () => {
+  const c = fresh(); c.money = 300;
+  assert.strictEqual(K.buy(c, 'ice'), 'money');
+  assert.strictEqual(K.buy(c, 'navy'), 'ok'); assert.ok(c.money === 50 && c.bought.includes('navy'));
+  assert.strictEqual(K.buy(c, 'navy'), 'owned'); assert.strictEqual(K.buy(c, 'nothing'), 'unknown');
+  assert.ok(K.SHOP.every(it => (it.kind === 'cloth' && /^#[0-9a-f]{6}$/.test(it.col)) || (it.kind === 'cue' && Object.keys(K.HOUSE_CUE).every(k => /^#[0-9a-f]{6}$/.test(it.col[k])))));
+});
+test('prize money counts towards both what you can spend and what you have won', () => {
+  const c = fresh(); playEvent(c, 'redlion', 5, [true, true, true]); K.buy(c, 'charcoal');
+  assert.ok(c.money === 0 && c.earned === 100);
+});
+test('a save from before the shop loads: everything it had was won', () => {
+  const c = K.validate({ v: 1, name: 'Old', money: 300, trophies: [], done: {}, history: [] });
+  assert.ok(c.earned === 300 && Array.isArray(c.bought) && !c.bought.length);
+});
+
 console.log('\nSaving and loading');
 test('a career survives saving and loading unchanged, mid-event too', () => {
   const c = fresh(); K.enterEvent(c, 'redlion', 3); K.recordMatch(c, [2, 1]);
