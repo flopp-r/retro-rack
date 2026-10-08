@@ -74,6 +74,14 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cMeName{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--lamp);margin-bottom:6px}
 .cMeStats{font-size:20px}
 .cEvents{display:flex;flex-direction:column;gap:6px}
+.cTiers{margin:0 0 8px}.cTiers .btn.locked{opacity:.55}
+.shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px;margin-top:10px}
+.shopItem{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:2px 10px;align-items:center;text-align:left;padding:6px 9px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
+.shopItem:hover{background:var(--plum2)}.shopItem[aria-pressed="true"]{border-color:var(--lamp)}
+.shopItem>img,.shopItem>.shopSw{grid-row:1 / span 2}.shopSw{width:30px;height:30px;border:3px solid var(--ink)}
+.shopName{font-family:'Press Start 2P',monospace;font-size:9px}.shopState{font-size:18px;color:var(--lamp)}
+#shopNote{grid-column:auto;margin:8px 0 0}#shopNote:empty{display:none}
+.cueBtn{padding:6px 8px;line-height:0}.cueBtn[aria-pressed="true"]{border-color:var(--lamp);background:var(--plum2)}
 .cTier{font-size:19px;color:var(--lamp);margin:0}
 .cEvt{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;text-align:left;padding:7px 11px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
 .cEvt:hover:not([aria-disabled="true"]){background:var(--plum2);border-color:var(--lamp)}
@@ -87,7 +95,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cInfo{margin:0 0 8px;font-size:19px}
 .cEv{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}
 .bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:17px}
-.bracket.field{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bracket.bField{grid-template-columns:repeat(2,minmax(0,1fr))}
 .bCol{display:flex;flex-direction:column;justify-content:space-around;gap:3px;min-height:100%}
 .bName{display:flex;justify-content:space-between;gap:4px;padding:1px 5px;background:rgba(13,10,28,.6);border-left:3px solid var(--plum2);white-space:nowrap;overflow:hidden}
 .bName span:first-child{overflow:hidden;text-overflow:ellipsis}
@@ -113,6 +121,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   .cEvt{grid-template-columns:auto 1fr auto;padding:4px 9px}.cEvtName{font-size:8px}.cEvtTxt,.cEvtState,.cTier{font-size:16px}
   .cEvtState{grid-row:1;grid-column:3}.cEvtTxt{grid-row:1;grid-column:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cColLbl{font-size:16px}
   .cInfo{font-size:16px;margin-bottom:4px}.bracket{font-size:15px;gap:3px}.cOpp{font-size:16px}.cOppName{font-size:8px}
+  .cTiers{margin-bottom:5px}.shopGrid{gap:5px;margin-top:6px;grid-template-columns:repeat(4,minmax(0,1fr))}.shopItem{padding:4px 7px}.shopName{font-size:8px}.shopState{font-size:16px}.shopSw{width:24px;height:24px}
   #ver{margin-top:6px;font-size:15px}
   #sc-setup .row{grid-template-columns:78px 1fr;gap:3px 8px;margin-bottom:6px}#sc-setup .lbl{font-size:18px;padding-top:3px}
   #sc-setup .note{display:none}#menu .seg{gap:4px}#menu .seg .btn{font-size:8px;padding:6px 7px}
@@ -336,9 +345,16 @@ input:focus{border-color:var(--chalk)}
         <div class="row"><div class="lbl">Aim guide</div><div class="seg" id="cGuide"></div><div class="note" id="cGuideTxt"></div></div>
       </section>
       <section class="mScreen" id="sc-career" data-title="Career" hidden>
-        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
+        <div class="cTop"><div class="cMe" id="cMe"></div><div class="cTools"><button class="btn" id="cShop" type="button">Shop</button><button class="btn" id="cExport" type="button">Save to file</button><button class="btn" id="cImport" type="button">Load from file</button><button class="btn" id="cRetire" type="button">Retire</button><input type="file" id="cFile" accept=".json,application/json" hidden></div></div>
+        <div class="seg cTiers" id="cTiers"></div>
         <div class="cEvents" id="cEvents"></div>
         <div class="note" id="cNote" role="status"></div>
+      </section>
+      <section class="mScreen" id="sc-cshop" data-title="Shop" hidden>
+        <p class="cInfo" id="shopMoney"></p>
+        <div class="seg" id="shopTabs"></div>
+        <div class="shopGrid" id="shopGrid"></div>
+        <div class="note" id="shopNote" role="status"></div>
       </section>
       <section class="mScreen" id="sc-cevent" hidden>
         <p class="cInfo" id="cInfo"></p>
@@ -399,7 +415,8 @@ input:focus{border-color:var(--chalk)}
     <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
     <div class="row"><div class="lbl">Sound</div><div class="seg" id="sVolume"></div></div>
     <div class="row" id="rowVibrate"><div class="lbl">Vibration</div><div class="seg"><button class="btn" id="sVibrate"></button></div><div class="note">A short buzz when you pot a ball, a longer one on a foul.</div></div>
-    <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div></div>
+    <div class="row"><div class="lbl">Cloth</div><div class="swatches" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
+    <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg" id="sCue"></div></div>
     <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
   </div>
 </div>

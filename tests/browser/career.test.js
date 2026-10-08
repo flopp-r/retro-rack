@@ -43,11 +43,11 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   ok(await p.isVisible('#sc-career'), 'the hub shows'); await fits('Career hub');
   const states = await p.$$eval('.cEvtState', es => es.map(e => e.textContent));
   ok(states.join() === 'Open,Locked,Locked', `first event open, the rest locked (${states})`);
-  await p.click('.cEvt:nth-child(3)', { force: true }); await sleep(300);
+  await p.click('.cEvt:nth-child(2)', { force: true }); await sleep(300);
   ok(await p.isVisible('#sc-career'), 'a locked event does nothing');
 
   console.log('--- entering the first event');
-  await p.click('.cEvt:nth-child(2)'); await sleep(300);
+  await p.click('.cEvt:nth-child(1)'); await sleep(300);
   ok(await p.isVisible('#sc-cevent') && await p.textContent('#mTitle') === 'The Red Lion Open', 'the event screen');
   ok((await p.$$('#cBracket .bName')).length === 8 && await p.textContent('#bCareer') === 'Enter', 'before entering: the field of 8 and an Enter button'); await fits('Event, before entering');
   await p.click('#bCareer'); await sleep(300);
@@ -112,10 +112,10 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   ok(c.money === 100 && c.trophies.length === 1 && !c.run && c.done.redlion.won === 1, 'prize £100, one trophy, the event finished');
   ok(await p.$eval('.bName.champ', e => e.textContent) === 'Tess', 'the draw shows you as champion');
   await p.click('#mBack'); await sleep(300);
-  ok((await p.$$eval('.cEvtState', es => es.map(e => e.textContent))).join() === 'Won,Open,Locked' && (await p.textContent('.cMeStats')).includes('£100 won · 1 trophy'), 'hub: Red Lion won, Crown Cup open, £100 and 1 trophy');
+  ok((await p.$$eval('.cEvtState', es => es.map(e => e.textContent))).join() === 'Won,Open,Locked' && (await p.textContent('.cMeStats')).includes('£100 to spend · 1 trophy'), 'hub: Red Lion won, Crown Cup open, £100 to spend and 1 trophy');
 
   console.log('--- losing in the next event');
-  await p.click('.cEvt:nth-child(3)'); await sleep(300); await p.click('#bCareer'); await sleep(300); await p.click('#bCareer'); await sleep(1200);
+  await p.click('.cEvt:nth-child(2)'); await sleep(300); await p.click('#bCareer'); await sleep(300); await p.click('#bCareer'); await sleep(1200);
   ok(await p.evaluate(() => __rr.game.oneVisitOnBlack === true), 'The Crown Cup plays "one visit on the black"');
   for (let f = 0; f < 2; f++) { ok(await concede(0), `frame ${f + 1} lost`); await overShown(); if (f === 0) { await p.click('#bAgain'); await sleep(1200); } }
   ok(/You win/.test(await p.textContent('#overTitle')) === false && /Out in the quarter-final\. Prize: £20\./.test(await p.textContent('#overStats')), `knocked out: ${await p.textContent('#overStats')}`);

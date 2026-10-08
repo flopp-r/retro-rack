@@ -12,7 +12,7 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', markers: true, vibrate: true };
+const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', owned: [], markers: true, vibrate: true };
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
@@ -22,6 +22,12 @@ try {
 } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
+// looks from the career shop: every game can use the ones bought on this device (S.owned); the rest stay hidden
+for (const it of CAREER.SHOP) if (it.kind === 'cloth') CLOTHS[it.id] = [it.col, it.name];
+const owns = id => id === 'house' || (CAREER.has(CLOTHS, id) && !CAREER.has(CAREER.ITEMS, id)) || S.owned.includes(id);
+S.owned = Array.isArray(S.owned) ? S.owned.filter(id => CAREER.has(CAREER.ITEMS, id)) : [];
+if (!owns(S.cloth) || !CAREER.has(CLOTHS, S.cloth)) S.cloth = 'teal';
+if (!owns(S.cue) || !(S.cue === 'house' || CAREER.ITEMS[S.cue].kind === 'cue')) S.cue = 'house';
 const M = { mode: '8ball', opp: 'bot', diff: 'medium', guide: 'auto', rack: '8ball', listed: true, race: 0, trick: 0 };
 try { Object.assign(M, JSON.parse(localStorage.getItem('retroRack.menu') || '{}')); } catch (e) {}
 const saveM = () => { if (CAR.on) return; try { localStorage.setItem('retroRack.menu', JSON.stringify(M)); } catch (e) {} };
@@ -31,7 +37,7 @@ const CAR = { data: null, on: false, opp: null, stash: null, result: null, view:
 try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') || 'null')); } catch (e) {}
 const NET = { on: false, ws: null, code: '', seat: 0, cid: '', peer: false, peerName: 'Friend', myName: 'Player', link: 'off', n: 0,
   guide: 'ghost', retry: 0, timer: 0, queue: [], pendingSync: {}, again: [false, false], games: 0, started: false,
-  lastAim: 0, aimSig: '', aimT: null, stateAfter: false };
+  lastAim: 0, aimSig: '', aimT: null, stateAfter: false, cloth: null, peerCue: 'house' };
 
 function guideLevel() {
   if (NET.on) return NET.guide;
@@ -144,17 +150,28 @@ const woodTex = canvasTex(64, 64, (g, w, h) => {
   while (y < h) { const t = 2 + Math.floor(Math.random() * 5); g.fillStyle = tones[Math.floor(Math.random() * 4)]; g.fillRect(0, y, w, 1 + (t > 4 ? 1 : 0)); y += t; }
   g.fillStyle = 'rgba(40,15,5,0.35)'; for (let i = 0; i < 6; i++) g.fillRect(Math.random() * w, Math.random() * h, 6 + Math.random() * 10, 1);
 }, [5, 5]);
-const carpetTex = canvasTex(32, 32, (g) => {
-  g.fillStyle = '#2b1d46'; g.fillRect(0, 0, 32, 32);
-  g.fillStyle = '#31224f';
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const d = Math.abs(x - 16) + Math.abs(y - 16); if (d < 14 && d > 10) g.fillRect(x, y, 1, 1); }
-  g.fillStyle = '#48284c'; g.fillRect(15, 15, 2, 2); g.fillRect(0, 0, 2, 2); g.fillRect(30, 30, 2, 2); g.fillRect(0, 30, 2, 2); g.fillRect(30, 0, 2, 2);
-}, [16, 16]);
-const wallTex = canvasTex(32, 32, (g) => {
-  g.fillStyle = '#2a1f45'; g.fillRect(0, 0, 32, 32);
-  g.fillStyle = '#33265a'; g.fillRect(0, 0, 10, 32);
-  g.fillStyle = '#3d2a52'; g.fillRect(20, 0, 2, 32);
-}, [16, 3]);
+// The rooms: the menu's own, and one per career tier. carpet and wall: base colour, pattern, accent; skirt: skirting
+// board; glow, ink and frame: the neon sign's colours (its words come from the event, or 'Billiards').
+const VENUES = {
+  home: { carpet: ['#2b1d46', '#31224f', '#48284c'], wall: ['#2a1f45', '#33265a', '#3d2a52'], skirt: '#4a2b3f', glow: '#ff6f8f', ink: '#ffd1dc', frame: '#6cb8ff' },
+  pub: { carpet: ['#4a1820', '#6a2428', '#b8913f'], wall: ['#3d2418', '#4c2d1f', '#2a170f'], skirt: '#24130b', glow: '#ff9a3c', ink: '#fff0c9', frame: '#c0392b' },
+  club: { carpet: ['#16261d', '#1d3326', '#35553c'], wall: ['#1b3325', '#21402d', '#c9b37a'], skirt: '#33241a', glow: '#5fd68c', ink: '#e6ffe9', frame: '#c9b37a' },
+  hall: { carpet: ['#18191d', '#212329', '#363b44'], wall: ['#25282e', '#2e3239', '#1a1c21'], skirt: '#0f1013', glow: '#6cb8ff', ink: '#e1f1ff', frame: '#ff6f8f' },
+  national: { carpet: ['#0f1730', '#162244', '#2a3f7a'], wall: ['#121c38', '#18264b', '#c99a3a'], skirt: '#0a0f20', glow: '#ffd36b', ink: '#fff6d9', frame: '#6cb8ff' },
+};
+const VEN = { key: '', sign: 'Billiards', tex: {} };
+function venueTex(key) {
+  if (VEN.tex[key]) return VEN.tex[key];
+  const v = VENUES[key], [cb, cp, ca] = v.carpet, [wb, wp, wa] = v.wall;
+  return (VEN.tex[key] = {
+    carpet: canvasTex(32, 32, (g) => {
+      g.fillStyle = cb; g.fillRect(0, 0, 32, 32); g.fillStyle = cp;
+      for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const d = Math.abs(x - 16) + Math.abs(y - 16); if (d < 14 && d > 10) g.fillRect(x, y, 1, 1); }
+      g.fillStyle = ca; g.fillRect(15, 15, 2, 2); g.fillRect(0, 0, 2, 2); g.fillRect(30, 30, 2, 2); g.fillRect(0, 30, 2, 2); g.fillRect(30, 0, 2, 2);
+    }, [16, 16]),
+    wall: canvasTex(32, 32, (g) => { g.fillStyle = wb; g.fillRect(0, 0, 32, 32); g.fillStyle = wp; g.fillRect(0, 0, 10, 32); g.fillStyle = wa; g.fillRect(20, 0, 2, 32); }, [16, 3]),
+  });
+}
 
 const BALL_COL = { 1: '#f2c21b', 2: '#1f52d6', 3: '#d62a2a', 4: '#5c2d91', 5: '#f07b16', 6: '#138a45', 7: '#7b1e22', 8: '#19151f' };
 const UK_COL = { red: '#c8202c', yellow: '#f3c613', black: '#17141c' };
@@ -190,40 +207,50 @@ const fill = new THREE.DirectionalLight(0xdfe4ff, 0.2 * PI); scene.add(fill); sc
 for (const x of [-0.62, 0.62]) { const pl = new THREE.PointLight(0xffdca4, 0.51 * PI, 6, 0.43); pl.position.set(x, 1.02, 0); scene.add(pl); }
 
 const FLOOR_Y = -0.77;
+const floorMat = new THREE.MeshLambertMaterial({ map: venueTex('home').carpet }), wallMat = new THREE.MeshLambertMaterial({ map: venueTex('home').wall });
+const skirtMat = new THREE.MeshLambertMaterial({ color: VENUES.home.skirt });
 {
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshLambertMaterial({ map: carpetTex }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.position.y = FLOOR_Y; scene.add(floor);
-  const wallMat = new THREE.MeshLambertMaterial({ map: wallTex });
   const mkWall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 3.4), wallMat); m.position.set(x, FLOOR_Y + 1.7, z); m.rotation.y = ry; scene.add(m); };
   mkWall(16, 0, -4.2, 0); mkWall(16, 0, 4.2, Math.PI); mkWall(8.4, -5.5, 0, Math.PI / 2); mkWall(8.4, 5.5, 0, -Math.PI / 2);
   // skirting
-  const skirt = new THREE.MeshLambertMaterial({ color: '#4a2b3f' });
   for (const [w, x, z, ry] of [[16, 0, -4.19, 0], [16, 0, 4.19, Math.PI], [8.4, -5.49, 0, Math.PI / 2], [8.4, 5.49, 0, -Math.PI / 2]]) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.18), skirt); m.position.set(x, FLOOR_Y + 0.09, z); m.rotation.y = ry; scene.add(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.18), skirtMat); m.position.set(x, FLOOR_Y + 0.09, z); m.rotation.y = ry; scene.add(m);
   }
 }
 let neonMat = null;
 function drawNeon() {
+  const v = VENUES[VEN.key] || VENUES.home, text = VEN.sign;
   const tex = canvasTex(256, 64, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.font = '22px "Press Start 2P", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#ff6f8f'; g.fillText('Billiards', w / 2 + 2, h / 2 + 2);
-    g.fillStyle = '#ffd1dc'; g.fillText('Billiards', w / 2, h / 2);
-    g.strokeStyle = '#6cb8ff'; g.lineWidth = 3; g.strokeRect(6, 6, w - 12, h - 12);
+    let size = 22; do g.font = `${size}px "Press Start 2P", monospace`; while (g.measureText(text).width > w - 30 && --size > 9);   // long names get smaller letters
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = v.glow; g.fillText(text, w / 2 + 2, h / 2 + 2);
+    g.fillStyle = v.ink; g.fillText(text, w / 2, h / 2);
+    g.strokeStyle = v.frame; g.lineWidth = 3; g.strokeRect(6, 6, w - 12, h - 12);
   });
   if (!neonMat) {
     neonMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), neonMat); m.position.set(0.6, 0.95, -4.18); scene.add(m);
-  } else { neonMat.map = tex; neonMat.needsUpdate = true; }
+  } else { neonMat.map.dispose(); neonMat.map = tex; neonMat.needsUpdate = true; }
 }
-drawNeon();
+// dresses the room: key is a VENUES entry, sign the words on the neon sign
+function setVenue(key, sign = 'Billiards') {
+  if (!VENUES[key]) key = 'home';
+  if (VEN.key === key && VEN.sign === sign) return;
+  VEN.key = key; VEN.sign = sign;
+  const t = venueTex(key); floorMat.map = t.carpet; wallMat.map = t.wall; floorMat.needsUpdate = wallMat.needsUpdate = true;
+  skirtMat.color.set(VENUES[key].skirt); drawNeon();
+}
+setVenue('home');
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawNeon);
 
 // ------------------------------------------------------------------ table
 const clothMat = new THREE.MeshLambertMaterial({ color: '#1d8a74' });
 const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
 function setCloth() {
-  const c = new THREE.Color((CLOTHS[S.cloth] || CLOTHS.teal)[0]);
+  const c = new THREE.Color((CLOTHS[NET.on && NET.cloth ? NET.cloth : S.cloth] || CLOTHS.teal)[0]);
   clothMat.color.copy(c); cushMat.color.copy(c).multiplyScalar(0.84);
 }
 const RAIL_TOP = 0.045, CUSH_TOP = 0.041;
@@ -339,21 +366,27 @@ const MK = [];
 for (let id = 0; id <= 15; id++) { const k = new THREE.Sprite(markMat); k.visible = false; k.renderOrder = 2; scene.add(k); MK.push(k); }
 
 // ------------------------------------------------------------------ cue stick
-const cueMesh = new THREE.Group();
+// the cue: tip, ferrule, shaft, joint, forearm, wrap, butt sleeve and bumper. The named parts take the colours of a cue
+// design (the house cue, or one from the career shop, see CUE_COLS); applyCue() repaints them.
+const cueMesh = new THREE.Group(), CUE_MAT = {};
+let cueNow = 'house';
+const cueCols = id => CAREER.has(CAREER.ITEMS, id) && CAREER.ITEMS[id].kind === 'cue' ? CAREER.ITEMS[id].col : CAREER.HOUSE_CUE;
+function applyCue(id) { cueNow = id; const c = cueCols(id); for (const k in CUE_MAT) CUE_MAT[k].color.set(c[k]); }
 {
-  const parts = [
-    [0.010, 0.0062, 0.0062, '#3d78e0'], [0.022, 0.0063, 0.0063, '#f1ead2'], [0.68, 0.0064, 0.0098, '#e3c68f'],
-    [0.02, 0.0102, 0.0102, '#cfd0dc'], [0.30, 0.0105, 0.0125, '#5a2d1b'], [0.28, 0.0126, 0.0138, '#2d2344'],
-    [0.14, 0.0139, 0.0145, '#a03d2a'], [0.012, 0.0146, 0.0146, '#141018'],
+  const H = CAREER.HOUSE_CUE, parts = [
+    [0.010, 0.0062, 0.0062, '#3d78e0'], [0.022, 0.0063, 0.0063, '#f1ead2'], [0.68, 0.0064, 0.0098, H.shaft, 'shaft'],
+    [0.02, 0.0102, 0.0102, H.joint, 'joint'], [0.30, 0.0105, 0.0125, H.fore, 'fore'], [0.28, 0.0126, 0.0138, H.wrap, 'wrap'],
+    [0.14, 0.0139, 0.0145, H.butt, 'butt'], [0.012, 0.0146, 0.0146, '#141018'],
   ];
   let x = 0;
-  for (const [len, rt0, rb, col] of parts) {
+  for (const [len, rt0, rb, col, name] of parts) {
     const g = new THREE.CylinderGeometry(rt0, rb, len, 10); g.rotateZ(-Math.PI / 2); g.translate(x - len / 2, 0, 0);
-    cueMesh.add(new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: col, shininess: 40, specular: 0x333333 })));
+    const mat = new THREE.MeshPhongMaterial({ color: col, shininess: 40, specular: 0x333333 }); if (name) CUE_MAT[name] = mat;
+    cueMesh.add(new THREE.Mesh(g, mat));
     x -= len;
   }
   // inlay points on the forearm
-  const inlay = new THREE.MeshBasicMaterial({ color: '#ffc56b' });
+  const inlay = CUE_MAT.inlay = new THREE.MeshBasicMaterial({ color: H.inlay });
   for (let i = 0; i < 4; i++) { const g = new THREE.BoxGeometry(0.06, 0.003, 0.003); const b = new THREE.Mesh(g, inlay); const a = i * Math.PI / 2; b.position.set(-0.78, Math.cos(a) * 0.0112, Math.sin(a) * 0.0112); cueMesh.add(b); }
   scene.add(cueMesh);
 }
@@ -732,10 +765,18 @@ function updateBalls() {
 }
 
 // ------------------------------------------------------------------ cue + guides
+// whose cue is at the table: online, each player's own (the other's arrives in their hello); a career opponent's
+// own design; the computer otherwise plays with the house cue
+function cueFor(pl) {
+  if (NET.on) return pl === NET.seat ? S.cue : NET.peerCue;
+  if (M.opp === 'bot' && M.mode !== 'practice' && pl === 1) return CAR.on ? K.OPPONENTS[CAR.opp].cue || 'house' : 'house';
+  return S.cue;
+}
 function updateCue(dt) {
   const cue = world.balls[0];
   const show = (state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
   cueMesh.visible = show; if (!show) return;
+  const want = cueFor(game.turn); if (want !== cueNow) applyCue(want);
   const gap = state === 'stroke' ? strokeGap(dt) : idleGap();
   if (state === 'moving') return;
   const phi = aim.phi, dx = Math.cos(phi), dz = Math.sin(phi), sx = -dz, sz = dx;
@@ -1165,9 +1206,20 @@ function segControl(el, opts, get, set) {
 function swatches(el) {
   el.innerHTML = '';
   for (const [k, [hex, name]] of Object.entries(CLOTHS)) {
+    if (!owns(k)) continue;
     const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.style.background = hex; b.title = name; b.setAttribute('aria-label', name + ' cloth');
     b.setAttribute('aria-pressed', String(S.cloth === k));
-    b.addEventListener('click', () => { S.cloth = k; saveS(); applyLook(); sfx('ui'); refreshMenus(); });
+    b.addEventListener('click', () => { S.cloth = k; saveS(); applyLook(); sendLook(); sfx('ui'); refreshMenus(); });
+    el.appendChild(b);
+  }
+}
+function cueButtons(el) {
+  el.innerHTML = '';
+  for (const id of ['house', ...K.SHOP.filter(it => it.kind === 'cue' && owns(it.id)).map(it => it.id)]) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn cueBtn'; b.append(cueImg(id, 64));
+    const name = id === 'house' ? 'House cue' : K.ITEMS[id].name; b.title = name; b.setAttribute('aria-label', name);
+    b.setAttribute('aria-pressed', String(S.cue === id));
+    b.addEventListener('click', () => { S.cue = id; saveS(); sendLook(); sfx('ui'); refreshMenus(); });
     el.appendChild(b);
   }
 }
@@ -1255,8 +1307,9 @@ addEventListener('popstate', () => {
 // the table behind the menu follows the choice: the 7 ft table for reds & yellows, a diamond rack for 9-ball
 function menuTable() {
   if (state !== 'menu') return;
-  const nine = M.mode === '9ball' || (M.mode === 'practice' && M.rack === '9ball'), key = tableKeyFor() + (nine ? '9' : '8');
-  if (applyTable(tableKeyFor()) || world.menuKey !== key) { world = C.makeWorld((nine ? C.rack9 : C.rack8)()); world.menuKey = key; syncBallMeshes(); }
+  const ev = menuScreen() === 'cevent' && K.EVENTS[CAR.view], tk = ev ? (ev.mode === 'uk8' ? 'uk7' : 'us9') : tableKeyFor();
+  const nine = ev ? ev.mode === '9ball' : M.mode === '9ball' || (M.mode === 'practice' && M.rack === '9ball'), key = tk + (nine ? '9' : '8');
+  if (applyTable(tk) || world.menuKey !== key) { world = C.makeWorld((nine ? C.rack9 : C.rack8)()); world.menuKey = key; syncBallMeshes(); }
 }
 // "Play again": the last game started from the menu (not online), in one tap
 const RACK_NAME = { '8ball': '8-ball rack', '9ball': '9-ball rack', uk: 'reds & yellows', scatter: 'scatter', trick: 'trick shots' };
@@ -1427,7 +1480,8 @@ function refreshMenus() {
   for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
-  swatches($('#sCloth'));
+  swatches($('#sCloth')); cueButtons($('#sCue')); $('#rowCue').hidden = !S.owned.some(id => K.ITEMS[id].kind === 'cue');
+  $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
@@ -1573,18 +1627,20 @@ function careerFrameOver() {
 function careerPlay() {
   const run = CAR.data && CAR.data.run; if (!run) return;
   const m = run.match, e = K.EVENTS[run.event];
-  CAR.stash = { ...M }; CAR.on = true; CAR.opp = m.opp; CAR.view = run.event; CAR.result = null;
+  CAR.stash = { ...M }; CAR.on = true; CAR.opp = m.opp; CAR.view = run.event; CAR.result = null; CAR.tier = null;
   Object.assign(M, { mode: e.mode, opp: 'bot', race: m.race, blackOne: !!e.blackOne, guide: CAR.data.guide });
+  setVenue(K.TIERS[e.tier].id, e.sign);
   startGame(false, false, { wins: m.wins, breaker: m.breaker, snap: m.snap });
   if (!m.snap) toast(`${K.ROUNDS[run.round]} v ${K.OPPONENTS[m.opp].name}, first to ${m.race}`, 'info');
 }
-function careerLeave() { Object.assign(M, CAR.stash || {}); CAR.stash = null; CAR.on = false; CAR.opp = null; saveM(); }
+function careerLeave() { Object.assign(M, CAR.stash || {}); CAR.stash = null; CAR.on = false; CAR.opp = null; saveM(); setVenue('home'); }
 const money = n => '£' + n.toLocaleString('en-GB');
 function nextEvent(e) { return K.TIERS[e.tier].events[e.index + 1] || null; }
 function careerResultText() {
   const r = CAR.result; if (!r) return '';
   const e = K.EVENTS[r.event], first = (CAR.data.done[e.id] || {}).won === 1, nx = nextEvent(e);
-  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. The next tier opens in a coming update.` : first && nx ? ` ${nx.name} is now open.` : '');
+  const nt = K.TIERS[e.tier + 1];
+  if (r.champion) return `You win ${e.name}! Prize: ${money(r.prize)}.` + (r.tierDone ? ` You're ${K.TIERS[e.tier].champ}. ${nt ? `${nt.name.replace(/^./, ch => ch.toUpperCase())} is now open.` : 'The world final opens in a coming update.'}` : first && nx ? ` ${nx.name} is now open.` : '');
   if (r.won) return `Through to the ${K.ROUNDS[r.round + 1].toLowerCase()}, against ${K.OPPONENTS[CAR.data.run.match.opp].name}.`;
   return (r.round === K.ROUNDS.length - 1 ? 'Runner-up.' : `Out in the ${K.ROUNDS[r.round].toLowerCase()}.`) + ` Prize: ${money(r.prize)}.`;
 }
@@ -1600,7 +1656,7 @@ const STAR = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.'];
 function starsImg(n) {
   const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 29; c.height = 5;
   for (let i = 0; i < 5; i++) STAR.forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === 'x') { g.fillStyle = i < n ? P1 : '#4e3270'; g.fillRect(i * 6 + x, y, 1, 1); } });
-  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = img.alt;
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = `${img.alt} (the Medium computer would be about 3, Hard 5)`;
   return img;
 }
 const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -1636,12 +1692,27 @@ function eventState(e) {
   return d.played ? `Best: ${d.best === K.ROUNDS.length - 1 ? 'runner-up' : K.ROUNDS[d.best].toLowerCase()}` : 'Open';
 }
 const raceText = e => `First to ${e.races.slice(0, -1).join(', ')}, then ${e.races[e.races.length - 1]} in the final`;
+// the tier shown on the hub: the one you're playing in, else the furthest one open
+function careerTier() {
+  const c = CAR.data;
+  if (Number.isInteger(CAR.tier)) return CAR.tier;
+  if (c.run) return K.EVENTS[c.run.event].tier;
+  let ti = 0; while (ti < K.TIERS.length - 1 && K.tierDone(c, ti)) ti++;
+  return ti;
+}
 function renderCareerHub() {
   const c = CAR.data, me = $('#cMe'), list = $('#cEvents'); me.innerHTML = ''; list.innerHTML = '';
-  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(c.money)} won · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
+  const txt = mk('div'); txt.append(mk('div', 'cMeName', c.name), mk('div', 'cMeStats', `${money(c.money)} to spend · ${c.trophies.length} ${c.trophies.length === 1 ? 'trophy' : 'trophies'}`));
   me.append(portrait(c.look, 3), txt);
+  const shown = careerTier(), tabs = $('#cTiers'); tabs.innerHTML = '';
   K.TIERS.forEach((t, ti) => {
-    list.append(mk('p', 'cTier', t.name + (K.tierDone(c, ti) ? ': complete' : '')));
+    const b = mk('button', 'btn' + (K.unlocked(c, t.events[0].id) ? '' : ' locked'), t.short); b.type = 'button';
+    b.setAttribute('aria-pressed', String(ti === shown));
+    b.addEventListener('click', () => { CAR.tier = ti; sfx('ui'); refreshMenus(); }); tabs.append(b);
+  });
+  [K.TIERS[shown]].forEach(t => {
+    const prev = K.TIERS[shown - 1];
+    if (!K.unlocked(c, t.events[0].id)) list.append(mk('p', 'cTier', `Win ${prev.events[prev.events.length - 1].name} to open ${t.name}.`));
     for (const e0 of t.events) {
       const e = K.EVENTS[e0.id], open = K.unlocked(c, e.id), b = mk('button', 'cEvt'); b.type = 'button';
       b.append(mk('span', 'cEvtName', e.name), mk('span', 'cEvtState', eventState(e)), mk('span', 'cEvtTxt', `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. Winner ${money(e.prize[3])}`));
@@ -1656,10 +1727,10 @@ function renderCareerHub() {
 function renderCareerEvent() {
   const c = CAR.data, e = K.EVENTS[CAR.view]; if (!e) return;
   const run = c.run && c.run.event === e.id ? c.run : null, last = !run && c.last && c.last.event === e.id ? c.last : null;
-  $('#cInfo').textContent = `${MODE_NAME[e.mode]}${e.blackOne ? ', one visit on the black' : ''}. ${raceText(e)}. Prizes ${e.prize.map(money).join(', ')}.`;
+  $('#cInfo').textContent = `${MODE_NAME[e.mode]} on the ${e.mode === 'uk8' ? '7' : '9'} ft table${e.blackOne ? ', one visit on the black' : ''}. ${raceText(e)}. Prizes ${e.prize.map(money).join(', ')}.`;
   const br = $('#cBracket'), opp = $('#cOpp'); br.innerHTML = ''; opp.innerHTML = '';
   const b = run || last;
-  br.classList.toggle('field', !b);
+  br.classList.toggle('bField', !b);
   if (!b) for (const id of [K.YOU, ...e.field]) { const r = mk('div', 'bName' + (id === K.YOU ? ' you' : '')); r.append(mk('span', '', K.nameOf(c, id))); if (id !== K.YOU) r.append(starsImg(K.stars(id))); br.append(r); }
   else for (let rd = 0; rd <= K.ROUNDS.length; rd++) {
     const col = mk('div', 'bCol'), ids = rd === 0 ? b.slots : b.res[rd - 1], n = 8 >> rd;
@@ -1684,8 +1755,10 @@ function renderCareerEvent() {
 
 // called by refreshMenus: draws whichever career screen is showing, and sets the footer's buttons
 function careerMenus() {
-  const sc = menuScreen(), c = CAR.data, bc = $('#bCareer');
+  const sc = menuScreen(), c = CAR.data, bc = $('#bCareer'), ev = K.EVENTS[CAR.view];
   bc.hidden = true; $('#bWithdraw').hidden = true;
+  if (!CAR.on && state === 'menu') { if (sc === 'cevent' && ev) setVenue(K.TIERS[ev.tier].id, ev.sign); else setVenue('home'); }
+  if (sc === 'cshop') { renderShop(); return; }
   if (sc === 'cnew') { renderCareerNew(); bc.hidden = false; bc.textContent = 'Start career'; return; }
   if (!c || (sc !== 'career' && sc !== 'cevent')) return;
   if (sc === 'career') {
@@ -1732,11 +1805,48 @@ $('#cFile').addEventListener('change', async () => {
   let c = null; try { c = K.validate(JSON.parse(await f.text())); } catch (e) {}
   if (!c) { $('#cNote').textContent = "That file isn't a Retro Rack career."; return; }
   if (CAR.data && !confirm(`Replace ${CAR.data.name}'s career on this device with ${c.name}'s from the file?`)) return;
-  CAR.data = c; careerStore(); refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
+  CAR.data = c; CAR.tier = null; careerStore();
+  for (const id of c.bought) if (!S.owned.includes(id)) S.owned.push(id);   // the file's looks come with it
+  saveS(); refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
 });
+// the shop: cloths and cues bought with prize money; anything owned on this device can be put to use from here too
+const SHOP_TAB = { kind: 'cloth' };
+function cueImg(id, w = 96) {
+  const c = document.createElement('canvas'), g = c.getContext('2d'), col = cueCols(id); c.width = w; c.height = 6;
+  const parts = [[0.01, '#3d78e0', 2], [0.022, '#f1ead2', 2], [0.68, col.shaft, 2], [0.02, col.joint, 3], [0.3, col.fore, 3], [0.28, col.wrap, 4], [0.14, col.butt, 4], [0.012, '#141018', 4]];
+  const total = parts.reduce((a, p) => a + p[0], 0); let x = 0;
+  for (const [len, hex, hgt] of parts) { const pw = Math.max(1, Math.round(len / total * w)); g.fillStyle = hex; g.fillRect(x, 3 - hgt / 2, pw, hgt); x += pw; }
+  g.fillStyle = col.inlay; for (const fx of [0.6, 0.66]) g.fillRect(Math.round(fx * w), 1, 2, 1);
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = w; img.height = 12;
+  return img;
+}
+function useLook(it) { if (it.kind === 'cloth') S.cloth = it.id; else S.cue = it.id; saveS(); applyLook(); sendLook(); }
+function renderShop() {
+  const c = CAR.data; if (!c) return;
+  $('#shopMoney').textContent = `${money(c.money)} to spend (${money(c.earned)} won in all). Looks work in every game, online too.`;
+  segControl($('#shopTabs'), [['cloth', 'Cloths'], ['cue', 'Cues']], () => SHOP_TAB.kind, v => SHOP_TAB.kind = v);
+  const grid = $('#shopGrid'); grid.innerHTML = '';
+  const free = SHOP_TAB.kind === 'cloth' ? [] : [{ id: 'house', kind: 'cue', name: 'House cue', price: 0 }];
+  for (const it of [...free, ...K.SHOP.filter(x => x.kind === SHOP_TAB.kind)]) {
+    const own = owns(it.id), using = (it.kind === 'cloth' ? S.cloth : S.cue) === it.id, b = mk('button', 'shopItem'); b.type = 'button';
+    if (it.kind === 'cloth') { const sw = mk('span', 'shopSw'); sw.style.background = it.col; b.append(sw); } else b.append(cueImg(it.id, 46));
+    b.append(mk('span', 'shopName', it.name), mk('span', 'shopState', using ? 'In use' : own ? 'Owned: use it' : money(it.price)));
+    b.setAttribute('aria-pressed', String(using));
+    b.addEventListener('click', () => {
+      if (own) { useLook(it); sfx('ui'); refreshMenus(); return; }
+      if (CAR.data.money < it.price) { $('#shopNote').textContent = `You need ${money(it.price - CAR.data.money)} more for ${it.name}.`; return; }
+      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) return;
+      if (K.buy(CAR.data, it.id) !== 'ok') return;
+      S.owned.push(it.id); careerStore(); useLook(it); sfx('win');
+      $('#shopNote').textContent = `${it.name} is yours, and in use.`; refreshMenus();
+    });
+    grid.append(b);
+  }
+}
+$('#cShop').addEventListener('click', () => { sfx('ui'); $('#shopNote').textContent = ''; menuGo('cshop'); });
 $('#cRetire').addEventListener('click', () => {
-  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device.`)) return;
-  CAR.data = null; careerStore(); sfx('ui'); NAV.stack.pop(); menuGo('cnew');
+  if (!confirm(`Retire ${CAR.data.name}? This deletes the career from this device. Looks you've bought stay.`)) return;
+  CAR.data = null; CAR.tier = null; careerStore(); sfx('ui'); NAV.stack.pop(); menuGo('cnew');
 });
 
 // ------------------------------------------------------------------ online play
@@ -1771,7 +1881,13 @@ try {
   document.addEventListener('resume', () => mark('1'));
 } catch (e) {}
 function netSend(o) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(o)); }
-function sendHello() { netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n, v: BUILD }); }
+function sendHello() { netSend({ t: 'hello', name: NET.myName, started: NET.started, n: NET.n, v: BUILD, cue: S.cue, cloth: S.cloth }); }
+// looks: each player's cue is shown on both screens, and the table wears the host's cloth (the host is seat 0).
+// Ids from the other player are checked against the known designs; anything else falls back to the defaults.
+const lookCue = id => K.has(K.ITEMS, id) && K.ITEMS[id].kind === 'cue' ? id : 'house';
+const lookCloth = id => K.has(CLOTHS, id) ? id : null;
+function takeLooks(m) { NET.peerCue = lookCue(m.cue); if (NET.seat === 1) { NET.cloth = lookCloth(m.cloth); setCloth(); } }
+function sendLook() { if (NET.on) netSend({ t: 'look', cue: S.cue, cloth: S.cloth }); }
 function netConnect() {
   let ws;
   const listQ = NET.list && !NET.started ? `&list=1&name=${encodeURIComponent(NET.myName)}&mode=${encodeURIComponent(M.mode)}` : '';
@@ -1808,7 +1924,7 @@ function onNet(m) {
       else lobbyStatus(waitText());
       break;
     case 'hello':
-      NET.peerName = cleanName(m.name); NET.peer = true; updateNetBadge();
+      NET.peerName = cleanName(m.name); NET.peer = true; updateNetBadge(); takeLooks(m);
       // versions before this check sent no version, so a missing one means an older copy
       NET.peerVer = typeof m.v === 'string' ? m.v.slice(0, 16) : '';
       NET.verWarn = '';
@@ -1829,6 +1945,7 @@ function onNet(m) {
       break;
     case 'setup': if (NET.seat === 1 && (NET.started || NET.peerVer === BUILD)) startOnlineGame(m); break;
     case 'state': adoptState(m); break;
+    case 'look': takeLooks(m); break;
     case 'aim': if (state === 'remote') NET.aimT = m; break;
     case 'shot': if (typeof m.n === 'number') { NET.queue.push(m); NET.queue.sort((a, b) => a.n - b.n); netProcessQueue(); } break;
     case 'sync': if (typeof m.n === 'number' && Array.isArray(m.balls) && m.game) { NET.pendingSync[m.n] = m; netCheckSync(); } break;
@@ -1853,7 +1970,7 @@ function startOnline(code, listed = false, rejoin = null) {
   NET.on = true; NET.code = code; NET.cid = getCid(); NET.myName = cleanName($('#netName').value, 'Player'); NET.peerName = 'Friend';
   try { localStorage.setItem('retroRack.name', NET.myName); } catch (e) {}
   holdSeat();
-  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed, rejoin });
+  Object.assign(NET, { started: false, n: 0, games: 0, queue: [], pendingSync: {}, again: [false, false], retry: 0, peer: false, peerVer: '', verWarn: '', aimT: null, stateAfter: false, list: listed, rejoin, cloth: null, peerCue: 'house' });
   matchWins = [0, 0]; M.opp = 'online'; saveM(); menuNote(''); NAV.lastOnline = true;
   try { history.replaceState(null, '', '#room=' + code); } catch (e) {}
   state = 'lobby'; $('#menu').hidden = true; $('#lobby').hidden = false; armBack();
@@ -1866,7 +1983,7 @@ function startOnline(code, listed = false, rejoin = null) {
 function leaveOnline() {
   if (!NET.on) return;
   netSend({ t: 'bye' });
-  NET.on = false; NET.started = false; clearTimeout(NET.timer); freeSeat();
+  NET.on = false; NET.started = false; clearTimeout(NET.timer); freeSeat(); NET.cloth = null; NET.peerCue = 'house'; setCloth();
   const ws = NET.ws; NET.ws = null; if (ws) { try { ws.close(1000, 'bye'); } catch (e) {} }
   try { history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
   $('#lobby').hidden = true; $('#thinking').hidden = true; updateNetBadge();
@@ -2196,6 +2313,7 @@ requestAnimationFrame(frame);
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, concedeFrame,
+  get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();
