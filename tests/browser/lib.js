@@ -19,4 +19,18 @@ const SITE = { new: 'http://127.0.0.1:8080/retro-rack/', old: 'http://127.0.0.1:
 const PORTS = { new: 8080, old: 8081, alt: 8082, relay: 8787 };
 const shot = name => { const d = path.join(WORK, 'shots'); fs.mkdirSync(d, { recursive: true }); return path.join(d, name); };
 
-module.exports = { ...pw, ROOT, WORK, FILE, SITE, PORTS, shot };
+// The game's default picture (pixel size 1x, full colours) is slow to draw in software, so test pages start at the
+// old 3x and 8 shades, unless they bring settings of their own or the address asks for the real defaults
+// (?realdefaults, used by the check of the defaults themselves).
+function quick() {
+  try { if (!/realdefaults/.test(location.search) && !localStorage.getItem('retroRack.settings')) localStorage.setItem('retroRack.settings', JSON.stringify({ pixel: 3, levels: 8, gfx: 2 })); } catch (e) {}
+}
+const chromium = Object.create(pw.chromium);
+chromium.launch = async (...args) => {
+  const b = await pw.chromium.launch(...args), newContext = b.newContext.bind(b);
+  b.newContext = async (...o) => { const c = await newContext(...o); await c.addInitScript(quick); return c; };
+  b.newPage = async (...o) => { const c = await b.newContext(...o), p = await c.newPage(); p.on('close', () => c.close().catch(() => {})); return p; };
+  return b;
+};
+
+module.exports = { ...pw, chromium, ROOT, WORK, FILE, SITE, PORTS, shot };

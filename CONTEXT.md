@@ -226,7 +226,7 @@ The CPU (`planBot`) is a generator, so its search can be spread across frames. I
 1. **Physics, rules, career and looks:** `node tests/physics.test.js`, `node tests/career.test.js` and `node tests/looks.test.js` must each report 0 failed. It covers bit-identical results, pockets on both tables, breaks, the rules of every mode, the trick-shot demos, and that `CONTEXT.md` and `CONTEXT-SHORT.md` match the code and notes (if not, run the build).
 2. **Browser tests:** `node tests/browser/run-all.js` builds the game, serves three copies of it locally like GitHub Pages (the current build, an old build from before the version check, and the current build with a different version number), starts the relay locally with Wrangler, then runs every `*.test.js` in `tests/browser/` in headless Chromium and prints a summary. Each check prints `PASS` or `FAIL`, and each file also fails if anything reaches the browser console.
    - Needs Playwright with Chromium (preinstalled in Claude Code's cloud sessions; elsewhere `npm install --no-save playwright` then `npx playwright install chromium`) and npm, which installs the relay's packages once into a temporary folder. Nothing is written into the repository; screenshots go to the temporary folder, printed at the end.
-   - Software rendering is slow: the whole set takes about 12 minutes in a Claude Code cloud session. For a small change, run the files that cover it, e.g. `node tests/browser/run-all.js menus fit`.
+   - Software rendering is slow: the whole set takes about 12 minutes in a Claude Code cloud session. To keep it so, `lib.js` starts test pages at pixel size 3× and 8 shades rather than the game's sharper defaults, unless a test sets its own settings or opens the page with `?realdefaults` (as the check of the defaults does). For a small change, run the files that cover it, e.g. `node tests/browser/run-all.js menus fit`.
    - The files: `menus` (every menu route, back navigation, Play again), `fit` (every menu screen fits a phone on its side without scrolling), `online` (games through the relay, reload rejoin, duplicated tabs, version mismatches), `rejoin` (the Rejoin button), `comforts` (volume, fullscreen, sideways hint, vibration), `markers` (the halos on the balls you're on), `hud` (no HUD pieces overlap at phone, tablet and computer sizes), `file` (the page opened from disk), `app` (installable app, offline start, updates), `add-balls-and-black` (Add balls in the trick-shot editor, and "one visit on the black"), `career` (a new career, draws, playing, leaving and resuming a match, winning and losing, money, unlocking, save to file and load, withdrawing, retiring), `shop` (tier tabs, the shop in the locker, bought looks in Settings and in every game, venues), `looks` (online: each player's cue and gloves and the host's cloth on both screens, the day's first online win), `locker` (old saves moving in, opening a case and the reel, buying, duplicates, two open pages, earning, patterned cloths and gloves at the table, a glove's reaction to a foul, dev mode with a stand-in word; served over http, because pages opened from disk don't reliably share storage changes).
    - New features get a new test file, or new checks in the file that fits. Keep test windows small (about 480×360) unless the size is what's being tested.
 3. **By eye:** for gameplay or UI changes, open `index.html` in a browser and try the change, watching the console. For anything online, run the relay locally (see Commands) and play yourself in two separate browser windows.
@@ -6551,7 +6551,7 @@ process.exit(failed ? 1 : 0);
 
 ## tests/browser/lib.js
 
-Shared helpers for the browser tests. (23 lines)
+Shared helpers for the browser tests. (37 lines)
 
 ```js
 // Shared bits for the browser tests: Playwright, the addresses of the local test sites, and where screenshots go.
@@ -6575,7 +6575,21 @@ const SITE = { new: 'http://127.0.0.1:8080/retro-rack/', old: 'http://127.0.0.1:
 const PORTS = { new: 8080, old: 8081, alt: 8082, relay: 8787 };
 const shot = name => { const d = path.join(WORK, 'shots'); fs.mkdirSync(d, { recursive: true }); return path.join(d, name); };
 
-module.exports = { ...pw, ROOT, WORK, FILE, SITE, PORTS, shot };
+// The game's default picture (pixel size 1x, full colours) is slow to draw in software, so test pages start at the
+// old 3x and 8 shades, unless they bring settings of their own or the address asks for the real defaults
+// (?realdefaults, used by the check of the defaults themselves).
+function quick() {
+  try { if (!/realdefaults/.test(location.search) && !localStorage.getItem('retroRack.settings')) localStorage.setItem('retroRack.settings', JSON.stringify({ pixel: 3, levels: 8, gfx: 2 })); } catch (e) {}
+}
+const chromium = Object.create(pw.chromium);
+chromium.launch = async (...args) => {
+  const b = await pw.chromium.launch(...args), newContext = b.newContext.bind(b);
+  b.newContext = async (...o) => { const c = await newContext(...o); await c.addInitScript(quick); return c; };
+  b.newPage = async (...o) => { const c = await b.newContext(...o), p = await c.newPage(); p.on('close', () => c.close().catch(() => {})); return p; };
+  return b;
+};
+
+module.exports = { ...pw, chromium, ROOT, WORK, FILE, SITE, PORTS, shot };
 ```
 
 ## tests/browser/run-all.js

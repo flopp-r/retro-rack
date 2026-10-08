@@ -11,7 +11,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   console.log('--- desktop');
   const dc = await b.newContext({ viewport: { width: 1000, height: 640 } });
   const d = await dc.newPage(); watch(d, 'desktop');
-  await d.goto(URL); await d.waitForTimeout(1200);
+  await d.goto(URL + '?realdefaults'); await d.waitForTimeout(1200);   // the game's own defaults, not the tests' quicker picture
   ok(await d.isHidden('#rotate'), 'no sideways hint on a computer');
   ok(await d.isVisible('#bMenuFull'), 'menu has a Fullscreen button');
   await d.click('#bMenuSettings'); await d.waitForTimeout(200);
