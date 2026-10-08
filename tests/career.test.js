@@ -91,8 +91,8 @@ test('each tier opens when the one before is won, event by event', () => {
   const r = playEvent(c, 'pubchamp', 3, [true, true, true]);
   assert.ok(r.tierDone && K.unlocked(c, 'oakfield') && !K.unlocked(c, 'riverside') && !K.unlocked(c, 'downtown'));
 });
-test('opponents play in one tier each, get stronger tier by tier, and use real cue designs', () => {
-  const avg = ti => { const ids = Object.keys(K.OPPONENTS).filter(id => K.tierOf(id) === ti); return ids.reduce((a, id) => a + K.OPPONENTS[id].rating, 0) / ids.length; };
+test('opponents play in one tier each, get stronger tier by tier, the bosses are the best, and cues are real designs', () => {
+  const avg = ti => { const ids = Object.keys(K.OPPONENTS).filter(id => K.tierOf(id) === ti); return ids.reduce((a, id) => a + K.strength(id), 0) / ids.length; };
   for (let ti = 1; ti < K.TIERS.length; ti++) assert.ok(avg(ti) > avg(ti - 1), `tier ${ti}`);
   for (const [id, o] of Object.entries(K.OPPONENTS)) {
     assert.ok(K.tierOf(id) >= 0, id);
@@ -100,6 +100,11 @@ test('opponents play in one tier each, get stronger tier by tier, and use real c
   }
   const st = Object.keys(K.OPPONENTS).map(K.stars);
   assert.ok(Math.min(...st) === 1 && Math.max(...st) === 5, 'stars use the whole 1 to 5 range');
+  for (const t of K.TIERS) {   // each tier's championship has its strongest player
+    const champ = t.events[t.events.length - 1].field, top = [...champ].sort((a, b) => K.OPPONENTS[b].rating - K.OPPONENTS[a].rating)[0];
+    assert.ok(t.events.every(e => e.field.every(id => K.OPPONENTS[id].rating <= K.OPPONENTS[top].rating)), t.id);
+  }
+  assert.ok(K.strength('viktor') < 1819, 'the national champion is below the Hard CPU');
 });
 test('the shop: buying needs the money, takes it, and only once', () => {
   const c = fresh(); c.money = 300;

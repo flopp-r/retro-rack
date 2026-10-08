@@ -109,7 +109,8 @@ async function shoot(a, c) {
   const newHost = await win('New host', NEW + '#room=' + room4);
   await sleep(1500);
   const oldGuest = await win('Old guest', OLD + '#room=' + room4);
-  await sleep(4000);
+  await until(async () => /older version/.test((await info(newHost)).lobby), 15000);   // on a busy machine the hello can take a few seconds
+  await sleep(1000);
   const nh = await info(newHost), og = await info(oldGuest);
   ok(nh.state === 'lobby' && !nh.started, `new host doesn't start a game (state ${nh.state})`);
   ok(/older version/.test(nh.lobby), `new host sees: "${nh.lobby}"`);
@@ -120,7 +121,8 @@ async function shoot(a, c) {
   const h5 = await win('Version A', NEW + '#room=' + room5);
   await sleep(1500);
   const g5 = await win('Version B', ALT + '#room=' + room5);
-  await sleep(4000);
+  await until(async () => /different versions/.test((await info(h5)).lobby) && /different versions/.test((await info(g5)).lobby), 15000);
+  await sleep(1000);
   const a5 = await info(h5), b5 = await info(g5);
   ok(a5.state === 'lobby' && b5.state === 'lobby', 'neither starts a game');
   ok(/different versions/.test(a5.lobby) && /different versions/.test(b5.lobby), `both see: "${a5.lobby}"`);

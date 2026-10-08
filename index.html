@@ -1289,8 +1289,8 @@ const CAREER = ((C) => {
 // The computer players met on the tour. look: pixel portrait (sprite style, skin, hair, shirt; game.js draws it).
 // base: the CPU level they start from; cfg overrides it (fields as in DIFF in core.js), and nerves multiplies their
 // execution error when they're on the final ball; cue: the cue design they use (see SHOP). rating: strength on an
-// Elo-style scale where the Medium CPU is 1500 in the same game, measured by playing 80 frames each against the
-// Medium CPU in their tier's game with tools/sim-career.js (about ±45). Ratings settle the matches between computer
+// Elo-style scale where the Medium CPU is 1500 in the same game, measured by playing 80 frames each (100 for a few)
+// against the Medium CPU in their tier's game with tools/sim-career.js (about ±45). Ratings settle the matches between computer
 // players in a draw, and give the stars shown on screen.
 const OPPONENTS = {
   dave:    { name: 'Dodgy Dave', full: 'Dave Pike', look: { s: 'cap', skin: '#e8b88f', hair: '#3b2a1a', shirt: '#7a8b3a' },
@@ -1313,61 +1313,61 @@ const OPPONENTS = {
     blurb: 'Pub champion nine years running. Rarely misses, but feels the pressure.', base: 'hard', cfg: { aimSd: 0.4, powSd: 0.06, robust: 1, bih: 4, nerves: 1.8 }, rating: 1560, cue: 'ash' },
   // the club circuit (8-ball)
   perry:   { name: 'Posh Perry', full: 'Peregrine Hale', look: { s: 'glasses', skin: '#f6d2b4', hair: '#d9a441', shirt: '#1e3263' },
-    blurb: 'Plays in a waistcoat. Plays it safe.', base: 'medium', cfg: { aimSd: 0.65, safety: true, potMin: 60 }, rating: 1430 },
+    blurb: 'Plays in a waistcoat. Plays it safe.', base: 'medium', cfg: { aimSd: 0.65, safety: true, potMin: 60 }, rating: 1465 },
   bev:     { name: 'Bev', full: 'Bev Okafor', look: { s: 'long', skin: '#6b4429', hair: '#1a1206', shirt: '#e0a526' },
-    blurb: 'Club secretary. Knows every roll of these cushions.', base: 'medium', cfg: { aimSd: 0.6, pos: 0.6 }, rating: 1470 },
+    blurb: 'Club secretary. Knows every roll of these cushions.', base: 'medium', cfg: { aimSd: 0.6, pos: 0.6 }, rating: 1500 },
   danny:   { name: 'The Kid', full: 'Danny Reyes', look: { s: 'cap', skin: '#c98e62', hair: '#1a1206', shirt: '#ff6f8f' },
     blurb: 'Seventeen, fearless, a little wild. Wobbles on the black.', base: 'medium', cfg: { aimSd: 0.6, powSd: 0.1, pickTop: 3, nerves: 1.8 }, rating: 1420 },
   hamish:  { name: 'Hamish', full: 'Hamish Grant', look: { s: 'beard', skin: '#f2c49b', hair: '#b5432a', shirt: '#2d8a3c' },
-    blurb: 'Slow, methodical, and very hard to get past.', base: 'medium', cfg: { aimSd: 0.55 }, rating: 1500 },
+    blurb: 'Slow, methodical, and very hard to get past.', base: 'medium', cfg: { aimSd: 0.55 }, rating: 1485 },
   lin:     { name: 'Lin', full: 'Lin Zhao', look: { s: 'long', skin: '#f2d0a4', hair: '#1a1206', shirt: '#56399a' },
-    blurb: 'Cuts the thinnest of balls. Long pots are her weak spot.', base: 'medium', cfg: { aimSd: 0.45, long: 0.5 }, rating: 1500 },
+    blurb: 'Cuts the thinnest of balls. Long pots are her weak spot.', base: 'medium', cfg: { aimSd: 0.45, long: 0.5 }, rating: 1430 },
   tommo:   { name: 'Tommo', full: 'Tom Ashworth', look: { s: 'bald', skin: '#e8b88f', hair: '#3b2a1a', shirt: '#7a8b3a' },
-    blurb: 'Breaks like thunder. Everything after that is a bonus.', base: 'medium', cfg: { aimSd: 0.6, variants: [[1.5, 0, 0], [2.2, 0, 0.3]], brk: 1, brkSpin: 0 }, rating: 1430 },
+    blurb: 'Breaks like thunder. Everything after that is a bonus.', base: 'medium', cfg: { aimSd: 0.6, variants: [[1.5, 0, 0], [2.2, 0, 0.3]], brk: 1, brkSpin: 0 }, rating: 1445 },
   aisha:   { name: 'Aisha', full: 'Aisha Bello', look: { s: 'long', skin: '#a8714a', hair: '#1a1206', shirt: '#1d8a74' },
-    blurb: 'A smooth stroke and a calm head.', base: 'medium', cfg: { aimSd: 0.45, pos: 0.7 }, rating: 1550 },
+    blurb: 'A smooth stroke and a calm head.', base: 'medium', cfg: { aimSd: 0.5, pos: 0.7 }, rating: 1610 },
   frank:   { name: 'Fingers', full: 'Frank Dolan', look: { s: 'man', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#86263f' },
-    blurb: 'A master of spin. Screw, stun and side on every shot.', base: 'medium', cfg: { aimSd: 0.5, refine: 2, variants: [[1.3, 0, 0], [1.9, 0, 0.3], [1.7, 0, -0.5], [1.7, 0.4, 0]] }, rating: 1550, cue: 'racing' },
+    blurb: 'A master of spin. Screw, stun and side on every shot.', base: 'medium', cfg: { aimSd: 0.5, refine: 2, variants: [[1.3, 0, 0], [1.9, 0, 0.3], [1.7, 0, -0.5], [1.7, 0.4, 0]] }, rating: 1500, cue: 'racing' },
   duchess: { name: 'The Duchess', full: 'Victoria Lane', look: { s: 'long', skin: '#f6d2b4', hair: '#c9c3bd', shirt: '#56399a' },
-    blurb: 'Club champion. Expects to win, and usually does.', base: 'hard', cfg: { aimSd: 0.38, robust: 1, bih: 4, nerves: 1.5 }, rating: 1600, cue: 'gold' },
+    blurb: 'Club champion. Expects to win, and usually does.', base: 'hard', cfg: { aimSd: 0.38, robust: 1, bih: 4, nerves: 1.4 }, rating: 1625, cue: 'gold' },
   // the hall circuit (8-ball)
   marco:   { name: 'Marco', full: 'Marco Bianchi', look: { s: 'man', skin: '#d9a07a', hair: '#1a1206', shirt: '#c0392b' },
-    blurb: 'Hustles the tourists. You are not a tourist.', base: 'medium', cfg: { aimSd: 0.5, pickTop: 2 }, rating: 1510 },
+    blurb: 'Hustles the tourists. You are not a tourist.', base: 'medium', cfg: { aimSd: 0.5, pickTop: 2 }, rating: 1610 },
   jade:    { name: 'Jade', full: 'Jade Kowalski', look: { s: 'cap', skin: '#f6d2b4', hair: '#d9a441', shirt: '#1d8a74' },
-    blurb: 'Plays fast and pots faster.', base: 'medium', cfg: { aimSd: 0.45, powSd: 0.09 }, rating: 1530 },
+    blurb: 'Plays fast and pots faster.', base: 'medium', cfg: { aimSd: 0.45, powSd: 0.09 }, rating: 1515 },
   lou:     { name: 'Big Lou', full: 'Louis Fontaine', look: { s: 'bald', skin: '#6b4429', hair: '#1a1206', shirt: '#e0a526' },
-    blurb: 'Owns the hall. Lets nobody forget it.', base: 'medium', cfg: { aimSd: 0.45, brk: 1, brkSpin: 0 }, rating: 1530, cue: 'ebony' },
+    blurb: 'Owns the hall. Lets nobody forget it.', base: 'medium', cfg: { aimSd: 0.45, brk: 1, brkSpin: 0 }, rating: 1515, cue: 'ebony' },
   sunil:   { name: 'Sunil', full: 'Sunil Rao', look: { s: 'glasses', skin: '#a8714a', hair: '#1a1206', shirt: '#2f6db5' },
-    blurb: 'Never out of position.', base: 'hard', cfg: { aimSd: 0.45, pos: 1.2, robust: 0 }, rating: 1560 },
+    blurb: 'Never out of position.', base: 'hard', cfg: { aimSd: 0.45, pos: 1.2, robust: 0 }, rating: 1625 },
   smokey:  { name: 'Smokey Joe', full: 'Joe Kirby', look: { s: 'beard', skin: '#e8b88f', hair: '#8a8a8a', shirt: '#2d2344' },
-    blurb: 'Plays the percentages. Leaves you nothing.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 70, robust: 1 }, rating: 1580 },
+    blurb: 'Plays the percentages. Leaves you nothing.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 70, robust: 1 }, rating: 1635 },
   rosa:    { name: 'Rosa', full: 'Rosa Delgado', look: { s: 'long', skin: '#c98e62', hair: '#3b2a1a', shirt: '#ff6f8f' },
-    blurb: 'Fearless long potter.', base: 'hard', cfg: { aimSd: 0.38, robust: 0 }, rating: 1600 },
+    blurb: 'Fearless long potter.', base: 'hard', cfg: { aimSd: 0.38, robust: 0 }, rating: 1590 },
   ivan:    { name: 'Ivan', full: 'Ivan Petrov', look: { s: 'man', skin: '#f6d2b4', hair: '#d9a441', shirt: '#141018' },
-    blurb: 'Silent. Relentless.', base: 'hard', cfg: { aimSd: 0.35, robust: 1 }, rating: 1630 },
+    blurb: 'Silent. Relentless.', base: 'hard', cfg: { aimSd: 0.45, robust: 0 }, rating: 1625 },
   kaz:     { name: 'Kaz', full: 'Kaz Nakamura', look: { s: 'glasses', skin: '#f2d0a4', hair: '#1a1206', shirt: '#5a2d1b' },
-    blurb: 'A safety specialist. Patience is the whole game.', base: 'hard', cfg: { aimSd: 0.35, safety: true, potMin: 80, robust: 1 }, rating: 1630 },
+    blurb: 'A safety specialist. Patience is the whole game.', base: 'hard', cfg: { aimSd: 0.42, safety: true, potMin: 80, robust: 1 }, rating: 1680 },
   professor: { name: 'The Professor', full: 'Alan Whitby', look: { s: 'beard', skin: '#f2c49b', hair: '#c9c3bd', shirt: '#5a2d1b' },
-    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1680, cue: 'ebony' },
+    blurb: 'Wrote the book on eight-ball. Gets flustered when it goes off script.', base: 'hard', cfg: { aimSd: 0.3, robust: 2, nerves: 1.4 }, rating: 1705, cue: 'ebony' },
   // the national tour (9-ball)
   callum:  { name: 'Callum', full: 'Callum Fraser', look: { s: 'man', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1e3263' },
-    blurb: 'A big break and a bigger grin.', base: 'hard', cfg: { aimSd: 0.42, robust: 0, brk: 1, brkSpin: 0 }, rating: 1580 },
+    blurb: 'A big break and a bigger grin.', base: 'hard', cfg: { aimSd: 0.42, robust: 0, brk: 1, brkSpin: 0 }, rating: 1590 },
   mei:     { name: 'Mei', full: 'Mei Tanaka', look: { s: 'long', skin: '#f2d0a4', hair: '#1a1206', shirt: '#ff6f8f' },
-    blurb: 'Precise, patient, unhurried.', base: 'hard', cfg: { aimSd: 0.38, robust: 1 }, rating: 1610 },
+    blurb: 'Precise, patient, unhurried.', base: 'hard', cfg: { aimSd: 0.38, robust: 1 }, rating: 1535 },
   gareth:  { name: 'Gareth', full: 'Gareth Owen', look: { s: 'beard', skin: '#e8b88f', hair: '#3b2a1a', shirt: '#c0392b' },
-    blurb: 'Rugby build, feather touch.', base: 'hard', cfg: { aimSd: 0.36, robust: 1 }, rating: 1620 },
+    blurb: 'Rugby build, feather touch.', base: 'hard', cfg: { aimSd: 0.36, robust: 1 }, rating: 1560 },
   nadia:   { name: 'Nadia', full: 'Nadia Haddad', look: { s: 'long', skin: '#c98e62', hair: '#1a1206', shirt: '#e0a526' },
-    blurb: 'Plans three balls ahead.', base: 'hard', cfg: { aimSd: 0.34, pos: 1.2, robust: 1 }, rating: 1640 },
+    blurb: 'Plans three balls ahead.', base: 'hard', cfg: { aimSd: 0.34, pos: 1.2, robust: 1 }, rating: 1560 },
   ollie:   { name: 'Ollie', full: 'Ollie Brooks', look: { s: 'cap', skin: '#f2c49b', hair: '#d9a441', shirt: '#2d8a3c' },
-    blurb: 'Brilliant, until the nine is the only ball left.', base: 'hard', cfg: { aimSd: 0.33, robust: 1, nerves: 2 }, rating: 1640 },
+    blurb: 'Brilliant, until the nine is the only ball left.', base: 'hard', cfg: { aimSd: 0.33, robust: 1, nerves: 1.5 }, rating: 1555 },
   svetlana: { name: 'Svetlana', full: 'Svetlana Morozova', look: { s: 'long', skin: '#f6d2b4', hair: '#d9a441', shirt: '#2d2344' },
-    blurb: 'Plays safe until you crack.', base: 'hard', cfg: { aimSd: 0.3, safety: true, potMin: 60, robust: 2 }, rating: 1670 },
+    blurb: 'Plays safe until you crack.', base: 'hard', cfg: { aimSd: 0.33, safety: true, potMin: 60, robust: 2 }, rating: 1625 },
   devm:    { name: 'Dev', full: 'Dev Mistry', look: { s: 'glasses', skin: '#a8714a', hair: '#1a1206', shirt: '#56399a' },
-    blurb: 'Quiet, quick and deadly accurate.', base: 'hard', cfg: { aimSd: 0.3, robust: 1 }, rating: 1670, cue: 'arcade' },
+    blurb: 'Quiet, quick and deadly accurate.', base: 'hard', cfg: { aimSd: 0.3, robust: 1 }, rating: 1635, cue: 'arcade' },
   erin:    { name: 'Erin', full: 'Erin Gallagher', look: { s: 'long', skin: '#f6d2b4', hair: '#b5432a', shirt: '#1d8a74' },
-    blurb: 'Last year\'s runner-up, and hungry.', base: 'hard', cfg: { aimSd: 0.28, robust: 2 }, rating: 1690, cue: 'racing' },
+    blurb: 'Last year\'s runner-up, and hungry.', base: 'hard', cfg: { aimSd: 0.28, robust: 2 }, rating: 1610, cue: 'racing' },
   viktor:  { name: 'The Metronome', full: 'Viktor Strand', look: { s: 'bald', skin: '#f2c49b', hair: '#3b2a1a', shirt: '#141018' },
-    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.26, robust: 3, nerves: 1.5 }, rating: 1710, cue: 'champion' },
+    blurb: 'Reigning national champion. Same rhythm every shot, until the pressure is on.', base: 'hard', cfg: { aimSd: 0.22, robust: 3, nerves: 1.25 }, rating: 1655, cue: 'champion' },
 };
 
 // The shop: looks bought with prize money. Cloths and cues only, so the balls always stay easy to read. Bought looks
@@ -1435,9 +1435,12 @@ function rng(seed) {
   let a = seed >>> 0;
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-// stars: 1 to 5 across the whole tour: the pub players get 1 to 3, the national tour's best 5 (1340 is 2 stars,
-// 1460 is 3, 1590 is 4, 1710 is 5)
-const stars = id => id === YOU ? 0 : Math.max(1, Math.min(5, Math.round((OPPONENTS[id].rating - 1090) / 123)));
+// strength across games: ratings are measured within one game, and 9-ball's luckier breaks squeeze them together (the
+// Hard CPU rates 1819 in 8-ball but 1728 in 9-ball, both measured with tools/sim-career.js), so 9-ball ratings are
+// stretched to match. Stars: 1 to 5 from that (the Medium CPU would be 3 stars, the Hard CPU 5).
+const GAME_SCALE = { uk8: 1, '8ball': 1, '9ball': (1819 - 1500) / (1728 - 1500) };
+const strength = id => 1500 + (OPPONENTS[id].rating - 1500) * GAME_SCALE[TIERS[tierOf(id)].mode];
+const stars = id => id === YOU ? 0 : Math.max(1, Math.min(5, Math.round((strength(id) - 1090) / 123)));
 // the tier an opponent belongs to: the first whose events they play in
 const tierOf = id => TIERS.findIndex(t => t.events.some(e => e.field.includes(id)));
 const nameOf = (career, id) => id === YOU ? career.name : OPPONENTS[id].name;
@@ -1559,7 +1562,7 @@ function validate(c) {
   return out;
 }
 
-return { OPPONENTS, TIERS, EVENTS, ROUNDS, YOU, SHOP, ITEMS, HOUSE_CUE, has, rng, stars, tierOf, nameOf, newCareer, unlocked, tierDone, enterEvent, entrants,
+return { OPPONENTS, TIERS, EVENTS, ROUNDS, YOU, SHOP, ITEMS, HOUSE_CUE, has, rng, stars, strength, tierOf, nameOf, newCareer, unlocked, tierDone, enterEvent, entrants,
   recordMatch, withdraw, onFinalBall, profileFor, validate, simMatch, buy };
 })(typeof CORE !== 'undefined' ? CORE : require('./core.js'));
 if (typeof module !== 'undefined') module.exports = CAREER;
@@ -1574,7 +1577,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = 'aa1c0c65';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = 'e6611735';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -3222,7 +3225,7 @@ const STAR = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.'];
 function starsImg(n) {
   const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 29; c.height = 5;
   for (let i = 0; i < 5; i++) STAR.forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === 'x') { g.fillStyle = i < n ? P1 : '#4e3270'; g.fillRect(i * 6 + x, y, 1, 1); } });
-  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = img.alt;
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = `${img.alt} (the Medium computer would be about 3, Hard 5)`;
   return img;
 }
 const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };

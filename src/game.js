@@ -1656,7 +1656,7 @@ const STAR = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.'];
 function starsImg(n) {
   const c = document.createElement('canvas'), g = c.getContext('2d'); c.width = 29; c.height = 5;
   for (let i = 0; i < 5; i++) STAR.forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === 'x') { g.fillStyle = i < n ? P1 : '#4e3270'; g.fillRect(i * 6 + x, y, 1, 1); } });
-  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = img.alt;
+  const img = new Image(); img.src = c.toDataURL(); img.className = 'stars'; img.width = 58; img.height = 10; img.alt = `Strength ${n} of 5`; img.title = `${img.alt} (the Medium computer would be about 3, Hard 5)`;
   return img;
 }
 const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
