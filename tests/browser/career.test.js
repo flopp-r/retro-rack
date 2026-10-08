@@ -1,7 +1,7 @@
 // Career: a new career, entering an event, playing and leaving a match (it resumes exactly), winning and losing
 // matches, prize money and unlocking, save to file / load, withdrawing and retiring; phone-sized screens throughout.
-const { chromium, FILE, shot } = require('./lib');
-const fs = require('fs');
+const { chromium, FILE, ROOT, shot } = require('./lib');
+const fs = require('fs'), path = require('path');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(250); } return false; };
@@ -12,6 +12,10 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1');
     localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.name', 'Tess'); localStorage.setItem('retroRack.locker', JSON.stringify({ v: 1, money: 0 }));
     localStorage.setItem('retroRack.menu', JSON.stringify({ mode: '9ball', opp: 'bot', diff: 'hard', guide: 'auto', race: 0, last: { mode: '9ball', opp: 'bot', diff: 'hard', rack: '8ball', race: 0, guide: 'auto' } })); } });
+  // a quiet second page on the same origin (a text file) keeps the storage alive while the game's page is closed and
+  // reopened: in the test browser's private storage, closing an origin's last page can drop it all, which a real browser,
+  // keeping it on disk, never does
+  const keep = await ctx.newPage(); await keep.goto('file://' + path.join(ROOT, 'README.md')); await keep.evaluate(() => localStorage.length);
   const logs = [];
   const open = async () => {
     const p = await ctx.newPage();
@@ -139,10 +143,10 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   await p.click('#cRetire'); await sleep(600);
   ok(await p.isVisible('#sc-cnew') && !(await saved()), 'retired: the career is gone and the new-career form shows');
   await p.click('#bCareer'); await sleep(400);
-  await p.setInputFiles('#cFile', file); await sleep(500);
+  await p.setInputFiles('#cFile', file); await until(async () => /Loaded/.test(await p.textContent('#cNote')), 10000);
   c = await saved();
   ok(c.name === 'Tess' && (await lock()).money === 140 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
-  fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await sleep(400);
+  fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await until(async () => /isn't a Retro Rack career/.test(await p.textContent('#cNote')), 10000);
   ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await lock()).money === 140, 'a file that is not a career is refused, and nothing changes');
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));
