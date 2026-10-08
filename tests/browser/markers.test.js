@@ -1,5 +1,5 @@
 // Behaviour of the "you're on" markers in every mode, plus the Settings switch.
-const { chromium, FILE } = require('./lib');
+const { chromium, SITE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -7,7 +7,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   const p = await ctx.newPage(); const log = [];
   p.on('console', m => { if (!/GPU stall/.test(m.text())) log.push(`[${m.type()}] ${m.text()}`); });
   p.on('pageerror', e => log.push(`[pageerror] ${e.message}`));
-  await p.goto(FILE); await p.waitForTimeout(1500);
+  await p.goto(SITE.new); await p.waitForTimeout(1500);   // over http: a page opened from disk may not keep its storage across a reload
   const ev = (f, a) => p.evaluate(f, a);
   const marked = async () => { await p.waitForTimeout(150); return ev(() => window.__rr.marked()); };
   const settle = async (states = ['aim', 'over']) => { let s; for (let i = 0; i < 150; i++) { await p.waitForTimeout(400); s = await ev(() => window.__rr.state); if (states.includes(s)) return s; } return s; };

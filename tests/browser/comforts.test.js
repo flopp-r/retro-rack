@@ -1,7 +1,7 @@
 // Volume, fullscreen button, sideways hint and vibration, on a desktop window and an emulated Android phone; the
 // Settings panel (two columns, closed by clicking outside it) and the sharpest-graphics default.
-const { chromium, devices, FILE, shot } = require('./lib');
-const URL = FILE;
+const { chromium, devices, SITE, shot } = require('./lib');
+const URL = SITE.new;   // over http, like the real site: a page opened from disk may not keep its storage across a reload
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const logs = [];
 const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())) logs.push(`${n} [${m.type()}] ${m.text()}`); }); p.on('pageerror', e => logs.push(`${n} [pageerror] ${e.message}`)); };
