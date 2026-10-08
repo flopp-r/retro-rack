@@ -1,7 +1,7 @@
 // The locker: old saves moving in, opening a case (the reel stops on the prize, honestly), buying cases, duplicates
 // sold, two open pages kept in step, earning from frames against the computer (and nothing from same-device games),
 // and the looks from cases in use: a patterned cloth and a glove.
-const { chromium, FILE } = require('./lib');
+const { chromium, SITE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(200); } return false; };
@@ -10,7 +10,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   // motion on, so the reel really spins
   const ctx = await b.newContext({ viewport: { width: 762, height: 341 } });
-  await ctx.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1');
+  await ctx.addInitScript(() => { if (localStorage.getItem('test.seeded')) return; localStorage.setItem('test.seeded', '1');   // once for the device, not per tab
     localStorage.setItem('retroRack.rotateHint', 'off');
     // from before the locker: a bought cloth in the settings, and a career with unspent money and a bought cue
     localStorage.setItem('retroRack.settings', JSON.stringify({ owned: ['navy'], cloth: 'navy', cue: 'ash' }));
@@ -21,7 +21,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
     p.on('console', m => { if (!/GPU stall/.test(m.text())) logs.push(`[${m.type()}] ${m.text()}`); });
     p.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
     p.on('dialog', d => d.accept());
-    await p.goto(FILE); await sleep(1200); return p;
+    await p.goto(SITE.new); await sleep(1200); return p;   // over http, like the real site: pages opened from disk don't reliably share storage
   };
   const p = await open();
   const lock = (q = p) => q.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
@@ -59,8 +59,8 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
 
   console.log('--- two pages open: changes in one show in the other');
   const p2 = await open();
-  await setLock(p2, { money: 10, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } }); await sleep(400);
-  ok(/£10 to spend · 1 case to open/.test(await p.textContent('#lockMoney')), 'the first page shows the change made in the second');
+  await setLock(p2, { money: 10, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } });   // reaches the other page a moment later
+  ok(await until(async () => /£10 to spend · 1 case to open/.test(await p.textContent('#lockMoney')), 5000), 'the first page shows the change made in the second');
   await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(200);
   ok(/costs £15: you need £5 more/.test(await p.textContent('#lockNote')) && (await lock()).cases.bronze === 1, 'too little money to open it: nothing taken, and it says how much more');
   await p2.close();
@@ -89,6 +89,12 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('#bResume'); await sleep(200);
   await p.evaluate(() => { const r = __rr; r.M.mode = '8ball'; r.M.opp = 'bot'; r.M.diff = 'hard'; r.M.race = 0; r.startGame(false); }); await sleep(1500);
   ok(await until(async () => (await p.evaluate(() => __rr.look.glove)) === 'g-white'), 'in a game, the glove in use is at the table');
+
+  console.log('--- a glove reacts: a shrug for a foul');
+  await p.evaluate(() => { const r = __rr, c = r.world.balls[0]; r.game.breakShot = false; r.game.ballInHand = false; c.x = -0.6; c.z = 0.3; r.aim.phi = Math.PI; r.aim.power = 0.12; r.aim.sx = r.aim.sy = 0; });
+  await until(() => p.evaluate(() => __rr.state === 'aim')); await p.evaluate(() => __rr.beginStroke());
+  ok(await until(() => p.evaluate(() => __rr.cheering === 'shrug'), 20000), 'hitting no ball is a foul, and the glove shrugs');
+  await until(() => p.evaluate(() => __rr.state === 'botThink' || __rr.state === 'aim'));
 
   console.log('--- earning against the computer');
   await setLock(p, { money: 0, meter: { bronze: 0, silver: 0, gold: 0, diamond: 0 }, cases: { bronze: 0, silver: 0, gold: 0, diamond: 0 } });

@@ -2754,7 +2754,7 @@ requestAnimationFrame(frame);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
-  get matchWins() { return matchWins; }, CAR, LK, concedeFrame, cheer, applyLook, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
+  get matchWins() { return matchWins; }, CAR, LK, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };

@@ -1,5 +1,6 @@
-// Online looks: each player's cue shows on both screens, the table wears the host's cloth, changes made mid-game
-// reach the other player, nonsense from the other side is ignored, and your own cloth comes back afterwards.
+// Online looks: each player's cue and gloves show on both screens, the table wears the host's cloth, changes made
+// mid-game reach the other player, nonsense from the other side is ignored, the day's first win pays, and your own
+// cloth comes back afterwards.
 const { chromium, SITE } = require('./lib');
 const BASE = SITE.new + '?relay=ws://127.0.0.1:8787';
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
@@ -16,11 +17,11 @@ async function player(name, settings) {
   await p.goto(BASE); await sleep(1200); return p;
 }
 const look = p => p.evaluate(() => __rr.look);
-const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, seat: __rr.NET.seat, n: __rr.NET.n, started: __rr.NET.started, peerCue: __rr.NET.peerCue }));
+const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, seat: __rr.NET.seat, n: __rr.NET.n, started: __rr.NET.started, peerCue: __rr.NET.peerCue, peerGlove: __rr.NET.peerGlove }));
 
 (async () => {
   b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  const h = await player('Host', { owned: ['navy', 'ebony'], cloth: 'navy', cue: 'ebony' });
+  const h = await player('Host', { owned: ['navy', 'ebony'], cloth: 'navy', cue: 'ebony', glove: 'g-white' });
   const g = await player('Guest', { owned: ['tan', 'arcade'], cloth: 'tan', cue: 'arcade' });
   ok((await look(g)).cloth === 'tan', "before the game, the guest's own cloth (Tan)");
 
@@ -38,11 +39,14 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
 
   console.log('--- the cues: each player\'s own, seen by both');
   ok((await st(g)).peerCue === 'ebony' && (await st(h)).peerCue === 'arcade', 'each game knows the other player\'s cue');
+  ok((await st(g)).peerGlove === 'g-white' && (await st(h)).peerGlove === 'none', 'and gloves: the host wears the white pair, the guest none');
   // whoever is to shoot, both screens should show that player's cue
   const shooterCue = s => s.turn === 0 ? 'ebony' : 'arcade';
   for (let i = 0; i < 2; i++) {
     const s = await st(h), cueOk = await until(async () => (await look(h)).cue === shooterCue(await st(h)) && (await look(g)).cue === shooterCue(await st(g)), 5000);
     ok(cueOk, `${s.turn === 0 ? 'host' : 'guest'} to shoot: both screens show the ${shooterCue(s)} cue`);
+    const glove = s.turn === 0 ? 'g-white' : 'none';
+    ok(await until(async () => (await look(h)).glove === glove && (await look(g)).glove === glove, 5000), `...and the ${s.turn === 0 ? 'white gloves' : 'bare cue'} on both`);
     const shooter = s.turn === 0 ? h : g, n0 = s.n;
     await shooter.evaluate(() => __rr.beginStroke());
     await until(async () => { const [x, y] = [await st(h), await st(g)]; return x.n === n0 + 1 && y.n === n0 + 1 && ['aim', 'remote'].includes(x.state) && ['aim', 'remote'].includes(y.state); }, 90000);
