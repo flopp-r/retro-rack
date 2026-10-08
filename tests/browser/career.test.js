@@ -27,7 +27,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   const lock = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
   const table = () => p.evaluate(() => JSON.stringify(__rr.world.balls.map(b => [b.id, b.x, b.z, b.potted])));
   // ends the current frame by conceding for the given player, as soon as nothing is moving
-  const concede = who => until(() => p.evaluate(w => __rr.state !== 'over' && __rr.concedeFrame(false, w), who));
+  const concede = who => until(() => p.evaluate(w => __rr.state !== 'over' && __rr.concedeFrame(false, w), who), 90000);   // a computer's shot can be slow in software
   const overShown = () => until(() => p.isVisible('#over'), 5000);
 
   console.log('--- starting a career');
