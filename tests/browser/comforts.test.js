@@ -1,4 +1,5 @@
-// Volume, fullscreen button, sideways hint and vibration, on a desktop window and an emulated Android phone.
+// Volume, fullscreen button, sideways hint and vibration, on a desktop window and an emulated Android phone; the
+// Settings panel (two columns, closed by clicking outside it) and the sharpest-graphics default.
 const { chromium, devices, FILE, shot } = require('./lib');
 const URL = FILE;
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
@@ -10,7 +11,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   console.log('--- desktop');
   const dc = await b.newContext({ viewport: { width: 1000, height: 640 } });
   const d = await dc.newPage(); watch(d, 'desktop');
-  await d.goto(URL); await d.waitForTimeout(1200);
+  await d.goto(URL + '?realdefaults'); await d.waitForTimeout(1200);   // the game's own defaults, not the tests' quicker picture
   ok(await d.isHidden('#rotate'), 'no sideways hint on a computer');
   ok(await d.isVisible('#bMenuFull'), 'menu has a Fullscreen button');
   await d.click('#bMenuSettings'); await d.waitForTimeout(200);
@@ -20,6 +21,14 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   await d.click('#sVolume .btn:nth-child(3)'); await d.waitForTimeout(100);
   const g50 = await d.evaluate(() => [window.__rr.S.volume, JSON.parse(localStorage.getItem('retroRack.settings')).volume]);
   ok(g50[0] === 0.5 && g50[1] === 0.5, 'choosing 50% sets and saves it');
+  ok(await d.evaluate(() => __rr.S.pixel === 1 && __rr.S.levels === 256), 'the sharpest graphics by default: pixel size 1x, full colours');
+  const cols = await d.evaluate(() => getComputedStyle(document.querySelector('.sGrid')).columnCount);
+  ok(cols === '2' && (await d.$$('#pausePanel .sSec h3')).length === 4, `Settings in four sections, in two columns (${cols})`);
+  await d.click('#pausePanel h2'); await d.waitForTimeout(150);
+  ok(await d.isVisible('#pause'), 'a click inside the panel leaves it open');
+  await d.mouse.click(5, 320); await d.waitForTimeout(200);
+  ok(await d.isHidden('#pause'), 'a click outside the panel closes it');
+  await d.click('#bMenuSettings'); await d.waitForTimeout(200);
   await d.screenshot({ path: shot('c-settings.png') });
   await d.click('#bResume');
   await d.click('#bMenuFull'); await d.waitForTimeout(400);
@@ -37,6 +46,14 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
     const p = await c.newPage(); watch(p, 'migrate'); await p.goto(URL); await p.waitForTimeout(800);
     const v = await p.evaluate(() => [window.__rr.S.volume, 'sound' in window.__rr.S]);
     ok(v[0] === want && !v[1], `saved ${JSON.stringify(saved)} → volume ${v[0]}`);
+    await c.close();
+  }
+  // the sharpest graphics reach everyone once; a choice made afterwards is kept
+  for (const [saved, want] of [[{ pixel: 3, levels: 8 }, '1/256'], [{ pixel: 3, levels: 8, gfx: 2 }, '3/8']]) {
+    const c = await b.newContext(); await c.addInitScript(s => localStorage.setItem('retroRack.settings', s), JSON.stringify(saved));
+    const p = await c.newPage(); watch(p, 'graphics'); await p.goto(URL); await p.waitForTimeout(800);
+    const v = await p.evaluate(() => `${__rr.S.pixel}/${__rr.S.levels}`);
+    ok(v === want, `saved ${JSON.stringify(saved)} → pixel size and colours ${v}`);
     await c.close();
   }
 

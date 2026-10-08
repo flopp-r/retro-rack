@@ -92,6 +92,7 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Edit table** lets you drag balls into your own layout and shows **Add balls**, which puts more on the table (or takes them off). **Save layout** adds it to the list.
 - **Reds & yellows, "On black":** on the setup screen, choose whether a player on the black gets two visits after a foul or only one (a common pub rule). Online, the host's choice applies to both players.
 - **Markers:** a pulsing gold halo shows the balls you're on once you have a colour (in 9-ball, the lowest ball). Turn it off under **Pause**, **Markers**.
+- **Settings:** the cog (top right in the menus, Pause in a game) opens a big panel: aim guide and markers, looks, display (pixel size and colours; the sharpest picture is the default, and a bigger pixel size is more retro and easier on phones) and sound. Click anywhere outside it to close it.
 - **Sound and fullscreen:** **Settings** sets the volume (Off to 100%). The **Fullscreen** button, in the menu and in game, hides the browser's bars where the browser allows it (not on iPhone, where installing the app does the same job).
 - **Phones:** held upright, the game suggests turning sideways (tap OK to stop the hint). On Android, your pots give a short buzz and fouls a longer one; switch it off under **Vibration**.
 - **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.

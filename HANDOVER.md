@@ -95,6 +95,11 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **Online, looks are shared:** each player's cue shows on both screens, and the table wears the host's cloth (one table, one cloth, like the host choosing the game). Unknown ids from the other side fall back to the defaults.
 - **A room per tier:** carpet, walls, skirting and the neon sign (with the event's name) change; the table and lighting don't.
 
+**Settings and graphics (October 2026)**
+- **The sharpest picture is the default** (pixel size 1×, full colours), as the owner chose, and it was applied once to everyone already playing (`S.gfx`), since saved settings would otherwise keep the old 3× and 8 shades. It costs more on phones and softens the pixel-art look; anyone can pick a bigger pixel size in Settings.
+- **Settings is a big panel** in four sections, two columns on computers, with bigger buttons; it fits a 1280×720 screen without scrolling. A click outside it closes it.
+- **The browser tests draw in software,** so the sharper default made them slower.
+
 **Looks: cases, the locker and gloves (October 2026)**
 - **Earning, as the owner chose:** cases from career event wins (a better grade for championships), from frames won against the computer (a better grade on harder levels), from the day's first online win, and bought with money; every case costs money to open. Duplicates are sold for money (the owner chose this over a crafting currency). Practice and same-device games earn nothing, because they're too easy to farm.
 - **One wallet per device, in the locker:** opening cases needs money outside the career too, so the career's prize money, the pay for frames won against the computer, the daily online win and sold duplicates all go into one locker. It survives retiring a career and travels inside a career file. Loading a file merges its locker in and never takes anything away (re-loading the same file can't stack money).
@@ -224,6 +229,7 @@ Every change since the move to Claude Code, newest last. The version is the fing
 | 7 Oct 2026 | #11 | d768a32b | Career mode, Stage 1: the pub circuit (three reds & yellows knockout events, nine named computer opponents with measured strengths), saving after every shot, Save to file / Load from file. Also fixed: closing Pause with its button now redraws the aim guide and keeps the phone's back gesture working first time; with "reduce motion" on, menu cards no longer lift on hover. |
 | 8 Oct 2026 | #12 | e6611735 | Career mode, Stage 2: the club and hall circuits (8-ball) and the national tour (9-ball), 27 new opponents with measured strengths, a shop of cloths and cues (looks work in every game; online, both players see each other's cue and the host's cloth), a room per tier. Also fixed: the event screen's list of players was squashed into one row. |
 | 8 Oct 2026 | #13 | 31287894 | Cosmetics: the Locker (one wallet per device, cases and every look), cases in four grades with their odds shown, a guarantee and duplicates sold, opened on a spinning reel; money and cases for frames won against the computer, career events and the day's first online win; 12 patterned cloths, 18 patterned or glowing cues and 24 gloves in real glove types (shown to the other player online) with small reactions; dev mode with a test locker for the owner; Settings and Fullscreen as corner icons in the menus. |
+| 8 Oct 2026 | #14 | 49866a3f | Settings is a much bigger panel in four sections (two columns on computers, bigger buttons), closed by clicking outside it; the sharpest graphics (pixel size 1×, full colours) are the default, applied once to everyone already playing. |
 
 **Lessons worth keeping**
 - #5 deleted CSS that Settings and the overlays also used (`.row`, `.lbl`, `.seg` and others), and nobody noticed until the live site looked wrong. The `fit` browser test now checks those styles.
