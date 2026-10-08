@@ -1825,7 +1825,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '982e42a7';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = 'aa41fc44';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -2406,6 +2406,11 @@ function handBuild(parent, it, st, M, pose) {
   // a short cuff round the wrist (along -x), in the design's cuff colour
   const L = st.cuffL || 0.016, g = new THREE.CylinderGeometry(st.flare ? 0.033 : 0.027, 0.025, L, 14); g.rotateZ(Math.PI / 2);
   const cuff = mesh(g, 'cuff'); cuff.position.x = 0.008 - L / 2; cuff.scale.set(1, 0.78, 1.12);
+  // built like a sports glove: a padded panel over the back of the hand in the cuff colour, and a bar across the
+  // knuckles and a strap tab on the cuff in the accent colour
+  blob(0.029, 0.0075, 0.028, 'cuff', 0.043, 0.0105, -0.002);
+  const across = (r, len, mat, x, y, z) => { const m = mesh(capsuleX(r, len), mat); m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m; };   // a capsule along -z from z
+  across(0.0065, 0.064, 'accent', 0.084, 0.01, 0.032); across(0.0045, 0.03, 'accent', 0, 0.019, 0.016);
   // a jointed chain of sections: each joint is a group turned by the pose, each section a capsule along its +x
   const chain = (at, len, r, bends, tip) => {
     let g = new THREE.Group(); g.position.set(...at); hand.add(g); const joints = [];
