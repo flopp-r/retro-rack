@@ -410,6 +410,64 @@ const tableKeyFor = () => (M.mode === 'uk8' || (M.mode === 'practice' && M.rack 
 applyTable('us9');
 const qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vY = new THREE.Vector3(0, 1, 0), vZ = new THREE.Vector3(0, 0, 1);
 
+// ------------------------------------------------------------------ gloves
+// Floating gloves play the shot: one grips the back of the cue (a child of the cue, so it strokes with it) and one
+// makes the bridge on the cloth behind the cue ball, the cue resting between thumb and fingers. Built from a few
+// boxes, chunky enough to read in the pixel look. A design colours the glove (base), its details (accent) and the
+// cuff; glow makes it shine. PROTOTYPE: three designs, picked with S.glove ('none' shows no gloves).
+const GLOVE_LOOKS = {
+  white: { base: '#f4f1ea', accent: '#1a1433', cuff: '#ffffff' },
+  leather: { base: '#7a4a2a', accent: '#d9a441', cuff: '#3b2416' },
+  robot: { base: '#9aa3b2', accent: '#ff4d4d', cuff: '#4a5160', glow: '#ff4d4d' },
+};
+const gripGlove = new THREE.Group(), bridgeGlove = new THREE.Group(), GLM = {};
+let gloveNow = null, tapFinger = null;
+{
+  for (const k of ['base', 'accent', 'cuff']) GLM[k] = new THREE.MeshLambertMaterial({ color: '#ffffff' });
+  const box = (g, w, h, d, mat, x, y, z, rz = 0, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), GLM[mat]); m.position.set(x, y, z); m.rotation.set(0, ry, rz); g.add(m); return m; };
+  // the cue hand, in the cue's own frame (the cue runs along -x from its tip): a fist round the wrap, knuckles on top,
+  // thumb along the cue, and the wrist and cuff hanging below. Drawn large, like a cartoon glove.
+  const grip = new THREE.Group(); grip.position.set(-1.2, 0, 0); grip.scale.setScalar(1.35); gripGlove.add(grip);
+  box(grip, 0.07, 0.056, 0.052, 'base', 0, -0.014, 0);
+  for (let i = 0; i < 4; i++) box(grip, 0.014, 0.012, 0.05, 'base', -0.026 + i * 0.0175, 0.016, 0);   // knuckles
+  box(grip, 0.04, 0.015, 0.018, 'base', 0.03, 0.019, 0.026);              // thumb along the cue
+  for (const z of [-0.016, 0, 0.016]) box(grip, 0.004, 0.032, 0.005, 'accent', 0.036, -0.016, z);   // the three lines on the back
+  box(grip, 0.05, 0.044, 0.05, 'cuff', -0.004, -0.062, 0);                // wrist
+  box(grip, 0.054, 0.008, 0.054, 'accent', -0.004, -0.07, 0);             // a band round the cuff
+  cueMesh.add(gripGlove);
+  // the bridge hand, flat on the cloth facing the shot (+x): palm, knuckles, four fingers spread forward, the thumb raised
+  // beside the cue so it rests between thumb and fingers, and a short cuff behind
+  const bridge = new THREE.Group(); bridge.position.z = -0.022; bridge.scale.setScalar(1.3); bridgeGlove.add(bridge);
+  box(bridge, 0.066, 0.02, 0.068, 'base', 0, 0.01, 0);
+  for (let i = 0; i < 4; i++) box(bridge, 0.014, 0.012, 0.014, 'base', 0.03, 0.024, -0.026 + i * 0.0173);   // knuckles
+  [-0.026, -0.0087, 0.0087, 0.026].forEach((z, i) => { const f = box(bridge, 0.046, 0.014, 0.013, 'base', 0.054, 0.007, z, 0, (i - 1.5) * -0.12); if (i === 0) tapFinger = f; });
+  for (const z of [-0.016, 0, 0.016]) box(bridge, 0.036, 0.004, 0.005, 'accent', -0.004, 0.021, z);   // the three lines on the back
+  box(bridge, 0.03, 0.04, 0.016, 'base', 0.012, 0.03, 0.03, 0.55);         // thumb up beside the cue
+  box(bridge, 0.036, 0.03, 0.05, 'cuff', -0.05, 0.016, 0);
+  box(bridge, 0.008, 0.034, 0.054, 'accent', -0.05, 0.017, 0);             // a band round the cuff
+  scene.add(bridgeGlove);
+}
+function applyGlove(id) {
+  gloveNow = id; const g = GLOVE_LOOKS[id];
+  gripGlove.visible = bridgeGlove.visible = !!g; if (!g) return;
+  // a little of their own colour in the shadows keeps the gloves from going grey on the faces the lamps miss
+  for (const k of ['base', 'accent', 'cuff']) { GLM[k].color.set(g[k]); if (k === 'accent' && g.glow) GLM[k].emissive.set(g.glow); else GLM[k].emissive.set(g[k]).multiplyScalar(0.3); }
+}
+applyGlove('none');
+const gloveFor = () => S.glove || 'none';
+// places the bridge hand behind the cue ball (on the rail if the cloth runs out), and the small idle movements
+function updateGloves(show, now) {
+  const want = gloveFor(); if (want !== gloveNow) applyGlove(want);
+  if (!GLOVE_LOOKS[gloveNow]) return;
+  bridgeGlove.visible = show; if (!show) return;
+  const cue = world.balls[0], dx = Math.cos(aim.phi), dz = Math.sin(aim.phi);
+  const bx = cue.x - dx * 0.25, bz = cue.z - dz * 0.25, off = Math.abs(bx) > T.hl || Math.abs(bz) > T.hw;
+  bridgeGlove.position.set(bx, off ? RAIL_TOP : 0, bz); bridgeGlove.rotation.y = -aim.phi;
+  const t = reduceMotion ? 0 : now / 1000;
+  tapFinger.rotation.z = state === 'aim' ? Math.max(0, Math.sin(t * 3.2)) * 0.35 * (Math.sin(t * 0.9) > 0.4 ? 1 : 0) : 0;   // a fingertip drums while you line up
+  gripGlove.position.y = state === 'aim' ? Math.sin(t * 1.7) * 0.0025 : 0;
+}
+
 // ------------------------------------------------------------------ guide lines
 function mkLine(color, max = 800, loop = false) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(max * 3), 3)); g.setDrawRange(0, 0);
@@ -775,7 +833,7 @@ function cueFor(pl) {
 function updateCue(dt) {
   const cue = world.balls[0];
   const show = (state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
-  cueMesh.visible = show; if (!show) return;
+  cueMesh.visible = show; updateGloves(show, performance.now()); if (!show) return;
   const want = cueFor(game.turn); if (want !== cueNow) applyCue(want);
   const gap = state === 'stroke' ? strokeGap(dt) : idleGap();
   if (state === 'moving') return;
@@ -1480,6 +1538,7 @@ function refreshMenus() {
   for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
+  const foot = document.querySelector('#menuPanel .mFoot'); foot.hidden = ![...foot.children].some(b => !b.hidden);
   swatches($('#sCloth')); cueButtons($('#sCue')); $('#rowCue').hidden = !S.owned.some(id => K.ITEMS[id].kind === 'cue');
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
@@ -2261,11 +2320,23 @@ function toggleFull() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
 }
+// the menu's corner icons: drawn as pixel art from these rows (x = a pixel)
+const ICONS = {
+  gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
+  full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
+  unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],
+};
+function setIcon(btn, name) {
+  const rows = ICONS[name], cells = [];
+  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === 'x') cells.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`); });
+  const old = btn.querySelector('svg'); if (old) old.remove();
+  btn.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" fill="currentColor" aria-hidden="true">${cells.join('')}</svg>`);
+}
+setIcon($('#bMenuSettings'), 'gear');
 function updateFullBtns() {
-  for (const b of [$('#bFull'), $('#bMenuFull')]) {
-    b.hidden = !canFull; b.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
-    b.setAttribute('aria-pressed', String(!!document.fullscreenElement));
-  }
+  const on = !!document.fullscreenElement, word = on ? 'Exit fullscreen' : 'Fullscreen';
+  $('#bFull').hidden = !canFull; $('#bFull').textContent = word; $('#bFull').setAttribute('aria-pressed', String(on));
+  const m = $('#bMenuFull'); m.hidden = !canFull; m.title = word; m.querySelector('.vh').textContent = word; m.setAttribute('aria-pressed', String(on)); setIcon(m, on ? 'unfull' : 'full');
 }
 $('#bFull').addEventListener('click', () => { sfx('ui'); toggleFull(); });
 $('#bMenuFull').addEventListener('click', () => { ensureAudio(); sfx('ui'); toggleFull(); });
