@@ -24,13 +24,20 @@ test('every case item has a unique id, a known kind and rarity, and proper colou
     else assert.fail('unknown kind ' + it.kind);
   }
 });
-test('about 54 items: 12 cloths, 18 cues and 24 gloves, every rarity in each pool', () => {
+test('about 60 items: 14 cloths, 20 cues and 26 gloves, every rarity in the pools', () => {
   const n = k => L.CASE_ITEMS.filter(it => it.kind === k).length;
-  assert.deepStrictEqual([n('cloth'), n('cue'), n('glove')], [12, 18, 24]);
-  for (const r of L.RARITIES) assert.ok(L.POOL[r].length >= 5, r);
+  assert.deepStrictEqual([n('cloth'), n('cue'), n('glove')], [14, 20, 26]);
+  for (const r of L.RARITIES) assert.ok(L.POOL[r].length >= (r === 'mythic' ? 6 : 5), r);
+});
+test('mythic looks are animated, two of each kind, and the rarest in every grade', () => {
+  const m = L.POOL.mythic.map(id => L.ALL[id]);
+  for (const k of ['cloth', 'cue', 'glove']) assert.strictEqual(m.filter(it => it.kind === k).length, 2, k);
+  assert.ok(m.every(it => it.anim || it.fx), 'every mythic moves');
+  for (const g of L.GRADE_IDS) { const o = L.GRADES[g].odds; assert.ok(o[4] > 0 && o[4] < Math.min(...o.slice(0, 4).filter(v => v > 0)), g); }
+  assert.ok(L.RARITY.mythic.sell > L.RARITY.legendary.sell);
 });
 test('every grade\'s odds add up to 100, legendaries only in the two best, and the better grades cost more', () => {
-  for (const g of L.GRADE_IDS) assert.strictEqual(L.GRADES[g].odds.reduce((a, b) => a + b, 0), 100, g);
+  for (const g of L.GRADE_IDS) assert.ok(Math.abs(L.GRADES[g].odds.reduce((a, b) => a + b, 0) - 100) < 1e-9, g);
   assert.ok(L.GRADES.bronze.odds[3] === 0 && L.GRADES.gold.odds[3] > 0 && L.GRADES.diamond.odds[3] > L.GRADES.gold.odds[3]);
   for (let i = 1; i < L.GRADE_IDS.length; i++) {
     const a = L.GRADES[L.GRADE_IDS[i - 1]], b = L.GRADES[L.GRADE_IDS[i]];
@@ -45,9 +52,9 @@ test('career opponents\' gloves are real gloves', () => {
 
 console.log('\nOpening cases');
 test('over many cases, each rarity comes up about as often as the odds say', () => {
-  const rnd = seeded(7), N = 40000;
+  const rnd = seeded(7), N = 60000;
   for (const g of L.GRADE_IDS) {
-    const count = { common: 0, rare: 0, epic: 0, legendary: 0 };
+    const count = Object.fromEntries(L.RARITIES.map(r => [r, 0]));
     for (let i = 0; i < N; i++) count[L.ALL[L.roll(g, 0, rnd)].rarity]++;
     L.RARITIES.forEach((r, i) => assert.ok(Math.abs(count[r] / N * 100 - L.GRADES[g].odds[i]) < 1, `${g} ${r}: ${count[r] / N * 100}%`));
   }
