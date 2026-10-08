@@ -1,7 +1,7 @@
 // Career: a new career, entering an event, playing and leaving a match (it resumes exactly), winning and losing
 // matches, prize money and unlocking, save to file / load, withdrawing and retiring; phone-sized screens throughout.
-const { chromium, FILE, ROOT, shot } = require('./lib');
-const fs = require('fs'), path = require('path');
+const { chromium, SITE, shot } = require('./lib');
+const fs = require('fs');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(250); } return false; };
@@ -12,17 +12,13 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1');
     localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.name', 'Tess'); localStorage.setItem('retroRack.locker', JSON.stringify({ v: 1, money: 0 }));
     localStorage.setItem('retroRack.menu', JSON.stringify({ mode: '9ball', opp: 'bot', diff: 'hard', guide: 'auto', race: 0, last: { mode: '9ball', opp: 'bot', diff: 'hard', rack: '8ball', race: 0, guide: 'auto' } })); } });
-  // a quiet second page on the same origin (a text file) keeps the storage alive while the game's page is closed and
-  // reopened: in the test browser's private storage, closing an origin's last page can drop it all, which a real browser,
-  // keeping it on disk, never does
-  const keep = await ctx.newPage(); await keep.goto('file://' + path.join(ROOT, 'README.md')); await keep.evaluate(() => localStorage.length);
   const logs = [];
   const open = async () => {
     const p = await ctx.newPage();
     p.on('console', m => { if (!/GPU stall/.test(m.text())) logs.push(`[${m.type()}] ${m.text()}`); });
     p.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
     p.on('dialog', d => d.accept());
-    await p.goto(FILE); await sleep(1200); return p;
+    await p.goto(SITE.new); await sleep(1200); return p;   // over http, like the real site: pages opened from disk don't always share storage
   };
   let p = await open();
   const fits = async name => { const o = await p.evaluate(() => { const s = document.querySelector('#mStage'); return s.scrollHeight - s.clientHeight; }); ok(o <= 1, `${name} fits a phone on its side without scrolling (${o})`); };
