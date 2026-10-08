@@ -12,13 +12,14 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 3, levels: 8, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true };
+const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, gfx: 2 };
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
   Object.assign(S, saved);
   if (!('volume' in saved) && saved.sound === false) S.volume = 0;   // the old Sound: Off carries over
   delete S.sound;
+  if (saved.gfx !== 2) Object.assign(S, { pixel: 1, levels: 256, gfx: 2 });   // the sharpest picture became the default: everyone gets it once
 } catch (e) {}
 const saveS = () => { try { localStorage.setItem('retroRack.settings', JSON.stringify(S)); } catch (e) {} };
 const CLOTHS = { teal: ['#1d8a74', 'Teal'], green: ['#2d8a3c', 'Club green'], blue: ['#2461b0', 'Tournament blue'], wine: ['#86263f', 'Wine'], violet: ['#56399a', 'Violet'] };
@@ -1820,12 +1821,16 @@ function togglePause(force) {
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus(); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
+  if (paused) { refreshMenus(); $('#bResume').focus({ preventScroll: true }); $('#pausePanel').scrollTop = 0; armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
   else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
+// a click outside the panel closes it, if it started outside too (pressing a button and sliding off doesn't)
+let pauseDown = null;
+$('#pause').addEventListener('pointerdown', e => { pauseDown = e.target; });
+$('#pause').addEventListener('click', e => { if (e.target === $('#pause') && pauseDown === e.target) togglePause(false); pauseDown = null; });
 $('#bRestart').addEventListener('click', () => { togglePause(false); if (M.mode === 'practice') startGame(false); else { startGame(true, true); toast("Re-racked. The last frame doesn't count", 'info'); } });
 $('#bQuit').addEventListener('click', () => { togglePause(false); if (NET.on) clearRejoin(); toMenu(); });
 $('#bAgain').addEventListener('click', () => {

@@ -30,7 +30,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   const st = await p.evaluate(() => { const sw = document.querySelector('#sCloth .pickCur .shopSw').getBoundingClientRect(), row = getComputedStyle(document.querySelector('#pausePanel .row:not([hidden])')), seg = getComputedStyle(document.querySelector('#sPixel')), act = getComputedStyle(document.querySelector('#pausePanel .actions'));
     return { swatch: [Math.round(sw.width), Math.round(sw.height)], row: row.display + ' ' + row.gridTemplateColumns, seg: seg.display + ' ' + seg.gap, actions: act.display + ' ' + act.gap }; });
   ok(st.swatch[0] === 22 && st.swatch[1] === 22, `Settings: the cloth picker shows a 22x22 px swatch (${st.swatch})`);
-  ok(st.row.startsWith('grid 104px') && st.seg === 'flex 6px' && st.actions === 'flex 10px', `Settings: rows, button groups and the button row keep their layout (${JSON.stringify(st)})`);
+  ok(st.row.startsWith('grid 118px') && st.seg === 'flex 7px' && st.actions === 'flex 10px', `Settings: rows, button groups and the button row keep their layout (${JSON.stringify(st)})`);
   const ov = await p.evaluate(() => { const o = document.querySelector('#over'); o.hidden = false; const a = getComputedStyle(o.querySelector('.actions')); o.hidden = true; return a.display + ' ' + a.gap; });
   ok(ov === 'flex 10px', `game-over panel buttons keep their spacing (${ov})`);
   await b.close();
