@@ -298,8 +298,10 @@ const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
 // A mythic cloth moves (clothFx, every frame): 'flow' drifts its pattern slowly along the table (the picture repeats
 // end to end), 'pulse' makes its cracks glow and fade through a glow map drawn from the same pattern.
 let clothTex = null, clothGlow = null;
+// Preview (in the locker section): the looks tried on at the table, which the cloth, cue and gloves use while it's on
+const PREV = { on: false, looks: null, cam: null, aim: null, t0: 0 };
 function setCloth() {
-  const id = NET.on && NET.cloth ? NET.cloth : S.cloth, base = (CLOTHS[id] || CLOTHS.teal)[0], it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : null;
+  const id = PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, base = (CLOTHS[id] || CLOTHS.teal)[0], it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : null;
   const key = it ? id + T.key : '';
   if (clothTex && clothTex.userData.key !== key) { clothTex.dispose(); clothTex = null; if (clothGlow) { clothGlow.dispose(); clothGlow = null; } }
   if (it && !clothTex) {
@@ -732,6 +734,7 @@ function applyGlove(id) {
 cueMesh.add(gripGlove); scene.add(bridgeGlove, cheerGlove); applyGlove('none'); cheerGlove.visible = false;
 // whose gloves are at the table: the same rules as the cue (cueFor)
 function gloveFor(pl) {
+  if (PREV.on) return PREV.looks.glove;
   if (NET.on) return pl === NET.seat ? S.glove : NET.peerGlove;
   if (M.opp === 'bot' && M.mode !== 'practice' && pl === 1) return CAR.on ? K.OPPONENTS[CAR.opp].glove || 'none' : 'none';
   return S.glove;
@@ -1170,13 +1173,14 @@ function updateBalls() {
 // whose cue is at the table: online, each player's own (the other's arrives in their hello); a career opponent's
 // own design; the computer otherwise plays with the house cue
 function cueFor(pl) {
+  if (PREV.on) return PREV.looks.cue;
   if (NET.on) return pl === NET.seat ? S.cue : NET.peerCue;
   if (M.opp === 'bot' && M.mode !== 'practice' && pl === 1) return CAR.on ? K.OPPONENTS[CAR.opp].cue || 'house' : 'house';
   return S.cue;
 }
 function updateCue(dt) {
   const cue = world.balls[0];
-  const show = (state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
+  const show = (PREV.on || state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
   cueMesh.visible = show; updateGloves(show, performance.now()); if (!show) return;
   const want = cueFor(game.turn); if (want !== cueNow) applyCue(want);
   cueFx(performance.now());
@@ -1279,6 +1283,10 @@ const cam = {
     if (this.mode === 'aim') {
       const a = state === 'moving' && this.anchor ? this.anchor : [cue.x, cue.z];
       return { yaw: aim.phi + Math.PI, pitch: this.aimPitch, dist: this.aimDist, tx: a[0], ty: R, tz: a[1] };
+    }
+    if (this.mode === 'show') {   // Preview: swinging slowly round the side of your cue, so the whole cue and both hands stay in view
+      const dx = Math.cos(aim.phi), dz = Math.sin(aim.phi), t = reduceMotion ? 0 : (performance.now() - PREV.t0) / 1000;
+      return { yaw: aim.phi + Math.PI / 2 + 0.3 - 0.75 * Math.sin(t * 0.2), pitch: 0.45, dist: 1.12 * (camera.aspect < 1.6 ? 1.6 / camera.aspect : 1), tx: cue.x - dx * 0.62, ty: R, tz: cue.z - dz * 0.62 };
     }
     if (this.mode === 'top') {
       const th = Math.tan(22.5 * DEG), d = Math.max((T.hw + 0.26) / th, (T.hl + 0.26) / (th * camera.aspect)) * this.topZoom;
@@ -1410,6 +1418,7 @@ addEventListener('keydown', e => {
   if (k === 'Escape') {
     if (!$('#help').hidden) { $('#help').hidden = true; return; }
     if (!$('#reel').hidden) { closeReel(); return; }
+    if (PREV.on) { endPreview(); return; }
     if (paused) { togglePause(false); return; }
     if (state === 'menu') { menuBack(); return; }
     if (state !== 'over') togglePause(true);
@@ -1683,6 +1692,7 @@ addEventListener('popstate', () => {
   NAV.armed = false;
   if (!$('#help').hidden) $('#help').hidden = true;
   else if (!$('#reel').hidden) closeReel();
+  else if (PREV.on) endPreview();
   else if (paused) togglePause(false);
   else if (state === 'menu') menuBack(true);
   else if (state === 'lobby') $('#bLobbyCancel').click();
@@ -2221,7 +2231,7 @@ $('#cRetire').addEventListener('click', () => {
 // The locker screen: cases to open or buy (src/looks.js has the odds and prices), then every cloth, cue and glove,
 // owned or not. Tap a look you own to use it, a shop look to buy it; a look from cases says which cases hold it.
 // Opening a case spins a reel of the case's items that stops on the prize (see showReel).
-const LOCKV = { tab: 'cases', page: 0 }, PAGE = 12;
+const LOCKV = { tab: 'cases', page: 0, try: {} }, PAGE = 12;   // try: looks tapped but not owned, by kind, for Preview
 function shade(hex, k) { return '#' + [1, 3, 5].map(i => Math.round(Math.min(255, parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join(''); }
 // pixel pictures from rectangles: parts are [x, y, w, h, colour, no outline]; outlined parts get a 1-pixel ink edge
 function drawParts(g, parts, ox = 0, oy = 0) {
@@ -2321,22 +2331,27 @@ function renderLocker() {
   const ids = looksOf(LOCKV.tab), pages = Math.ceil(ids.length / PAGE); LOCKV.page = clamp(LOCKV.page, 0, pages - 1);
   for (const id of ids.slice(LOCKV.page * PAGE, LOCKV.page * PAGE + PAGE)) {
     const it = K.has(LK.ALL, id) ? LK.ALL[id] : null, own = owns(id), using = S[lookKind(id)] === id, shop = K.has(K.ITEMS, id), cased = it && !shop && it.rarity && id !== LK.FREE_GLOVE.id;
-    const b = mk('button', 'shopItem' + (own ? '' : ' locked')); b.type = 'button'; b.dataset.id = id;
+    const b = mk('button', 'shopItem' + (own ? '' : ' locked') + (LOCKV.try[LOCKV.tab] === id ? ' trying' : '')); b.type = 'button'; b.dataset.id = id;
     const state = mk('span', 'shopState', using ? 'In use' : own ? 'Owned' : shop ? money(it.price) : LK.RARITY[it.rarity].name);
     if (cased) state.style.color = LK.RARITY[it.rarity].col;
     b.append(lookIcon(id, 30), mk('span', 'shopName', lookName(id)), state); b.setAttribute('aria-pressed', String(using));
     b.addEventListener('click', () => {
-      if (own) { useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
-      if (cased) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases.`); return; }
-      if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}.`); return; }
-      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) return;
+      const kind = LOCKV.tab;
+      if (own) { delete LOCKV.try[kind]; useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
+      LOCKV.try[kind] = id; sfx('ui'); refreshMenus();
+      if (cased) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases. Preview tries it on.`); return; }
+      if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}. Preview tries it on.`); return; }
+      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) { lockNote(`Preview tries ${it.name} on.`); return; }
+      delete LOCKV.try[kind];
       if (lockerEdit(lk => LK.buyLook(lk, id)) !== 'ok') { refreshMenus(); return; }
       useLook(id); sfx('win'); lockNote(`${it.name} is yours, and in use.`); refreshMenus();
     });
     body.append(b);
   }
-  const have = ids.filter(owns).length;
-  pager.append(mk('span', '', `${have} of ${ids.length} owned`));
+  const have = ids.filter(owns).length, pv = mk('button', 'btn', 'Preview'); pv.type = 'button'; pv.id = 'bPreview';
+  pv.title = 'See your cloth, cue and gloves at the table, with any look you tapped to try';
+  pv.addEventListener('click', () => { sfx('ui'); startPreview(); });
+  pager.append(mk('span', '', `${have} of ${ids.length} owned`), pv);
   if (pages > 1) {
     const prev = mk('button', 'btn', '<'), next = mk('button', 'btn', '>'); prev.type = next.type = 'button';
     prev.setAttribute('aria-label', 'Previous page'); next.setAttribute('aria-label', 'Next page');
@@ -2357,6 +2372,26 @@ function lookPicker(el, kind) {
   return ids.length;
 }
 
+// Preview: the menu steps aside and the camera circles your cloth, cue and gloves at the table, with any look tapped in
+// the locker but not owned tried on in its place. Nothing is saved; tapping anywhere, Esc or Back ends it.
+function startPreview() {
+  const cue = world.balls[0]; if (PREV.on || state !== 'menu' || cue.potted) return;
+  const looks = {}; for (const k of ['cloth', 'cue', 'glove']) looks[k] = LOCKV.try[k] || S[k];
+  const near = world.balls.filter(b => b.id && !b.potted).sort((a, b) => Math.hypot(a.x - cue.x, a.z - cue.z) - Math.hypot(b.x - cue.x, b.z - cue.z))[0];
+  Object.assign(PREV, { on: true, looks, cam: cam.mode, aim: { ...aim }, t0: performance.now() });
+  aim.phi = near ? Math.atan2(near.z - cue.z, near.x - cue.x) : 0; aim.power = 0.35; aim.sx = aim.sy = 0;   // lined up on the nearest ball
+  cam.mode = 'show'; setCloth();
+  const trying = ['cloth', 'cue', 'glove'].filter(k => !owns(looks[k])).map(k => lookName(looks[k]));
+  $('#prevTxt').textContent = `${['cloth', 'cue', 'glove'].map(k => lookName(looks[k])).join(' · ')}${trying.length ? `. Trying on ${trying.join(' and ')}` : ''}. Tap anywhere to go back.`;
+  $('#menu').hidden = true; $('#preview').hidden = false; $('#bPrevBack').focus({ preventScroll: true });
+}
+function endPreview() {
+  if (!PREV.on) return;
+  PREV.on = false; cam.mode = PREV.cam; Object.assign(aim, PREV.aim); setCloth();
+  $('#preview').hidden = true; $('#menu').hidden = false; const b = $('#bPreview'); if (b) b.focus({ preventScroll: true });
+}
+$('#preview').addEventListener('click', () => { sfx('ui'); endPreview(); });
+
 // opening a case: the locker pays and picks the prize first (looks.js), then the reel spins to it. The other items on
 // the reel are drawn from the case's own odds, and where the marker stops within the prize's tile is random, so the
 // reel never fakes a near miss.
@@ -2369,7 +2404,12 @@ function openCaseUI(g) {
   if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first
   ensureAudio(); showReel(g, r);
 }
-function reelTile(id) { const t = mk('div', 'reelTile'), it = LK.ALL[id]; t.style.borderColor = LK.RARITY[it.rarity].col; t.append(lookIcon(id, 34)); return t; }
+function reelTile(id) {   // in its rarity's colour, from a dark shade at the top to the full colour at the bottom
+  const t = mk('div', 'reelTile'), it = LK.ALL[id], col = LK.RARITY[it.rarity].col;
+  t.dataset.r = it.rarity;
+  t.style.borderColor = col; t.style.background = `linear-gradient(${shade(col, 0.22)}, ${shade(col, 0.5)} 45%, ${shade(col, 0.9)})`;
+  t.append(lookIcon(id, 34)); return t;
+}
 function showReel(g, r) {
   const strip = $('#reelStrip'), items = LK.reelItems(g, REEL.at + 6, Math.random); items[REEL.at] = r.id;
   REEL.res = r; REEL.grade = g; strip.innerHTML = ''; strip.style.transform = 'translateX(0)';
@@ -2977,7 +3017,7 @@ requestAnimationFrame(frame);
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
   get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.color.getHexString(), show: FX.raf }; },
-  get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map }; },
+  get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map, shown: cueMesh.visible, cam: cam.mode }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();

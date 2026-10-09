@@ -1,6 +1,6 @@
 // Career: a new career, entering an event, playing and leaving a match (it resumes exactly), winning and losing
 // matches, prize money and unlocking, save to file / load, withdrawing and retiring; phone-sized screens throughout.
-const { chromium, FILE, shot } = require('./lib');
+const { chromium, SITE, shot } = require('./lib');
 const fs = require('fs');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -18,7 +18,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
     p.on('console', m => { if (!/GPU stall/.test(m.text())) logs.push(`[${m.type()}] ${m.text()}`); });
     p.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
     p.on('dialog', d => d.accept());
-    await p.goto(FILE); await sleep(1200); return p;
+    await p.goto(SITE.new); await sleep(1200); return p;   // over http, like the real site: pages opened from disk don't always share storage
   };
   let p = await open();
   const fits = async name => { const o = await p.evaluate(() => { const s = document.querySelector('#mStage'); return s.scrollHeight - s.clientHeight; }); ok(o <= 1, `${name} fits a phone on its side without scrolling (${o})`); };
@@ -27,7 +27,7 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   const lock = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
   const table = () => p.evaluate(() => JSON.stringify(__rr.world.balls.map(b => [b.id, b.x, b.z, b.potted])));
   // ends the current frame by conceding for the given player, as soon as nothing is moving
-  const concede = who => until(() => p.evaluate(w => __rr.state !== 'over' && __rr.concedeFrame(false, w), who));
+  const concede = who => until(() => p.evaluate(w => __rr.state !== 'over' && __rr.concedeFrame(false, w), who), 90000);   // a computer's shot can be slow in software
   const overShown = () => until(() => p.isVisible('#over'), 5000);
 
   console.log('--- starting a career');
@@ -139,10 +139,10 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   await p.click('#cRetire'); await sleep(600);
   ok(await p.isVisible('#sc-cnew') && !(await saved()), 'retired: the career is gone and the new-career form shows');
   await p.click('#bCareer'); await sleep(400);
-  await p.setInputFiles('#cFile', file); await sleep(500);
+  await p.setInputFiles('#cFile', file); await until(async () => /Loaded/.test(await p.textContent('#cNote')), 10000);
   c = await saved();
   ok(c.name === 'Tess' && (await lock()).money === 140 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
-  fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await sleep(400);
+  fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await until(async () => /isn't a Retro Rack career/.test(await p.textContent('#cNote')), 10000);
   ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await lock()).money === 140, 'a file that is not a career is refused, and nothing changes');
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));

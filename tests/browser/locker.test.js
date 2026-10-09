@@ -1,6 +1,7 @@
 // The locker: old saves moving in, opening a case (the reel stops on the prize, honestly), buying cases, duplicates
 // sold, two open pages kept in step, earning from frames against the computer (and nothing from same-device games),
-// the show behind the reel (dimmed room, big reel, a background matched to the prize, a still one with reduced motion),
+// the show behind the reel (dimmed room, big reel with tiles in their rarity's colour, a background matched to the prize,
+// a still one with reduced motion), Preview (your looks at the table, trying on looks you don't own),
 // the looks from cases in use (a patterned cloth, a glove, mythics that move), and dev mode's test locker.
 const { chromium, SITE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
@@ -66,6 +67,25 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   ok(/costs £15: you need £5 more/.test(await p.textContent('#lockNote')) && (await lock()).cases.bronze === 1, 'too little money to open it: nothing taken, and it says how much more');
   await p2.close();
 
+  console.log('--- Preview: your looks at the table, and trying on ones you don\'t own');
+  const page = async id => { for (let i = 0; i < 3 && !(await p.$(`.shopItem[data-id="${id}"]`)); i++) { await p.click('#lockPages .btn:last-child'); await sleep(150); } };
+  const mine = () => p.evaluate(() => ({ S: [__rr.S.cloth, __rr.S.cue, __rr.S.glove].join(), L: localStorage.getItem('retroRack.locker') }));
+  const was = await mine();
+  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(250); await page('q-plasma'); await p.click('.shopItem[data-id="q-plasma"]'); await sleep(250);
+  ok(/Preview tries it on/.test(await p.textContent('#lockNote')) && await p.evaluate(() => document.querySelector('.shopItem[data-id="q-plasma"]').classList.contains('trying')), 'tapping a cue you don\'t own marks it to try on');
+  await p.click('#lockTabs .btn:nth-child(4)'); await sleep(250); await page('g-prism'); await p.click('.shopItem[data-id="g-prism"]'); await sleep(250);
+  await p.click('#bPreview'); await sleep(1500);
+  let pv = await p.evaluate(() => ({ look: __rr.look, menu: document.querySelector('#menu').hidden, bar: !document.querySelector('#preview').hidden, txt: document.querySelector('#prevTxt').textContent }));
+  ok(pv.menu && pv.bar && pv.look.cam === 'show' && pv.look.shown && pv.look.cue === 'q-plasma' && pv.look.glove === 'g-prism' && pv.look.cloth === was.S.split(',')[0], `Preview: the menu steps aside, and the camera shows your cloth with Plasma and Prism at the table (${JSON.stringify(pv.look)})`);
+  ok(/Trying on Plasma and Prism\. Tap anywhere to go back\./.test(pv.txt), `it names the looks and says which are being tried on ("${pv.txt}")`);
+  await p.mouse.click(380, 120); await sleep(600);
+  pv = await p.evaluate(() => ({ look: __rr.look, menu: !document.querySelector('#menu').hidden, locker: !document.querySelector('#sc-locker').hidden }));
+  ok(pv.menu && pv.locker && pv.look.cam === 'attract' && !pv.look.shown && JSON.stringify(await mine()) === JSON.stringify(was), 'a tap anywhere comes back to the locker, with nothing bought or changed');
+  await p.click('#bPreview'); await sleep(600); await p.evaluate(() => history.back()); await sleep(700);
+  ok(await p.isVisible('#sc-locker') && await p.isHidden('#preview'), 'a phone\'s back gesture ends it too, staying in the locker');
+  await p.click('#bPreview'); await sleep(600); await p.keyboard.press('Escape'); await sleep(500);
+  ok(await p.isVisible('#sc-locker') && await p.isHidden('#preview'), 'and so does Esc');
+
   console.log('--- buying a case, and a duplicate');
   await setLock(p, { money: 200 }); await p.reload(); await sleep(1200); await p.click('[data-go="locker"]'); await sleep(400);
   await p.click('.caseCard:nth-child(1) .btn:nth-child(2)'); await sleep(300);
@@ -90,6 +110,10 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
     return { a, tile: t.height / innerHeight, panel: w.height / innerHeight }; });
   ok(room.a >= 0.85 && room.a < 1 && room.tile >= 0.35 && room.panel >= 0.6, `the room behind is dimmed nearly to black but not quite, and the reel takes up most of the screen (${JSON.stringify(room)})`);
   await p.click('#reelWin'); await sleep(600); const common = await show();
+  const tiles = await p.evaluate(() => [...document.querySelectorAll('.reelTile')].map(t => [t.dataset.r, getComputedStyle(t).backgroundImage])), by = {};
+  for (const [r, bg] of tiles) (by[r] = by[r] || new Set()).add(bg);
+  ok(tiles.every(([, bg]) => /linear-gradient/.test(bg)) && Object.keys(by).length >= 2 && Object.values(by).every(v => v.size === 1) && new Set(Object.values(by).map(v => [...v][0])).size === Object.keys(by).length,
+    `each tile on the reel is in its rarity's colour, the same for the same rarity (${Object.keys(by).join(', ')})`);
   ok(common.r === 'common' && common.title === 'Bronze case' && !common.shake, `a common: a quiet reveal (${JSON.stringify(common)})`);
   await p.click('#bReelDone'); await sleep(200);
   await force(0.9999); await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(500); await p.click('#reelWin'); await sleep(600); const myth = await show();
@@ -101,7 +125,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
 
   console.log('--- the looks, in Settings and at the table');
   for (const t of [2, 3, 4]) { await p.click(`#lockTabs .btn:nth-child(${t})`); await sleep(250); await fits(['', '', 'Locker, cloths', 'Locker, cues', 'Locker, gloves'][t]); }
-  ok(/28 of 28 owned/.test(await p.textContent('#lockPages')) && (await p.$$('#lockPages .btn')).length === 2, 'gloves: all owned, in pages');
+  ok(/28 of 28 owned/.test(await p.textContent('#lockPages')) && (await p.$$('#lockPages .btn:not(#bPreview)')).length === 2, 'gloves: all owned, in pages');
   await p.click('.shopItem[data-id="g-white"]'); await sleep(200);
   await p.click('#lockTabs .btn:nth-child(2)'); await sleep(200); await p.click('#lockPages .btn:last-child'); await sleep(200); await p.click('.shopItem[data-id="c-galaxy"]'); await sleep(300);
   let lk = await p.evaluate(() => __rr.look);
