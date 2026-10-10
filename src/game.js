@@ -35,7 +35,7 @@ try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') 
 // the locker (src/looks.js): the money, unopened cases and looks owned on this device. Every change reads the stored
 // copy, makes the change and writes it straight back, so two open pages never undo each other's changes.
 const LK = LOOKS;
-let LOCK = LK.newLocker(), DEV = false;   // DEV: dev mode's test locker in use (see "dev mode")
+let LOCK = LK.newLocker(), DEV = false, DEV_MYTHIC = false;   // DEV: dev mode's test locker in use (see "dev mode"); DEV_MYTHIC: its next case gives a mythic
 const lockKey = () => DEV ? 'retroRack.lockerDev' : 'retroRack.locker';
 const lockerRead = () => { try { const raw = localStorage.getItem(lockKey()); return raw ? LK.validateLocker(JSON.parse(raw)) : null; } catch (e) { return null; } };
 function lockerEdit(fn) {
@@ -1884,6 +1884,7 @@ function refreshMenus() {
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
+  $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
@@ -2303,7 +2304,7 @@ const gradeList = ids => ids.map(g => LK.GRADES[g].name.replace(' case', '')).jo
 const lockNote = t => { $('#lockNote').textContent = t; };
 function renderLocker() {
   const l = LOCK, waiting = LK.GRADE_IDS.reduce((a, g) => a + l.cases[g], 0);
-  $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open`;
+  $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
   segControl($('#lockTabs'), [['cases', 'Cases'], ['cloth', 'Cloths'], ['cue', 'Cues'], ['glove', 'Gloves']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.page = 0; lockNote(''); });
   const body = $('#lockBody'), pager = $('#lockPages'); body.innerHTML = ''; pager.innerHTML = '';
   body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'shopGrid';
@@ -2400,8 +2401,9 @@ function openCaseUI(g) {
   const G = LK.GRADES[g];
   if (!LOCK.cases[g]) { lockNote(`No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
   if (LOCK.money < G.open) { lockNote(`Opening a ${G.name.toLowerCase()} costs ${money(G.open)}: you need ${money(G.open - LOCK.money)} more.`); return; }
-  const r = lockerEdit(l => LK.openCase(l, g, Math.random));
+  const force = DEV && DEV_MYTHIC ? 'mythic' : null, r = lockerEdit(l => LK.openCase(l, g, Math.random, force));
   if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first
+  if (force) DEV_MYTHIC = false;   // once only
   ensureAudio(); showReel(g, r);
 }
 function reelTile(id) {   // in its rarity's colour, from a dark shade at the top to the full colour at the bottom
@@ -2914,7 +2916,7 @@ async function isDevWord(v) {
   catch (e) { return false; }
 }
 function setDev(on) {
-  DEV = on; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
+  DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
   LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
   checkLooks(); saveS(); applyLook(); sendLook(); refreshMenus();
   toast(on ? 'Dev mode on: every look, £100,000 and 50 of each case, in a test locker' : 'Dev mode off: your own locker is back', 'good');
@@ -2925,6 +2927,7 @@ $('#netName').addEventListener('input', async () => {
   setDev(!DEV);
 });
 $('#sDev').addEventListener('click', () => { sfx('ui'); setDev(false); });
+$('#sDevMythic').addEventListener('click', () => { DEV_MYTHIC = DEV && !DEV_MYTHIC; sfx('ui'); refreshMenus(); });
 
 // ------------------------------------------------------------------ installable app
 // Only on a real web address: a downloaded copy opened from disk can't install or use a service worker.
