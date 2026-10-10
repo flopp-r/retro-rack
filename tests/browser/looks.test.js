@@ -17,6 +17,10 @@ async function player(name, settings) {
   await p.goto(BASE); await sleep(1200); return p;
 }
 const look = p => p.evaluate(() => __rr.look);
+// a gentle shot away from every ball: a foul that passes the turn and can never end the frame (a real shot could pot the 8)
+const safeShot = p => p.evaluate(() => { const r = __rr, c = r.world.balls[0], on = r.world.balls.filter(b => b.id && !b.potted);
+  const mx = on.reduce((a, b) => a + b.x, 0) / on.length, mz = on.reduce((a, b) => a + b.z, 0) / on.length;
+  Object.assign(r.aim, { phi: Math.atan2(c.z - mz, c.x - mx), power: 0.05, sx: 0, sy: 0 }); r.beginStroke(); });
 const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, seat: __rr.NET.seat, n: __rr.NET.n, started: __rr.NET.started, peerCue: __rr.NET.peerCue, peerGlove: __rr.NET.peerGlove }));
 
 (async () => {
@@ -48,17 +52,18 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
     const glove = s.turn === 0 ? 'g-white' : 'none';
     ok(await until(async () => (await look(h)).glove === glove && (await look(g)).glove === glove, 5000), `...and the ${s.turn === 0 ? 'white gloves' : 'bare cue'} on both`);
     const shooter = s.turn === 0 ? h : g, n0 = s.n;
-    await shooter.evaluate(() => __rr.beginStroke());
+    await safeShot(shooter);
     await until(async () => { const [x, y] = [await st(h), await st(g)]; return x.n === n0 + 1 && y.n === n0 + 1 && ['aim', 'remote'].includes(x.state) && ['aim', 'remote'].includes(y.state); }, 90000);
     if ((await st(h)).turn === s.turn && i === 0) { // still the same shooter: hand the turn over by playing on until it changes
       for (let k = 0; k < 6 && (await st(h)).turn === s.turn; k++) {
         const sh = (await st(h)).turn === 0 ? h : g, m0 = (await st(h)).n;
-        await sh.evaluate(() => { __rr.aim.power = 0.05; __rr.beginStroke(); });
+        await safeShot(sh);
         await until(async () => { const [x, y] = [await st(h), await st(g)]; return x.n === m0 + 1 && y.n === m0 + 1 && ['aim', 'remote'].includes(x.state) && ['aim', 'remote'].includes(y.state); }, 90000);
       }
     }
   }
 
+  ok(!(await st(h)).state.startsWith('over') && await h.isHidden('#over') && await g.isHidden('#over'), 'the frame is still on');
   console.log('--- changes made mid-game reach the other player');
   await g.click('#bPause'); await sleep(200); await g.click('#sCue .btn:last-child'); await g.click('#bResume');   // Arcade, then round to the house cue
   ok(await until(async () => (await st(h)).peerCue === 'house'), 'the guest switches to the house cue: the host\'s game knows at once');
