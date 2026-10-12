@@ -35,7 +35,8 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   await ev(() => { window.__rr.game.freeShot = true; window.__rr.game.visits = 2; });
   ok(JSON.stringify(await marked()) === JSON.stringify(reds), 'reds & yellows: a free ball still marks your own colour');
 
-  await start('9ball'); await ev(() => window.__rr.beginStroke()); await settle();
+  // past the break without playing it: a real break from a random rack can pot the 9, which wins the frame outright
+  await start('9ball'); await ev(() => { window.__rr.game.breakShot = false; });
   const low = Math.min(...await onTable('true'));
   ok(JSON.stringify(await marked()) === JSON.stringify([low]), `9-ball: only the lowest ball (${low}) is marked`);
 
