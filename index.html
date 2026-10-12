@@ -469,7 +469,7 @@ input:focus{border-color:var(--chalk)}
         <div class="row"><div class="lbl">Cloth</div><div class="seg picker" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
         <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg picker" id="sCue"></div></div>
         <div class="row"><div class="lbl">Gloves</div><div class="seg picker" id="sGlove"></div></div>
-        <div class="row" id="rowDev" hidden><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button></div><div class="note">A test locker with every look. Your own locker comes back when it's off.</div></div>
+        <div class="row" id="rowDev" hidden><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button><button class="btn" id="sDevMythic" type="button" aria-pressed="false">Next case mythic: Off</button></div><div class="note">A test locker with every look; your own locker comes back when dev mode is off. "Next case mythic" makes the next case you open give a mythic, then switches itself off.</div></div>
       </section>
       <section class="sSec"><h3>Display</h3>
         <div class="row"><div class="lbl">Pixel size</div><div class="seg" id="sPixel"></div><div class="note">1× is sharpest; bigger is more retro and easier on phones.</div></div>
@@ -1761,10 +1761,12 @@ const POOL = Object.fromEntries(RARITIES.map(r => [r, CASE_ITEMS.filter(it => it
 const FREE = ['house', 'none', FREE_GLOVE.id];   // looks everyone owns (with the five original cloths, in game.js)
 
 // Picks what a case gives. The rarity comes from the grade's odds, except that after PITY - 1 cases in a row without
-// an epic or better, only epic and legendary can come up (in the grade's proportions of the two). The item is then any
-// of that rarity, all equally likely. rnd: a function giving numbers from 0 up to 1.
-function roll(grade, pity, rnd) {
-  const odds = [...GRADES[grade].odds];
+// an epic or better, only epic or better can come up (in the grade's proportions). The item is then any of that rarity,
+// all equally likely. rnd: a function giving numbers from 0 up to 1. force: a rarity to give instead, if the grade holds
+// it (dev mode's "next case mythic").
+function roll(grade, pity, rnd, force) {
+  const odds = [...GRADES[grade].odds], fi = RARITIES.indexOf(force);
+  if (fi >= 0 && odds[fi]) { odds.fill(0); odds[fi] = 1; }
   if (pity >= PITY - 1) odds[0] = odds[1] = 0;
   let r = rnd() * odds.reduce((a, b) => a + b, 0), ri = 0;
   while (ri < odds.length - 1 && (r >= odds[ri] || !odds[ri])) { r -= odds[ri]; ri++; }
@@ -1807,13 +1809,13 @@ function mergeLocker(l, o) {
 const owns = (l, id) => FREE.includes(id) || l.owned.includes(id);
 
 // opens one of the locker's cases and pays for it: { id, rarity, dup, sold } or why not ('unknown', 'none', 'money').
-// A duplicate is sold at once for its rarity's price.
-function openCase(l, grade, rnd) {
+// A duplicate is sold at once for its rarity's price. force: see roll().
+function openCase(l, grade, rnd, force) {
   if (!has(GRADES, grade)) return 'unknown';
   if (!(l.cases[grade] > 0)) return 'none';
   if (l.money < GRADES[grade].open) return 'money';
   l.cases[grade]--; l.money -= GRADES[grade].open; l.opened++;
-  const id = roll(grade, l.pity, rnd), rarity = ALL[id].rarity, dup = l.owned.includes(id);
+  const id = roll(grade, l.pity, rnd, force), rarity = ALL[id].rarity, dup = l.owned.includes(id);
   l.pity = RARITIES.indexOf(rarity) >= 2 ? 0 : l.pity + 1;
   if (dup) l.money += RARITY[rarity].sell; else l.owned.push(id);
   return { id, rarity, dup, sold: dup ? RARITY[rarity].sell : 0 };
@@ -1874,7 +1876,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '9fa2ab02';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '82343c58';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -1901,7 +1903,7 @@ try { CAR.data = K.validate(JSON.parse(localStorage.getItem('retroRack.career') 
 // the locker (src/looks.js): the money, unopened cases and looks owned on this device. Every change reads the stored
 // copy, makes the change and writes it straight back, so two open pages never undo each other's changes.
 const LK = LOOKS;
-let LOCK = LK.newLocker(), DEV = false;   // DEV: dev mode's test locker in use (see "dev mode")
+let LOCK = LK.newLocker(), DEV = false, DEV_MYTHIC = false;   // DEV: dev mode's test locker in use (see "dev mode"); DEV_MYTHIC: its next case gives a mythic
 const lockKey = () => DEV ? 'retroRack.lockerDev' : 'retroRack.locker';
 const lockerRead = () => { try { const raw = localStorage.getItem(lockKey()); return raw ? LK.validateLocker(JSON.parse(raw)) : null; } catch (e) { return null; } };
 function lockerEdit(fn) {
@@ -3750,6 +3752,7 @@ function refreshMenus() {
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
+  $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
@@ -4169,7 +4172,7 @@ const gradeList = ids => ids.map(g => LK.GRADES[g].name.replace(' case', '')).jo
 const lockNote = t => { $('#lockNote').textContent = t; };
 function renderLocker() {
   const l = LOCK, waiting = LK.GRADE_IDS.reduce((a, g) => a + l.cases[g], 0);
-  $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open`;
+  $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
   segControl($('#lockTabs'), [['cases', 'Cases'], ['cloth', 'Cloths'], ['cue', 'Cues'], ['glove', 'Gloves']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.page = 0; lockNote(''); });
   const body = $('#lockBody'), pager = $('#lockPages'); body.innerHTML = ''; pager.innerHTML = '';
   body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'shopGrid';
@@ -4266,8 +4269,9 @@ function openCaseUI(g) {
   const G = LK.GRADES[g];
   if (!LOCK.cases[g]) { lockNote(`No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
   if (LOCK.money < G.open) { lockNote(`Opening a ${G.name.toLowerCase()} costs ${money(G.open)}: you need ${money(G.open - LOCK.money)} more.`); return; }
-  const r = lockerEdit(l => LK.openCase(l, g, Math.random));
+  const force = DEV && DEV_MYTHIC ? 'mythic' : null, r = lockerEdit(l => LK.openCase(l, g, Math.random, force));
   if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first
+  if (force) DEV_MYTHIC = false;   // once only
   ensureAudio(); showReel(g, r);
 }
 function reelTile(id) {   // in its rarity's colour, from a dark shade at the top to the full colour at the bottom
@@ -4780,7 +4784,7 @@ async function isDevWord(v) {
   catch (e) { return false; }
 }
 function setDev(on) {
-  DEV = on; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
+  DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
   LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
   checkLooks(); saveS(); applyLook(); sendLook(); refreshMenus();
   toast(on ? 'Dev mode on: every look, £100,000 and 50 of each case, in a test locker' : 'Dev mode off: your own locker is back', 'good');
@@ -4791,6 +4795,7 @@ $('#netName').addEventListener('input', async () => {
   setDev(!DEV);
 });
 $('#sDev').addEventListener('click', () => { sfx('ui'); setDev(false); });
+$('#sDevMythic').addEventListener('click', () => { DEV_MYTHIC = DEV && !DEV_MYTHIC; sfx('ui'); refreshMenus(); });
 
 // ------------------------------------------------------------------ installable app
 // Only on a real web address: a downloaded copy opened from disk can't install or use a service worker.

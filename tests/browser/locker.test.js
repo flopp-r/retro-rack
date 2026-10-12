@@ -182,7 +182,14 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await sleep(300); ok(/Version [0-9a-f]{8} · DEV/.test(await p.textContent('#ver')), `the version line says DEV ("${await p.textContent('#ver')}")`);
   await p.click('[data-go="locker"]'); await sleep(400);
   ok(/^Test locker: £100,000 to spend/.test(await p.textContent('#lockMoney')), 'the locker says it is the test locker');
-  await p.click('.caseCard:nth-child(4) .btn:nth-child(1)'); await sleep(300); await p.click('#reelWin'); await sleep(300); await p.click('#bReelDone');
+  await p.click('#bMenuSettings'); await sleep(300); await p.click('#sDevMythic'); await sleep(150);
+  ok(await p.textContent('#sDevMythic') === 'Next case mythic: On' && await p.getAttribute('#sDevMythic', 'aria-pressed') === 'true', 'Settings: "Next case mythic" switches on');
+  await p.click('#bResume'); await sleep(200);
+  ok(/next one mythic$/.test(await p.textContent('#lockMoney')), 'and the locker says the next case is a mythic');
+  await p.click('.caseCard:nth-child(4) .btn:nth-child(1)'); await sleep(300); await p.click('#reelWin'); await sleep(300);
+  const forced = await p.evaluate(() => ({ ...__rr.reel.res })); await p.click('#bReelDone');
+  ok(forced.rarity === 'mythic' && await p.textContent('#reelTitle') === 'Mythic!', `the next case gives a mythic (${forced.id})`);
+  ok(!/mythic/.test(await p.textContent('#lockMoney')) && (await p.evaluate(() => { document.querySelector('#bMenuSettings').click(); const t = document.querySelector('#sDevMythic').textContent; document.querySelector('#bResume').click(); return t; })) === 'Next case mythic: Off', 'once only: the switch turns itself off');
   ok((await p.evaluate(() => __rr.lock)).cases.diamond === 49 && JSON.stringify(await lock()) === real, 'opening a case uses the test locker only');
   await p.click('#lockTabs .btn:nth-child(3)'); await sleep(200); await p.click('.shopItem[data-id="champion"]'); await sleep(200);
   ok(await p.evaluate(() => __rr.S.cue) === 'champion', 'the dearest shop cue can be used without buying it');

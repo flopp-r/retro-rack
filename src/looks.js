@@ -118,10 +118,12 @@ const POOL = Object.fromEntries(RARITIES.map(r => [r, CASE_ITEMS.filter(it => it
 const FREE = ['house', 'none', FREE_GLOVE.id];   // looks everyone owns (with the five original cloths, in game.js)
 
 // Picks what a case gives. The rarity comes from the grade's odds, except that after PITY - 1 cases in a row without
-// an epic or better, only epic and legendary can come up (in the grade's proportions of the two). The item is then any
-// of that rarity, all equally likely. rnd: a function giving numbers from 0 up to 1.
-function roll(grade, pity, rnd) {
-  const odds = [...GRADES[grade].odds];
+// an epic or better, only epic or better can come up (in the grade's proportions). The item is then any of that rarity,
+// all equally likely. rnd: a function giving numbers from 0 up to 1. force: a rarity to give instead, if the grade holds
+// it (dev mode's "next case mythic").
+function roll(grade, pity, rnd, force) {
+  const odds = [...GRADES[grade].odds], fi = RARITIES.indexOf(force);
+  if (fi >= 0 && odds[fi]) { odds.fill(0); odds[fi] = 1; }
   if (pity >= PITY - 1) odds[0] = odds[1] = 0;
   let r = rnd() * odds.reduce((a, b) => a + b, 0), ri = 0;
   while (ri < odds.length - 1 && (r >= odds[ri] || !odds[ri])) { r -= odds[ri]; ri++; }
@@ -164,13 +166,13 @@ function mergeLocker(l, o) {
 const owns = (l, id) => FREE.includes(id) || l.owned.includes(id);
 
 // opens one of the locker's cases and pays for it: { id, rarity, dup, sold } or why not ('unknown', 'none', 'money').
-// A duplicate is sold at once for its rarity's price.
-function openCase(l, grade, rnd) {
+// A duplicate is sold at once for its rarity's price. force: see roll().
+function openCase(l, grade, rnd, force) {
   if (!has(GRADES, grade)) return 'unknown';
   if (!(l.cases[grade] > 0)) return 'none';
   if (l.money < GRADES[grade].open) return 'money';
   l.cases[grade]--; l.money -= GRADES[grade].open; l.opened++;
-  const id = roll(grade, l.pity, rnd), rarity = ALL[id].rarity, dup = l.owned.includes(id);
+  const id = roll(grade, l.pity, rnd, force), rarity = ALL[id].rarity, dup = l.owned.includes(id);
   l.pity = RARITIES.indexOf(rarity) >= 2 ? 0 : l.pity + 1;
   if (dup) l.money += RARITY[rarity].sell; else l.owned.push(id);
   return { id, rarity, dup, sold: dup ? RARITY[rarity].sell : 0 };

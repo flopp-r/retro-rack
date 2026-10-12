@@ -29,6 +29,15 @@ test('about 60 items: 14 cloths, 20 cues and 26 gloves, every rarity in the pool
   assert.deepStrictEqual([n('cloth'), n('cue'), n('glove')], [14, 20, 26]);
   for (const r of L.RARITIES) assert.ok(L.POOL[r].length >= (r === 'mythic' ? 6 : 5), r);
 });
+test('a forced rarity (dev mode\'s next case mythic) comes up every time, but only where the grade holds it', () => {
+  const rnd = seeded(4);
+  for (const g of L.GRADE_IDS) for (let i = 0; i < 50; i++) assert.strictEqual(L.ALL[L.roll(g, 0, rnd, 'mythic')].rarity, 'mythic', g);
+  const seen = new Set(); for (let i = 0; i < 400; i++) seen.add(L.ALL[L.roll('bronze', 0, rnd, 'legendary')].rarity);
+  assert.ok(!seen.has('legendary') && seen.has('common'), 'bronze holds no legendaries, so it rolls as usual');
+  const l = L.newLocker(); l.money = 100; l.cases.bronze = 1; l.pity = 3;
+  const r = L.openCase(l, 'bronze', rnd, 'mythic');
+  assert.ok(r.rarity === 'mythic' && l.money === 85 && l.cases.bronze === 0 && l.pity === 0 && l.owned.includes(r.id));
+});
 test('mythic looks are animated, two of each kind, and the rarest in every grade', () => {
   const m = L.POOL.mythic.map(id => L.ALL[id]);
   for (const k of ['cloth', 'cue', 'glove']) assert.strictEqual(m.filter(it => it.kind === k).length, 2, k);
