@@ -80,7 +80,7 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
   await h.click('#bPause'); await sleep(200); await h.click('#bConcede');   // the host gives the frame to the guest
   ok(await until(() => g.isVisible('#over')), 'the guest wins the frame');
   const gl = await g.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
-  ok(/Your first online win today: £30 and a gold case!/.test(await g.textContent('#overEarn')) && gl.cases.gold === 1 && gl.money === 70, `it pays: "${await g.textContent('#overEarn')}"`);
+  ok(/Your first online win today: £100 and 2 gold cases!/.test(await g.textContent('#overEarn')) && gl.cases.gold === 2 && gl.money === 140, `it pays: "${await g.textContent('#overEarn')}"`);
   ok(await h.textContent('#overEarn') === '', 'the host, who lost, gets nothing');
 
   console.log('--- afterwards');

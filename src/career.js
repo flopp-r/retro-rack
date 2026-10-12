@@ -116,24 +116,24 @@ const has = (obj, id) => typeof id === 'string' && Object.prototype.hasOwnProper
 // for winning. Winning an event opens the next one; winning the last opens the next tier.
 const TIERS = [
   { id: 'pub', name: 'The pub circuit', short: 'Pub', champ: 'the pub champion', mode: 'uk8', events: [
-    { id: 'redlion', name: 'The Red Lion Open', sign: 'RED LION', field: ['dave', 'maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie'], races: [2, 2, 3], prize: [10, 25, 50, 100] },
-    { id: 'crown', name: 'The Crown Cup', sign: 'THE CROWN', field: ['maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie', 'shona'], races: [2, 3, 3], prize: [20, 50, 100, 200], blackOne: true },
-    { id: 'pubchamp', name: 'The Pub Championship', sign: 'PUB CHAMPS', field: ['mick', 'kev', 'gaz', 'priya', 'eddie', 'shona', 'ray'], races: [3, 3, 4], prize: [40, 100, 200, 400] },
+    { id: 'redlion', name: 'The Red Lion Open', sign: 'RED LION', field: ['dave', 'maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie'], races: [2, 2, 3], prize: [20, 50, 100, 200] },
+    { id: 'crown', name: 'The Crown Cup', sign: 'THE CROWN', field: ['maureen', 'mick', 'kev', 'gaz', 'priya', 'eddie', 'shona'], races: [2, 3, 3], prize: [40, 100, 200, 400], blackOne: true },
+    { id: 'pubchamp', name: 'The Pub Championship', sign: 'PUB CHAMPS', field: ['mick', 'kev', 'gaz', 'priya', 'eddie', 'shona', 'ray'], races: [3, 3, 4], prize: [80, 200, 400, 800] },
   ] },
   { id: 'club', name: 'The club circuit', short: 'Club', champ: 'the club champion', mode: '8ball', events: [
-    { id: 'oakfield', name: 'The Oakfield Classic', sign: 'OAKFIELD', field: ['perry', 'bev', 'danny', 'hamish', 'lin', 'tommo', 'aisha'], races: [2, 3, 3], prize: [50, 120, 250, 500] },
-    { id: 'riverside', name: 'The Riverside Cup', sign: 'RIVERSIDE', field: ['bev', 'danny', 'hamish', 'lin', 'tommo', 'aisha', 'frank'], races: [3, 3, 4], prize: [80, 200, 400, 800] },
-    { id: 'clubchamp', name: 'The Club Championship', sign: 'CLUB CHAMPS', field: ['danny', 'hamish', 'lin', 'tommo', 'aisha', 'frank', 'duchess'], races: [3, 4, 4], prize: [120, 300, 600, 1200] },
+    { id: 'oakfield', name: 'The Oakfield Classic', sign: 'OAKFIELD', field: ['perry', 'bev', 'danny', 'hamish', 'lin', 'tommo', 'aisha'], races: [2, 3, 3], prize: [100, 240, 500, 1000] },
+    { id: 'riverside', name: 'The Riverside Cup', sign: 'RIVERSIDE', field: ['bev', 'danny', 'hamish', 'lin', 'tommo', 'aisha', 'frank'], races: [3, 3, 4], prize: [160, 400, 800, 1600] },
+    { id: 'clubchamp', name: 'The Club Championship', sign: 'CLUB CHAMPS', field: ['danny', 'hamish', 'lin', 'tommo', 'aisha', 'frank', 'duchess'], races: [3, 4, 4], prize: [240, 600, 1200, 2400] },
   ] },
   { id: 'hall', name: 'The hall circuit', short: 'Hall', champ: 'the hall champion', mode: '8ball', events: [
-    { id: 'downtown', name: 'The Downtown Open', sign: 'DOWNTOWN', field: ['marco', 'jade', 'lou', 'sunil', 'smokey', 'rosa', 'ivan'], races: [3, 4, 4], prize: [100, 250, 500, 1000] },
-    { id: 'shootout', name: 'The Eight-Ball Shootout', sign: 'SHOOTOUT', field: ['jade', 'lou', 'sunil', 'smokey', 'rosa', 'ivan', 'kaz'], races: [3, 4, 5], prize: [150, 400, 750, 1500] },
-    { id: 'halloffame', name: 'The Hall of Fame Trophy', sign: 'HALL OF FAME', field: ['lou', 'sunil', 'smokey', 'rosa', 'ivan', 'kaz', 'professor'], races: [4, 4, 5], prize: [200, 500, 1000, 2000] },
+    { id: 'downtown', name: 'The Downtown Open', sign: 'DOWNTOWN', field: ['marco', 'jade', 'lou', 'sunil', 'smokey', 'rosa', 'ivan'], races: [3, 4, 4], prize: [200, 500, 1000, 2000] },
+    { id: 'shootout', name: 'The Eight-Ball Shootout', sign: 'SHOOTOUT', field: ['jade', 'lou', 'sunil', 'smokey', 'rosa', 'ivan', 'kaz'], races: [3, 4, 5], prize: [300, 800, 1500, 3000] },
+    { id: 'halloffame', name: 'The Hall of Fame Trophy', sign: 'HALL OF FAME', field: ['lou', 'sunil', 'smokey', 'rosa', 'ivan', 'kaz', 'professor'], races: [4, 4, 5], prize: [400, 1000, 2000, 4000] },
   ] },
   { id: 'national', name: 'The national tour', short: 'National', champ: 'the national champion', mode: '9ball', events: [
-    { id: 'northern', name: 'The Northern Open', sign: 'NORTHERN', field: ['callum', 'mei', 'gareth', 'nadia', 'ollie', 'svetlana', 'devm'], races: [4, 5, 5], prize: [300, 750, 1500, 3000] },
-    { id: 'masters', name: 'The Masters', sign: 'MASTERS', field: ['mei', 'gareth', 'nadia', 'ollie', 'svetlana', 'devm', 'erin'], races: [4, 5, 6], prize: [400, 1000, 2000, 4000] },
-    { id: 'nationals', name: 'The National Championship', sign: 'NATIONALS', field: ['gareth', 'nadia', 'ollie', 'svetlana', 'devm', 'erin', 'viktor'], races: [5, 5, 7], prize: [600, 1500, 3000, 6000] },
+    { id: 'northern', name: 'The Northern Open', sign: 'NORTHERN', field: ['callum', 'mei', 'gareth', 'nadia', 'ollie', 'svetlana', 'devm'], races: [4, 5, 5], prize: [600, 1500, 3000, 6000] },
+    { id: 'masters', name: 'The Masters', sign: 'MASTERS', field: ['mei', 'gareth', 'nadia', 'ollie', 'svetlana', 'devm', 'erin'], races: [4, 5, 6], prize: [800, 2000, 4000, 8000] },
+    { id: 'nationals', name: 'The National Championship', sign: 'NATIONALS', field: ['gareth', 'nadia', 'ollie', 'svetlana', 'devm', 'erin', 'viktor'], races: [5, 5, 7], prize: [1200, 3000, 6000, 12000] },
   ] },
 ];
 const ROUNDS = ['Quarter-final', 'Semi-final', 'Final'];

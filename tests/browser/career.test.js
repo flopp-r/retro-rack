@@ -107,43 +107,43 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
     if (round === 'semi-final') { await p.click('#bAgain'); await sleep(500); }
   }
   const champ = await p.textContent('#overStats');
-  ok(/You win The Red Lion Open! Prize: £100 and a bronze case\. The Crown Cup is now open\./.test(champ), `champion: ${champ}`);
+  ok(/You win The Red Lion Open! Prize: £200 and 2 bronze cases\. The Crown Cup is now open\./.test(champ), `champion: ${champ}`);
   await p.click('#bAgain'); await sleep(500);
   c = await saved();
   let lk = await lock();
-  ok(lk.money === 100 && c.earned === 100 && c.trophies.length === 1 && !c.run && c.done.redlion.won === 1, 'prize £100 into the locker, one trophy, the event finished');
-  ok(lk.cases.bronze === 3 && lk.meter.bronze === 1, `cases: one for the event, two for the 7 frames won (bronze ${lk.cases.bronze}, meter ${lk.meter.bronze})`);
+  ok(lk.money === 200 && c.earned === 200 && c.trophies.length === 1 && !c.run && c.done.redlion.won === 1, 'prize £200 into the locker, one trophy, the event finished');
+  ok(lk.cases.bronze === 9 && lk.meter.bronze === 0, `cases: two for the event and one for each of the 7 frames won (bronze ${lk.cases.bronze})`);
   ok(await p.$eval('.bName.champ', e => e.textContent) === 'Tess', 'the draw shows you as champion');
   await p.click('#mBack'); await sleep(300);
-  ok((await p.$$eval('.cEvtState', es => es.map(e => e.textContent))).join() === 'Won,Open,Locked' && (await p.textContent('.cMeStats')).includes('£100 to spend · 1 trophy'), 'hub: Red Lion won, Crown Cup open, £100 to spend and 1 trophy');
+  ok((await p.$$eval('.cEvtState', es => es.map(e => e.textContent))).join() === 'Won,Open,Locked' && (await p.textContent('.cMeStats')).includes('£200 to spend · 1 trophy'), 'hub: Red Lion won, Crown Cup open, £200 to spend and 1 trophy');
 
   console.log('--- losing in the next event');
   await p.click('.cEvt:nth-child(2)'); await sleep(300); await p.click('#bCareer'); await sleep(300); await p.click('#bCareer'); await sleep(1200);
   ok(await p.evaluate(() => __rr.game.oneVisitOnBlack === true), 'The Crown Cup plays "one visit on the black"');
   for (let f = 0; f < 2; f++) { ok(await concede(0), `frame ${f + 1} lost`); await overShown(); if (f === 0) { await p.click('#bAgain'); await sleep(1200); } }
-  ok(/You win/.test(await p.textContent('#overTitle')) === false && /Out in the quarter-final\. Prize: £20\./.test(await p.textContent('#overStats')), `knocked out: ${await p.textContent('#overStats')}`);
+  ok(/You win/.test(await p.textContent('#overTitle')) === false && /Out in the quarter-final\. Prize: £40\./.test(await p.textContent('#overStats')), `knocked out: ${await p.textContent('#overStats')}`);
   await p.click('#bAgain'); await sleep(500);
-  c = await saved(); ok((await lock()).money === 120 && !c.run && c.done.crown.best === 0, 'money now £120; best result: quarter-final');
+  c = await saved(); ok((await lock()).money === 240 && !c.run && c.done.crown.best === 0, 'money now £240; best result: quarter-final');
   ok(await p.textContent('#bCareer') === 'Enter again', 'the event can be entered again');
 
   console.log('--- withdrawing');
   await p.click('#bCareer'); await sleep(300); await p.click('#bWithdraw'); await sleep(300);
-  c = await saved(); ok(!c.run && (await lock()).money === 140 && /Withdrawn\. Prize: £20\./.test(await p.textContent('#cNote')), 'withdrawing counts as going out, and pays that round\'s prize');
+  c = await saved(); ok(!c.run && (await lock()).money === 280 && /Withdrawn\. Prize: £40\./.test(await p.textContent('#cNote')), 'withdrawing counts as going out, and pays that round\'s prize');
 
   console.log('--- save to file, retire, load from file');
   await p.click('#mBack'); await sleep(300);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#cExport')]);
   const file = shot('career-save.json'); await dl.saveAs(file);
   const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
-  ok(dl.suggestedFilename() === 'retro-rack-career-tess.json' && exported.locker.money === 140 && exported.trophies.length === 1, `saved to ${dl.suggestedFilename()}`);
+  ok(dl.suggestedFilename() === 'retro-rack-career-tess.json' && exported.locker.money === 280 && exported.trophies.length === 1, `saved to ${dl.suggestedFilename()}`);
   await p.click('#cRetire'); await sleep(600);
   ok(await p.isVisible('#sc-cnew') && !(await saved()), 'retired: the career is gone and the new-career form shows');
   await p.click('#bCareer'); await sleep(400);
   await p.setInputFiles('#cFile', file); await until(async () => /Loaded/.test(await p.textContent('#cNote')), 10000);
   c = await saved();
-  ok(c.name === 'Tess' && (await lock()).money === 140 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
+  ok(c.name === 'Tess' && (await lock()).money === 280 && c.done.redlion.won === 1 && /Loaded Tess's career/.test(await p.textContent('#cNote')), 'loading the file brings the career back (after confirming the replacement)');
   fs.writeFileSync(file, '{"not":"a career"}'); await p.setInputFiles('#cFile', file); await until(async () => /isn't a Retro Rack career/.test(await p.textContent('#cNote')), 10000);
-  ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await lock()).money === 140, 'a file that is not a career is refused, and nothing changes');
+  ok(/isn't a Retro Rack career/.test(await p.textContent('#cNote')) && (await lock()).money === 280, 'a file that is not a career is refused, and nothing changes');
 
   ok(!logs.length, 'console clean' + (logs.length ? ':\n  ' + logs.join('\n  ') : ''));
   await b.close();

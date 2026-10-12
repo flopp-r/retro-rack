@@ -59,7 +59,7 @@ const DEVW = { print: 'f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc
 function devLocker() {
   const l = LK.newLocker(); l.money = 100000; l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
   for (const g of LK.GRADE_IDS) l.cases[g] = 50;
-  l.claimed = [...LK.RARITIES, 'all'];   // every collection's effect, without its money
+  l.claimed = [...Object.keys(LK.COLLECTIONS), ...LK.RARITIES, 'all'];   // every set's effect, without the money
   try { localStorage.setItem('retroRack.lockerDev', JSON.stringify(l)); } catch (e) {}
   return l;
 }
@@ -1243,7 +1243,7 @@ function frameEarn() {
 function earnText(e) {
   if (!e) return '';
   const pay = e.pay ? `You earn ${money(e.pay)}` : '', got = e.grade ? `${pay ? ' and' : 'You earn'} a ${LK.GRADES[e.grade].name.toLowerCase()}!` : '';
-  if (NET.on) return `Your first online win today: ${money(e.pay)} and a ${LK.GRADES[e.grade].name.toLowerCase()}!`;
+  if (NET.on) return `Your first online win today: ${money(e.pay)} and ${e.n > 1 ? `${e.n} ${LK.GRADES[e.grade].name.toLowerCase()}s` : `a ${LK.GRADES[e.grade].name.toLowerCase()}`}!`;
   return got ? pay + got : `${pay}${pay ? '. ' : ''}${LK.GRADES[e.meter.grade].name}: ${e.meter.n} of ${LK.METER} frames.`;
 }
 function showOver(res, shooter) {
@@ -2541,10 +2541,16 @@ const rankName = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].name : r === -1 ? 'From
 const rankCol = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].col : '#8f86a8';
 const casesTxt = c => Object.entries(c).map(([g, n]) => `${n === 1 ? 'a' : n} ${g} case${n === 1 ? '' : 's'}`).join(' and ');
 // what completing collections brought, for the reel and the toasts
-const doneTxt = done => done.map(r => r === 'all' ? `All five collections: ${LK.EFFECTS[LK.GRAND_FX].name}!` : `${LK.RARITY[r].name} collection complete: ${money(LK.COLLECTIONS[r].money)}, ${casesTxt(LK.COLLECTIONS[r].cases)} and ${LK.EFFECTS[LK.COLLECTIONS[r].fx].name}!`).join(' ');
+const KIND_COL = { cloth: 'cloth', cue: 'cue', glove: 'glove' }, KIND_HEAD = { cloth: 'Cloths', cue: 'Cues', glove: 'Gloves' };
+const rewardTxt = c => [c.money ? money(c.money) : '', Object.keys(c.cases).length ? casesTxt(c.cases) : ''].filter(Boolean).join(' and ');
+const doneTxt = done => done.map(k => {
+  if (k === 'all') return `All fifteen collections complete: ${money(LK.GRAND.money)} and the ${LK.EFFECTS[LK.GRAND.fx].name}!`;
+  if (K.has(LK.SETS, k)) return `Every ${LK.RARITY[k].name.toLowerCase()} collection complete: ${money(LK.SETS[k].money)}, ${casesTxt(LK.SETS[k].cases)} and ${LK.EFFECTS[LK.SETS[k].fx].name}!`;
+  const c = LK.COLLECTIONS[k]; return `${LK.RARITY[c.rarity].name} ${KIND_COL[c.kind]} collection complete: ${rewardTxt(c)}!`;
+}).join(' ');
 // pays any collection rewards due (a career file can complete one); says so
 function claimDue() {
-  if (!LK.RARITIES.some(r => !LOCK.claimed.includes(r) && LK.collected(LOCK, r))) return;
+  if (!LK.claimCollections(JSON.parse(JSON.stringify(LOCK))).length) return;   // nothing due (tried on a copy)
   const done = lockerEdit(l => LK.claimCollections(l)); if (done.length) { toast(doneTxt(done), 'good'); applyFx(); refreshMenus(); }
 }
 // tapping a look, in the inventory or the shop: one you own goes into use; one you don't is marked to try on in Preview
@@ -2604,8 +2610,7 @@ function renderLocker() {
       card.append(caseImg(g, 3), mk('div', 'caseName', G.name), mk('div', 'caseN', n ? `${n} to open` : 'None yet'), mk('div', 'caseOdds', odds), btns);
       body.append(card);
     }
-    const meters = LK.GRADE_IDS.map(g => `${LK.GRADES[g].name.replace(' case', '')} ${l.meter[g]}/${LK.METER}`).join(' · ');
-    pager.textContent = `Frames won towards cases: ${meters}. Epic or better within ${LK.PITY - l.pity} ${LK.PITY - l.pity === 1 ? 'case' : 'cases'}.`;
+    pager.textContent = `Every frame you win against the computer, or in the career, earns a case. Epic or better within ${LK.PITY - l.pity} ${LK.PITY - l.pity === 1 ? 'case' : 'cases'}.`;
     return;
   }
   const pv = mk('button', 'btn', 'Preview'); pv.type = 'button'; pv.id = 'bPreview';
@@ -2616,7 +2621,7 @@ function renderLocker() {
     if (fx.length) {   // the effects collections have earned, each with its switch
       body.append(mk('div', 'invHead', 'Collection rewards'));
       for (const k of fx) {
-        const r = k === LK.GRAND_FX ? 4 : LK.RARITIES.findIndex(x => LK.COLLECTIONS[x].fx === k), row = mk('div', 'invRow fxRow'), on = fxOn(k), sw = mk('button', 'btn', on ? 'On' : 'Off');
+        const r = k === LK.GRAND.fx ? 4 : LK.RARITIES.findIndex(x => LK.SETS[x].fx === k), row = mk('div', 'invRow fxRow'), on = fxOn(k), sw = mk('button', 'btn', on ? 'On' : 'Off');
         row.style.setProperty('--rc', rankCol(r)); row.dataset.fx = k; sw.type = 'button'; sw.setAttribute('aria-pressed', String(on));
         sw.addEventListener('click', () => { S.fxOff = (S.fxOff || []).filter(x => x !== k); if (on) S.fxOff.push(k); saveS(); applyFx(); sfx('ui'); refreshMenus(); });
         row.append(mk('span', 'fxIco', '✦'), mk('span', 'invName', LK.EFFECTS[k].name), sw, mk('span', 'invSub', LK.EFFECTS[k].txt));
@@ -2630,18 +2635,23 @@ function renderLocker() {
     const sale = mk('div', 'colRow'); for (const it of K.SHOP) sale.append(colTile(it.id));
     const sh = mk('div', 'colHead'); sh.append(mk('b', '', 'For sale'), mk('span', 'colRw', 'Cloths and cues to buy outright. Tap one to buy it, or Cancel to try it on.'));
     body.append(sh, sale);
-    for (const r of [...LK.RARITIES].reverse()) {
-      const pool = LK.POOL[r], have = pool.filter(id => l.owned.includes(id)).length, done = l.claimed.includes(r), C = LK.COLLECTIONS[r], h = mk('div', 'colHead'), row = mk('div', 'colRow');
-      const name = mk('b', '', `${LK.RARITY[r].name} collection`); name.style.color = LK.RARITY[r].col; h.dataset.r = r;
-      h.append(name, mk('span', 'colN' + (done ? ' done' : ''), done ? `${have}/${pool.length} ✓` : `${have}/${pool.length}`),
-        mk('span', 'colRw', done ? `Complete: ${LK.EFFECTS[C.fx].name} is yours (see Inventory).` : `Reward: ${money(C.money)}, ${casesTxt(C.cases)} and ${LK.EFFECTS[C.fx].name}: ${LK.EFFECTS[C.fx].txt.toLowerCase()}`));
-      for (const id of [...pool].sort(lookSort)) row.append(colTile(id));
-      body.append(h, row);
+    for (const r of [...LK.RARITIES].reverse()) {   // a section per rarity: its set's reward, then its three collections
+      const S5 = LK.SETS[r], kinds = LK.KINDS.filter(k => l.claimed.includes(r + ':' + k)).length, done = l.claimed.includes(r), h = mk('div', 'colHead');
+      const name = mk('b', '', `${LK.RARITY[r].name} set`); name.style.color = LK.RARITY[r].col; h.dataset.r = r;
+      h.append(name, mk('span', 'colN' + (done ? ' done' : ''), done ? '3/3 ✓' : `${kinds}/3`),
+        mk('span', 'colRw', done ? `Complete: ${LK.EFFECTS[S5.fx].name} is yours (see Inventory).` : `All three: ${money(S5.money)}, ${casesTxt(S5.cases)} and ${LK.EFFECTS[S5.fx].name}: ${LK.EFFECTS[S5.fx].txt.toLowerCase()}`));
+      body.append(h);
+      for (const k of LK.KINDS) {
+        const key = r + ':' + k, C = LK.COLLECTIONS[key], items = LK.colItems(key), have = items.filter(id => l.owned.includes(id)).length, got = l.claimed.includes(key), sub = mk('div', 'colSub'), row = mk('div', 'colRow');
+        sub.dataset.c = key; sub.append(mk('span', 'colKind', KIND_HEAD[k]), mk('span', 'colN' + (got ? ' done' : ''), got ? `${have}/${items.length} ✓` : `${have}/${items.length}`), mk('span', 'colRw', got ? 'Collected' : rewardTxt(C)));
+        for (const id of [...items].sort(lookSort)) row.append(colTile(id));
+        body.append(sub, row);
+      }
     }
-    const all = l.claimed.includes('all'), gh = mk('div', 'colHead'); gh.dataset.r = 'all';
-    gh.append(mk('b', '', 'All five'), mk('span', 'colN' + (all ? ' done' : ''), all ? '✓' : `${LK.RARITIES.filter(r => l.claimed.includes(r)).length}/5`), mk('span', 'colRw', `${all ? 'Complete' : 'Reward'}: ${LK.EFFECTS[LK.GRAND_FX].name}. ${LK.EFFECTS[LK.GRAND_FX].txt}`));
+    const sets = LK.RARITIES.filter(r => l.claimed.includes(r)).length, cols = Object.keys(LK.COLLECTIONS).filter(c => l.claimed.includes(c)).length, all = l.claimed.includes('all'), gh = mk('div', 'colHead'); gh.dataset.r = 'all';
+    gh.append(mk('b', '', 'All fifteen'), mk('span', 'colN' + (all ? ' done' : ''), all ? '✓' : `${cols}/15`), mk('span', 'colRw', `${all ? 'Complete' : 'Reward'}: ${money(LK.GRAND.money)} and the ${LK.EFFECTS[LK.GRAND.fx].name}. ${LK.EFFECTS[LK.GRAND.fx].txt}`));
     body.append(gh);
-    pager.append(mk('span', '', `${LK.RARITIES.filter(r => l.claimed.includes(r)).length} of 5 collections complete`), pv);
+    pager.append(mk('span', '', `${cols} of 15 collections · ${sets} of 5 sets`), pv);
   }
   body.scrollTop = keep;
 }
