@@ -165,7 +165,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   const hands = () => p.evaluate(() => __rr.hands), wear = async id => { await p.evaluate(id => { __rr.S.glove = id; }, id); await until(async () => (await p.evaluate(() => __rr.look.glove)) === id); await sleep(300); return hands(); };
   let hd = await hands();
   ok(hd.grip.skinned && hd.bridge.skinned && hd.grip.bones === 16 && hd.grip.tips.length === 4 && hd.grip.tips.every(d => d > 1.5 && d < 3.5),
-    `each glove is one smooth piece on a skeleton of ${hd.grip.bones} bones, and the cue hand's fingertips wrap round the cue (${hd.grip.tips} cm from its middle)`);
+    `each glove is one low-poly piece on a skeleton of ${hd.grip.bones} bones, and the cue hand's fingertips wrap round the cue (${hd.grip.tips} cm from its middle)`);
   const navy = await wear('g-navy');
   ok(navy.grip.geo === hd.grip.geo && navy.bridge.geo === hd.grip.geo, 'another glove of the same type shares its shape: each type is made once');
   const robot = await wear('g-robot'), gold = await wear('g-gold');
