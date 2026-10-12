@@ -36,7 +36,7 @@ test('a forced rarity (dev mode\'s next case mythic) comes up every time, but on
   assert.ok(!seen.has('legendary') && seen.has('common'), 'bronze holds no legendaries, so it rolls as usual');
   const l = L.newLocker(); l.money = 100; l.cases.bronze = 1; l.pity = 3;
   const r = L.openCase(l, 'bronze', rnd, 'mythic');
-  assert.ok(r.rarity === 'mythic' && l.money === 85 && l.cases.bronze === 0 && l.pity === 0 && l.owned.includes(r.id));
+  assert.ok(r.rarity === 'mythic' && l.money === 100 - 8 && l.cases.bronze === 0 && l.pity === 0 && l.owned.includes(r.id));
 });
 test('mythic looks are animated, two of each kind, and the rarest in every grade', () => {
   const m = L.POOL.mythic.map(id => L.ALL[id]);
@@ -81,10 +81,10 @@ test('opening needs a case and the money, takes both, and adds a new item', () =
   assert.strictEqual(L.openCase(l, 'silver', Math.random), 'money');
   assert.strictEqual(L.openCase(l, 'tin', Math.random), 'unknown');
   l.money = 50; const r = L.openCase(l, 'silver', seeded(1));
-  assert.ok(r.id && !r.dup && l.owned.includes(r.id) && l.money === 10 && l.cases.silver === 0);
+  assert.ok(r.id && !r.dup && l.owned.includes(r.id) && l.money === 30 && l.cases.silver === 0);
 });
 test('a duplicate is sold at once for its rarity\'s price', () => {
-  const l = L.newLocker(); l.owned = L.CASE_ITEMS.map(it => it.id); l.claimed = [...L.RARITIES, 'all']; l.money = 15; l.cases.bronze = 1;
+  const l = L.newLocker(); l.owned = L.CASE_ITEMS.map(it => it.id); l.claimed = [...Object.keys(L.COLLECTIONS), ...L.RARITIES, 'all']; l.money = L.GRADES.bronze.open; l.cases.bronze = 1;
   const r = L.openCase(l, 'bronze', seeded(9));
   assert.ok(r.dup && r.sold === L.RARITY[r.rarity].sell && l.money === r.sold && l.owned.length === L.CASE_ITEMS.length);
 });
@@ -94,29 +94,36 @@ test('the reel shows items the case can really give', () => {
 });
 
 console.log('\nCollections');
-test('every rarity is a collection with a reward, bigger for the rarer ones, and its own effect', () => {
-  const C = L.COLLECTIONS, fx = L.RARITIES.map(r => C[r].fx);
-  assert.deepStrictEqual(Object.keys(C), L.RARITIES);
-  for (let i = 1; i < L.RARITIES.length; i++) assert.ok(C[L.RARITIES[i]].money > C[L.RARITIES[i - 1]].money);
-  assert.strictEqual(new Set([...fx, L.GRAND_FX]).size, 6); assert.ok([...fx, L.GRAND_FX].every(f => L.EFFECTS[f] && L.EFFECTS[f].name));
-  for (const r of L.RARITIES) for (const g in C[r].cases) assert.ok(L.GRADES[g], g);
+test('fifteen collections, a cloth, a cue and a glove one in each rarity, each with a reward, more for the rarer', () => {
+  const keys = Object.keys(L.COLLECTIONS);
+  assert.strictEqual(keys.length, 15);
+  for (const r of L.RARITIES) for (const k of L.KINDS) { const items = L.colItems(r + ':' + k); assert.ok(items.length >= 2 && items.every(id => L.ALL[id].kind === k && L.ALL[id].rarity === r), r + ':' + k); }
+  assert.strictEqual(keys.reduce((a, k) => a + L.colItems(k).length, 0), L.CASE_ITEMS.length, 'every case look is in exactly one');
+  for (let i = 1; i < L.RARITIES.length; i++) { const a = L.RARITIES[i - 1], b = L.RARITIES[i]; assert.ok(L.COLLECTIONS[b + ':cue'].money > L.COLLECTIONS[a + ':cue'].money && L.SETS[b].money > L.SETS[a].money); }
+  for (const r of L.RARITIES) assert.ok(L.SETS[r].money >= 2 * 3 * L.COLLECTIONS[r + ':cloth'].money, `${r}: a set pays far more than its three collections`);
+  const fx = [...L.RARITIES.map(r => L.SETS[r].fx), L.GRAND.fx]; assert.strictEqual(new Set(fx).size, 6); assert.ok(fx.every(f => L.EFFECTS[f] && L.EFFECTS[f].name));
+  for (const c of [...Object.values(L.COLLECTIONS), ...Object.values(L.SETS), L.GRAND]) for (const g in c.cases) assert.ok(L.GRADES[g], g);
 });
-test('completing a collection pays once: money, cases and its effect; all five add the starfield room', () => {
+test('a collection pays once; all three of a rarity pay its set and its effect; all fifteen the starfield room', () => {
   const l = L.newLocker(); l.money = 0; for (const g of L.GRADE_IDS) l.cases[g] = 0;
-  l.owned = L.POOL.common.slice(1); assert.deepStrictEqual(L.claimCollections(l), []); assert.ok(!L.collected(l, 'common'));
-  l.owned.push(L.POOL.common[0]);
-  assert.deepStrictEqual(L.claimCollections(l), ['common']); assert.ok(l.money === 300 && l.cases.gold === 1);
-  assert.deepStrictEqual(L.claimCollections(l), []); assert.strictEqual(l.money, 300, 'never paid twice');
-  assert.deepStrictEqual(L.effects(l), ['trail']);
-  l.owned = L.CASE_ITEMS.map(it => it.id);
-  assert.deepStrictEqual(L.claimCollections(l), ['rare', 'epic', 'legendary', 'mythic', 'all']);
-  assert.ok(l.money === 300 + 750 + 1500 + 4000 + 10000 && l.cases.gold === 3 && l.cases.diamond === 10);
+  const cl = L.colItems('common:cloth');
+  l.owned = cl.slice(1); assert.deepStrictEqual(L.claimCollections(l), []); assert.ok(!L.collected(l, 'common:cloth'));
+  l.owned.push(cl[0]);
+  assert.deepStrictEqual(L.claimCollections(l), ['common:cloth']); assert.ok(l.money === 150 && l.cases.silver === 1);
+  assert.deepStrictEqual(L.claimCollections(l), []); assert.strictEqual(l.money, 150, 'never paid twice');
+  assert.deepStrictEqual(L.effects(l), [], 'no effect until the set is complete');
+  l.owned.push(...L.colItems('common:cue'), ...L.colItems('common:glove'));
+  assert.deepStrictEqual(L.claimCollections(l), ['common:cue', 'common:glove', 'common']);
+  assert.ok(l.money === 3 * 150 + 1000 && l.cases.silver === 3 && l.cases.gold === 3); assert.deepStrictEqual(L.effects(l), ['trail']);
+  l.owned = L.CASE_ITEMS.map(it => it.id); const done = L.claimCollections(l);
+  assert.ok(done.length === 12 + 4 + 1 && done.slice(-5).join() === 'rare,epic,legendary,mythic,all', done.join());
+  assert.strictEqual(l.money, 3 * 150 + 1000 + 3 * 400 + 2500 + 3 * 800 + 5000 + 3 * 2000 + 12000 + 3 * 5000 + 30000 + 50000);
   assert.deepStrictEqual(L.effects(l), ['trail', 'rails', 'sparks', 'neon', 'cosmic', 'stars']);
 });
 test('opening the case that completes a collection says so', () => {
   const l = L.newLocker(); l.money = 1000; l.cases.diamond = 1; l.owned = L.POOL.mythic.slice(1);
   const r = L.openCase(l, 'diamond', seeded(2), 'mythic');
-  assert.ok(r.id === L.POOL.mythic[0] && !r.dup && r.done.includes('mythic') && l.claimed.includes('mythic'), JSON.stringify(r));
+  assert.ok(r.id === L.POOL.mythic[0] && !r.dup && r.done.includes('mythic:' + L.ALL[r.id].kind) && r.done.includes('mythic') && l.claimed.includes('mythic'), JSON.stringify(r));
 });
 test('a mythic is never a duplicate until all six are owned', () => {
   const l = L.newLocker(), rnd = seeded(8); l.money = 1e6; l.cases.diamond = 6;
@@ -125,9 +132,9 @@ test('a mythic is never a duplicate until all six are owned', () => {
   const r = L.openCase(l, 'diamond', rnd, 'mythic'); assert.ok(r.dup && r.sold === 500 && r.done.length === 0);
 });
 test('the saved locker keeps what was claimed, cleaned, and merging never pays a reward twice', () => {
-  assert.deepStrictEqual(L.validateLocker({ v: 1, claimed: ['rare', 'rare', 'tin', 'all', '__proto__'] }).claimed, ['rare', 'all']);
+  assert.deepStrictEqual(L.validateLocker({ v: 1, claimed: ['rare', 'rare', 'tin', 'all', '__proto__', 'mythic:cue', 'mythic:hat'] }).claimed, ['rare', 'all', 'mythic:cue']);
   assert.deepStrictEqual(L.newLocker().claimed, []);
-  const l = L.newLocker(); L.mergeLocker(l, { v: 1, owned: L.POOL.common, claimed: ['common'], money: 0 });
+  const l = L.newLocker(); L.mergeLocker(l, { v: 1, owned: L.POOL.common, claimed: ['common:cloth', 'common:cue', 'common:glove', 'common'], money: 0 });
   const m = l.money; assert.deepStrictEqual(L.claimCollections(l), []); assert.strictEqual(l.money, m);
 });
 
@@ -142,25 +149,25 @@ test('buying a case or a shop look needs the money, and a look only once', () =>
 });
 
 console.log('\nEarning');
-test('frames won against the computer pay, and every 3 fill a case of the level\'s grade', () => {
+test('every frame won against the computer pays, and earns a case of the level\'s grade', () => {
   const l = L.newLocker(); l.money = 0;
-  let r = L.cpuFrameWon(l, 'hard'); assert.ok(r.pay === 30 && !r.grade && r.meter.grade === 'gold' && r.meter.n === 1);
-  L.cpuFrameWon(l, 'hard'); r = L.cpuFrameWon(l, 'hard');
-  assert.ok(r.grade === 'gold' && l.cases.gold === 1 && l.meter.gold === 0 && l.money === 90);
-  assert.ok(L.cpuFrameWon(l, 'easy').meter.grade === 'bronze' && L.cpuFrameWon(l, 'nonsense') === null);
+  const r = L.cpuFrameWon(l, 'hard'); assert.ok(r.pay === 90 && r.grade === 'gold' && l.cases.gold === 1 && l.money === 90);
+  L.cpuFrameWon(l, 'hard'); assert.ok(l.cases.gold === 2 && l.money === 180);
+  assert.ok(L.cpuFrameWon(l, 'easy').grade === 'bronze' && L.cpuFrameWon(l, 'expert').pay === 150 && L.cpuFrameWon(l, 'nonsense') === null);
 });
-test('career frames fill the tier\'s meter without pay; events give the tier\'s case, championships the next', () => {
+test('every career frame won earns the tier\'s case, without pay; an event two cases, a championship two of the next grade', () => {
   const l = L.newLocker(), m0 = l.money;
-  assert.ok(L.careerFrameWon(l, 1).meter.grade === 'silver' && l.money === m0);
-  assert.deepStrictEqual(L.eventWon(l, 0, false), { grade: 'bronze', n: 1 });
-  assert.deepStrictEqual(L.eventWon(l, 0, true), { grade: 'silver', n: 1 });
-  assert.deepStrictEqual(L.eventWon(l, 3, true), { grade: 'diamond', n: 2 });
-  assert.ok(l.cases.bronze === 1 && l.cases.silver === 2 && l.cases.diamond === 2);
+  assert.ok(L.careerFrameWon(l, 1).grade === 'silver' && l.money === m0 && l.cases.silver === 2);
+  assert.deepStrictEqual(L.eventWon(l, 0, false), { grade: 'bronze', n: 2 });
+  assert.deepStrictEqual(L.eventWon(l, 0, true), { grade: 'silver', n: 2 });
+  assert.deepStrictEqual(L.eventWon(l, 3, true), { grade: 'diamond', n: 4 });
+  assert.ok(l.cases.bronze === 2 && l.cases.silver === 4 && l.cases.diamond === 4);
 });
-test('only the first online win of the day pays', () => {
-  const l = L.newLocker();
-  assert.ok(L.onlineWon(l, '2026-10-08').grade === 'gold' && L.onlineWon(l, '2026-10-08') === null && L.onlineWon(l, '2026-10-09'));
-  assert.strictEqual(l.cases.gold, 2);
+test('only the first online win of the day pays: £100 and two gold cases', () => {
+  const l = L.newLocker(); l.money = 0;
+  assert.deepStrictEqual(L.onlineWon(l, '2026-10-08'), { pay: 100, grade: 'gold', n: 2 });
+  assert.ok(L.onlineWon(l, '2026-10-08') === null && L.onlineWon(l, '2026-10-09'));
+  assert.ok(l.cases.gold === 4 && l.money === 200);
 });
 
 console.log('\nThe saved locker');

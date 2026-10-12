@@ -113,7 +113,8 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **"Next case mythic" (dev mode only, at the owner's request):** a one-shot switch in Settings, so a mythic reveal can be seen whenever wanted; it only works in the test locker, never on real cases, and turns itself off after one case so it can't be left on by mistake. The other items on the reel still follow the case's odds.
 - **Dev mode exists so the owner can try every look:** a secret word, typed as the online name, swaps in a test locker with everything; the real locker is untouched. The word is known only to the owner; the public code holds just its fingerprint.
 - **Cloth patterns stay low-contrast:** each pattern's colour is close to its cloth's, and every one was checked in screenshots with the balls on the table.
-- **Collections and their rewards (the owner asked for a shop of collections, a row per rarity, and "cool" rewards; the owner picked effects plus money and cases):** each effect is one you can't get any other way, and they're display only and local, so online play needs no change (showing your opponent's would need both players on a new version). The amounts rise with rarity; the mythic reward is a long-term goal.
+- **Collections and their rewards (the owner asked for a shop of collections and "cool" rewards, then for a collection per kind in each rarity with a massive reward for a whole rarity):** fifteen collections pay money and cases; the five sets (all three of a rarity) pay far more and carry the effects; all fifteen bring the starfield room. Each effect is one you can't get any other way, and they're display only and local, so online play needs no change (showing your opponent's would need both players on a new version).
+- **Faster earning (the owner asked for much faster cases and faster money; the owner picked a case every frame and money ×3):** every frame won against the computer or in the career now gives a case (it took three), pay per frame is three times what it was, career prize money is doubled, an event win gives two cases, the daily online win £100 and two gold cases, and opening a case costs half as much, so the money isn't all spent opening them.
 - **No duplicate mythics until all six are owned (the owner's pick):** with duplicates, owning all six took about 490 diamond cases on average; now about 200.
 - **The inventory is one long list, rarest first, and the shop holds what you don't own (the owner asked to drop the cloth, cue and glove tabs):** the lists scroll inside the locker's panel, so the screen still fits a phone on its side.
 - **The top-tier looks are painted from noise:** the old ones were a few lines and blobs. Painting a whole bed took up to 10 seconds in the test browser, so the noise uses a lookup table, these cloths are drawn at half the usual resolution (smooth noise doesn't need more) and the last four are kept: Magma now takes about 0.3 seconds there, Galaxy under 0.1. Magma and Synthwave were toned down after the first try, which was too bright to see the balls on. Blaze's flicker was slowed from about 3.7 times a second to about once.
@@ -160,15 +161,16 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 | Grade | Common | Rare | Epic | Legendary | Mythic | Open | Buy |
 |---|---|---|---|---|---|---|---|
-| Bronze | 72% | 24% | 3.8% | 0% | 0.2% | £15 | £45 |
-| Silver | 50% | 36% | 11.5% | 2% | 0.5% | £40 | £110 |
-| Gold | 25% | 45% | 23% | 6% | 1% | £90 | £260 |
-| Diamond | 0% | 50% | 34% | 13% | 3% | £200 | £600 |
+| Bronze | 72% | 24% | 3.8% | 0% | 0.2% | £8 | £45 |
+| Silver | 50% | 36% | 11.5% | 2% | 0.5% | £20 | £110 |
+| Gold | 25% | 45% | 23% | 6% | 1% | £45 | £260 |
+| Diamond | 0% | 50% | 34% | 13% | 3% | £100 | £600 |
 
 - **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary), £500 (mythic). A mythic is a duplicate only once all six are owned.
-- **Collection rewards** (`COLLECTIONS`): common £300 and a gold case (chalk trail); rare £750 and two gold cases (gold rails); epic £1,500 and two diamond cases (pot sparks); legendary £4,000 and three diamond cases (your name in neon); mythic £10,000 and five diamond cases (cosmic cue ball); all five, the starfield room.
-- **Frames won against the computer pay** £5 (Easy), £15 (Medium), £30 (Hard), £50 (Expert), and every 3 at a level fill a case of its grade (bronze, silver, gold, diamond). Career frames fill the circuit's grade (pub bronze, club silver, hall gold, national diamond) without pay.
-- **The day's first online win:** £30 and a gold case. **A new locker:** £40 and a silver case.
+- **Collection rewards** (`KIND_REWARD`, for each of a rarity's cloth, cue and glove collections): common £150 and a silver case; rare £400 and a gold case; epic £800 and a diamond case; legendary £2,000 and two diamond cases; mythic £5,000 and three diamond cases.
+- **Set rewards** (`SETS`, all three of a rarity): common £1,000 and three gold cases (chalk trail); rare £2,500 and three diamond cases (gold rails); epic £5,000 and five diamond cases (pot sparks); legendary £12,000 and eight diamond cases (your name in neon); mythic £30,000 and twelve diamond cases (cosmic cue ball). All fifteen (`GRAND`): £50,000 and the starfield room.
+- **Frames won against the computer pay** £15 (Easy), £45 (Medium), £90 (Hard), £150 (Expert), and each gives a case of the level's grade (bronze, silver, gold, diamond). Each career frame won gives a case of the circuit's grade (pub bronze, club silver, hall gold, national diamond), without pay. Career prize money was doubled at the same time (the Red Lion Open's winner now gets £200); an event win gives two cases.
+- **The day's first online win:** £100 and two gold cases. **A new locker:** £40 and a silver case.
 - **The collection:** 60 looks in cases (14 cloths, 20 cues, 26 gloves; 17 common, 18 rare, 12 epic, 7 legendary, 6 mythic), plus the shop's 5 cloths and 6 cues and the free white gloves.
 
 **CPU** (`DIFF` in `core.js`)

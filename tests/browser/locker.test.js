@@ -46,7 +46,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('.caseCard:nth-child(2) .btn:nth-child(1)'); await sleep(600);
   const r1 = await p.evaluate(() => ({ ...__rr.reel.res }));
   L = await lock();
-  ok(await p.isVisible('#reel') && L.money === 300 && L.cases.silver === 0 && L.owned.includes(r1.id), `the reel spins; £40 paid and the prize is already yours (${r1.id})`);
+  ok(await p.isVisible('#reel') && L.money === 320 && L.cases.silver === 0 && L.owned.includes(r1.id), `the reel spins; £20 paid and the prize is already yours (${r1.id})`);
   await sleep(600);
   const moving = await p.evaluate(() => getComputedStyle(document.querySelector('#reelStrip')).transform);
   ok(moving !== 'none' && await p.isHidden('#reelBtns'), 'still spinning, no buttons yet');
@@ -62,10 +62,10 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
 
   console.log('--- two pages open: changes in one show in the other');
   const p2 = await open();
-  await setLock(p2, { money: 10, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } });   // reaches the other page a moment later
-  ok(await until(async () => /£10 to spend · 1 case to open/.test(await p.textContent('#lockMoney')), 5000), 'the first page shows the change made in the second');
+  await setLock(p2, { money: 5, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } });   // reaches the other page a moment later
+  ok(await until(async () => /£5 to spend · 1 case to open/.test(await p.textContent('#lockMoney')), 5000), 'the first page shows the change made in the second');
   await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(200);
-  ok(/costs £15: you need £5 more/.test(await p.textContent('#lockNote')) && (await lock()).cases.bronze === 1, 'too little money to open it: nothing taken, and it says how much more');
+  ok(/costs £8: you need £3 more/.test(await p.textContent('#lockNote')) && (await lock()).cases.bronze === 1, 'too little money to open it: nothing taken, and it says how much more');
   await p2.close();
 
   console.log('--- Preview: your looks at the table, and trying on ones you don\'t own');
@@ -91,10 +91,11 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('.caseCard:nth-child(1) .btn:nth-child(2)'); await sleep(300);
   L = await lock(); ok(L.money === 155 && L.cases.bronze === 2, `bought a bronze case for £45 (money £${L.money}, ${L.cases.bronze} bronze)`);
   const all = await p.evaluate(() => __rr.LK.CASE_ITEMS.map(it => it.id));
-  await setLock(p, { owned: all, claimed: ['common', 'rare', 'epic', 'legendary', 'mythic', 'all'], money: 100 }); await p.reload(); await sleep(1200); await p.click('[data-go="locker"]'); await sleep(400);
+  const ALLC = await p.evaluate(() => [...Object.keys(__rr.LK.COLLECTIONS), ...__rr.LK.RARITIES, 'all']);   // every reward counted as paid
+  await setLock(p, { owned: all, claimed: ALLC, money: 100 }); await p.reload(); await sleep(1200); await p.click('[data-go="locker"]'); await sleep(400);
   await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(300); await p.click('#reelWin'); await sleep(300);
   const r2 = await p.evaluate(() => ({ ...__rr.reel.res })); L = await lock();
-  ok(r2.dup && r2.sold > 0 && L.money === 100 - 15 + r2.sold && /sold for £\d+/.test(await p.textContent('#reelTxt')) && await p.isHidden('#bReelUse'), `a duplicate is sold at once (${r2.id} for £${r2.sold})`);
+  ok(r2.dup && r2.sold > 0 && L.money === 100 - 8 + r2.sold && /sold for £\d+/.test(await p.textContent('#reelTxt')) && await p.isHidden('#bReelUse'), `a duplicate is sold at once (${r2.id} for £${r2.sold})`);
   await p.click('#bReelDone'); await sleep(200);
 
   console.log('--- the show: the room dims, the reel fills the screen, and the background matches the prize');
@@ -124,17 +125,20 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   ok(await p.isHidden('#reel') && !(await p.evaluate(() => __rr.fx.show)), 'Done: the reel closes and the show stops');
 
   console.log('--- collections: a row per rarity in the shop, and a reward for each one completed');
-  const pools = await p.evaluate(() => __rr.LK.POOL), allBut = all.filter(id => id !== pools.common[0]);
-  await setLock(p, { owned: allBut, claimed: ['rare', 'epic', 'legendary', 'mythic'], money: 100, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } }); await p.reload(); await sleep(1200);
+  const pools = await p.evaluate(() => __rr.LK.POOL), allBut = all.filter(id => id !== pools.common[0]), k0 = await p.evaluate(id => __rr.LK.ALL[id].kind, pools.common[0]), c0 = 'common:' + k0;
+  await setLock(p, { owned: allBut, claimed: ALLC.filter(c => c !== c0 && c !== 'common' && c !== 'all'), money: 100, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } }); await p.reload(); await sleep(1200);
   await p.click('[data-go="locker"]'); await sleep(400); await p.click('#lockTabs .btn:nth-child(3)'); await sleep(300); await fits('Locker, shop');
   const rows = await p.$$eval('.colHead', hs => hs.map(h => `${h.dataset.r || 'sale'} ${h.querySelector('.colN') ? h.querySelector('.colN').textContent : ''}`.trim()));
-  ok(rows.join() === 'sale,mythic 6/6 ✓,legendary 7/7 ✓,epic 12/12 ✓,rare 18/18 ✓,common 16/17,all 4/5', `the shop: what's for sale, then a row per rarity, rarest first, with how many you have (${rows})`);
+  ok(rows.join() === 'sale,mythic 3/3 ✓,legendary 3/3 ✓,epic 3/3 ✓,rare 3/3 ✓,common 2/3,all 14/15', `the shop: what's for sale, then each rarity's set, rarest first, with how many of its three collections you have (${rows})`);
+  const subs = await p.$$eval('.colSub', ss => ss.map(x => `${x.dataset.c} ${x.querySelector('.colN').textContent}`)), n0 = (await p.evaluate(c => __rr.LK.colItems(c).length, c0));
+  ok(subs.length === 15 && subs.includes(`${c0} ${n0 - 1}/${n0}`) && subs.filter(x => /✓$/.test(x)).length === 14, `fifteen collections, a cloth, cue and glove one in each rarity, the ${c0} one short of one (${subs.filter(x => !/✓$/.test(x))})`);
   ok(await p.evaluate(id => document.querySelector(`.colTile[data-id="${id}"]`).classList.contains('locked'), pools.common[0]) && (await p.$$('.colTile.sale')).length === 11, 'the one still missing is dimmed; eleven looks for sale');
   await p.click('#lockTabs .btn:nth-child(1)'); await sleep(250);
   await force(0.1); await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(500); await p.click('#reelWin'); await sleep(600);
   const got = await p.evaluate(() => ({ ...__rr.reel.res })), rtxt = await p.textContent('#reelTxt'); L = await lock();
-  ok(got.id === pools.common[0] && /Common collection complete: £300, a gold case and Chalk trail!/.test(rtxt) && /All five collections: Starfield room!/.test(rtxt), `the last common completes its collection, and with it all five: the reel says so ("${rtxt}")`);
-  ok(L.money === 100 - 15 + 300 && L.cases.gold === 1 && L.claimed.includes('common') && L.claimed.includes('all'), `£300 and a gold case are paid, once (money £${L.money})`);
+  ok(got.id === pools.common[0] && new RegExp(`Common ${k0} collection complete: £150 and a silver case!`).test(rtxt) && /Every common collection complete: £1,000, 3 gold cases and Chalk trail!/.test(rtxt) && /All fifteen collections complete: £50,000 and the Starfield room!/.test(rtxt),
+    `the last common completes its collection, the common set, and all fifteen: the reel says so ("${rtxt}")`);
+  ok(L.money === 100 - 8 + 150 + 1000 + 50000 && L.cases.silver === 1 && L.cases.gold === 3 && [c0, 'common', 'all'].every(c => L.claimed.includes(c)), `each reward is paid, once (money £${L.money})`);
   await p.click('#bReelDone'); await sleep(200);
   let fx = await p.evaluate(() => __rr.effects);
   ok(fx.on.join() === 'trail,rails,sparks,neon,cosmic,stars' && fx.rails && fx.cosmic && fx.stars && fx.sign === 'Tess', `every effect is on: gold rails, the cosmic cue ball, the starfield room, and your name in neon (${JSON.stringify(fx)})`);
@@ -176,16 +180,16 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await setLock(p, { money: 0, meter: { bronze: 0, silver: 0, gold: 0, diamond: 0 }, cases: { bronze: 0, silver: 0, gold: 0, diamond: 0 } });
   const win = async () => { await until(() => p.evaluate(() => __rr.state !== 'over' && __rr.concedeFrame(false, 1))); await until(() => p.isVisible('#over'), 5000); return p.textContent('#overEarn'); };
   let e = await win();
-  ok(e === 'You earn £30. Gold case: 1 of 3 frames.', `a frame won against Hard: "${e}"`);
+  ok(e === 'You earn £90 and a gold case!', `every frame won against Hard: "${e}"`);
   await p.click('#bAgain'); await sleep(1200); await win(); await p.click('#bAgain'); await sleep(1200); e = await win();
-  L = await lock(); ok(e === 'You earn £30 and a gold case!' && L.cases.gold === 1 && L.money === 90 && L.meter.gold === 0, `the third: "${e}"`);
+  L = await lock(); ok(e === 'You earn £90 and a gold case!' && L.cases.gold === 3 && L.money === 270, `three frames, three gold cases and £270 (${JSON.stringify(L.cases)})`);
   await p.click('#bAgain'); await sleep(1200);
   await until(() => p.evaluate(() => __rr.state !== 'over' && __rr.concedeFrame(false, 0))); await until(() => p.isVisible('#over'), 5000);
-  ok(await p.textContent('#overEarn') === '' && (await lock()).money === 90, 'a frame lost earns nothing');
+  ok(await p.textContent('#overEarn') === '' && (await lock()).money === 270, 'a frame lost earns nothing');
   await p.click('#bOverMenu'); await sleep(500);
   await p.evaluate(() => { const r = __rr; r.M.mode = '8ball'; r.M.opp = 'friend'; r.startGame(false); }); await sleep(1200);
   await until(() => p.evaluate(() => __rr.state !== 'over' && __rr.concedeFrame(false, 1))); await until(() => p.isVisible('#over'), 5000);
-  ok(await p.textContent('#overEarn') === '' && (await lock()).money === 90, 'same-device games earn nothing');
+  ok(await p.textContent('#overEarn') === '' && (await lock()).money === 270, 'same-device games earn nothing');
   await p.click('#bOverMenu'); await sleep(500);
 
   console.log('--- dev mode: a test locker with everything (tested with a stand-in word; the real one stays secret)');

@@ -18,23 +18,29 @@ const RARITIES = Object.keys(RARITY);
 // order (legendaries in silver and better, mythics in all of them, very rarely). open: what opening one costs. price:
 // what buying one costs.
 const GRADES = {
-  bronze: { name: 'Bronze case', col: '#c98a4b', odds: [72, 24, 3.8, 0, 0.2], open: 15, price: 45 },
-  silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 11.5, 2, 0.5], open: 40, price: 110 },
-  gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 23, 6, 1], open: 90, price: 260 },
-  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 34, 13, 3], open: 200, price: 600 },
+  bronze: { name: 'Bronze case', col: '#c98a4b', odds: [72, 24, 3.8, 0, 0.2], open: 8, price: 45 },
+  silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 11.5, 2, 0.5], open: 20, price: 110 },
+  gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 23, 6, 1], open: 45, price: 260 },
+  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 34, 13, 3], open: 100, price: 600 },
 };
 const GRADE_IDS = Object.keys(GRADES);
 const PITY = 8;   // at least one epic or better in every 8 cases opened
-// Collections: every case look of one rarity. Completing one pays its reward, once: money, cases and an effect only a
-// collection gives (drawn by game.js; display only, and only on your own screen). All five add the starfield room.
-const COLLECTIONS = {
-  common: { money: 300, cases: { gold: 1 }, fx: 'trail' },
-  rare: { money: 750, cases: { gold: 2 }, fx: 'rails' },
-  epic: { money: 1500, cases: { diamond: 2 }, fx: 'sparks' },
-  legendary: { money: 4000, cases: { diamond: 3 }, fx: 'neon' },
-  mythic: { money: 10000, cases: { diamond: 5 }, fx: 'cosmic' },
+// Collections: the case looks of one rarity and one kind (the common cloths, the mythic gloves and so on), 15 in all.
+// Each pays its reward once, when complete: money and cases, more for the rarer ones. All three of a rarity make its
+// set, which pays far more and adds an effect only a set gives (drawn by game.js; display only, and only on your own
+// screen). All fifteen add the starfield room (GRAND).
+const KINDS = ['cloth', 'cue', 'glove'];
+const KIND_REWARD = { common: { money: 150, cases: { silver: 1 } }, rare: { money: 400, cases: { gold: 1 } }, epic: { money: 800, cases: { diamond: 1 } },
+  legendary: { money: 2000, cases: { diamond: 2 } }, mythic: { money: 5000, cases: { diamond: 3 } } };
+const COLLECTIONS = {}; for (const r of RARITIES) for (const k of KINDS) COLLECTIONS[r + ':' + k] = { rarity: r, kind: k, ...KIND_REWARD[r] };
+const SETS = {
+  common: { money: 1000, cases: { gold: 3 }, fx: 'trail' },
+  rare: { money: 2500, cases: { diamond: 3 }, fx: 'rails' },
+  epic: { money: 5000, cases: { diamond: 5 }, fx: 'sparks' },
+  legendary: { money: 12000, cases: { diamond: 8 }, fx: 'neon' },
+  mythic: { money: 30000, cases: { diamond: 12 }, fx: 'cosmic' },
 };
-const GRAND_FX = 'stars';
+const GRAND = { money: 50000, cases: {}, fx: 'stars' };
 const EFFECTS = {
   trail: { name: 'Chalk trail', txt: 'The cue ball leaves a trail of chalk dust as it rolls.' },
   rails: { name: 'Gold rails', txt: 'The table\'s rails are trimmed in polished gold.' },
@@ -45,14 +51,14 @@ const EFFECTS = {
 };
 
 // What playing earns. A frame won against the computer pays money and moves that level's case meter on; METER frames
-// fill it. Career frames fill the meter of the tier's grade (prize money is their pay). An event won gives a case of
-// the tier's grade, its championship the grade above (two of the best at the top). The day's first online win gives
-// ONLINE. Practice and same-device games earn nothing.
-const CPU_PAY = { easy: 5, medium: 15, hard: 30, expert: 50 };
+// fill it (one, so every frame won earns a case). Career frames fill the meter of the tier's grade (prize money is
+// their pay). An event won gives EVENT_CASES of the tier's grade, its championship of the grade above (twice as many
+// of the best at the top). The day's first online win gives ONLINE. Practice and same-device games earn nothing.
+const CPU_PAY = { easy: 15, medium: 45, hard: 90, expert: 150 };
 const LEVEL_GRADE = { easy: 'bronze', medium: 'silver', hard: 'gold', expert: 'diamond' };
 const TIER_GRADE = ['bronze', 'silver', 'gold', 'diamond'];
-const METER = 3;
-const ONLINE = { pay: 30, grade: 'gold' };
+const METER = 1, EVENT_CASES = 2;
+const ONLINE = { pay: 100, grade: 'gold', n: 2 };
 // a new locker: one silver case and the money to open it, so everyone can try a case straight away
 const START = { money: 40, cases: { silver: 1 } };
 
@@ -155,8 +161,8 @@ const reelItems = (grade, n, rnd) => Array.from({ length: n }, () => roll(grade,
 
 // The locker. money: what's left to spend. owned: looks owned beyond the free ones. cases: unopened cases by grade.
 // meter: frames towards the next case of each grade. pity: cases opened since the last epic or better. daily: the day
-// (YYYY-MM-DD) of the last online win that paid. opened: cases opened in all. claimed: the collections whose reward
-// has been paid (rarities, and 'all').
+// (YYYY-MM-DD) of the last online win that paid. opened: cases opened in all. claimed: the rewards paid: collections
+// ('rarity:kind'), sets (a rarity) and 'all'.
 function newLocker() {
   const l = { v: 1, money: START.money, owned: [], cases: {}, meter: {}, pity: 0, daily: '', opened: 0, claimed: [] };
   for (const g of GRADE_IDS) { l.cases[g] = START.cases[g] || 0; l.meter[g] = 0; }
@@ -170,7 +176,7 @@ function validateLocker(o) {
   l.owned = Array.isArray(o.owned) ? [...new Set(o.owned.filter(id => has(ALL, id) && !FREE.includes(id)))] : [];
   for (const g of GRADE_IDS) { l.cases[g] = n(o.cases && o.cases[g], 999); l.meter[g] = n(o.meter && o.meter[g], METER - 1); }
   l.pity = n(o.pity, PITY - 1); l.daily = typeof o.daily === 'string' && /^\d{4}-\d\d-\d\d$/.test(o.daily) ? o.daily : ''; l.opened = n(o.opened);
-  l.claimed = Array.isArray(o.claimed) ? [...new Set(o.claimed.filter(r => r === 'all' || has(COLLECTIONS, r)))] : [];
+  l.claimed = Array.isArray(o.claimed) ? [...new Set(o.claimed.filter(r => r === 'all' || has(COLLECTIONS, r) || has(SETS, r)))] : [];
   return l;
 }
 // brings another locker (from a career file) into this one without taking anything away: the looks of both, and the
@@ -201,21 +207,21 @@ function openCase(l, grade, rnd, force) {
   if (dup) l.money += RARITY[rarity].sell; else l.owned.push(id);
   return { id, rarity, dup, sold: dup ? RARITY[rarity].sell : 0, done: claimCollections(l) };
 }
-// a collection is complete when every case look of its rarity is owned
-const collected = (l, r) => POOL[r].every(id => l.owned.includes(id));
-// pays the rewards of collections completed since last time, each only once: the rarities newly completed, and 'all'
-// when the last of the five is
+// a collection's looks (key: 'rarity:kind'); a collection is complete when all are owned (a rarity: all its looks)
+const colItems = key => POOL[COLLECTIONS[key].rarity].filter(id => ALL[id].kind === COLLECTIONS[key].kind);
+const collected = (l, key) => (has(COLLECTIONS, key) ? colItems(key) : POOL[key]).every(id => l.owned.includes(id));
+function payOut(l, c) { l.money += c.money; for (const g in c.cases) l.cases[g] = Math.min(999, l.cases[g] + c.cases[g]); }
+// pays the rewards of collections completed since last time, each only once: the collections newly completed
+// ('rarity:kind'), then any sets (a rarity) they finish, then 'all' when the last of the fifteen is
 function claimCollections(l) {
   const out = [];
-  for (const r of RARITIES) if (!l.claimed.includes(r) && collected(l, r)) {
-    const c = COLLECTIONS[r]; l.claimed.push(r); l.money += c.money; out.push(r);
-    for (const g in c.cases) l.cases[g] = Math.min(999, l.cases[g] + c.cases[g]);
-  }
-  if (!l.claimed.includes('all') && RARITIES.every(r => l.claimed.includes(r))) { l.claimed.push('all'); out.push('all'); }
+  for (const key in COLLECTIONS) if (!l.claimed.includes(key) && collected(l, key)) { l.claimed.push(key); payOut(l, COLLECTIONS[key]); out.push(key); }
+  for (const r of RARITIES) if (!l.claimed.includes(r) && KINDS.every(k => l.claimed.includes(r + ':' + k))) { l.claimed.push(r); payOut(l, SETS[r]); out.push(r); }
+  if (!l.claimed.includes('all') && RARITIES.every(r => l.claimed.includes(r))) { l.claimed.push('all'); payOut(l, GRAND); out.push('all'); }
   return out;
 }
-// the effects a locker has earned, in collection order
-const effects = l => [...RARITIES.filter(r => l.claimed.includes(r)).map(r => COLLECTIONS[r].fx), ...(l.claimed.includes('all') ? [GRAND_FX] : [])];
+// the effects a locker has earned, in set order
+const effects = l => [...RARITIES.filter(r => l.claimed.includes(r)).map(r => SETS[r].fx), ...(l.claimed.includes('all') ? [GRAND.fx] : [])];
 // buys a case: 'ok' or why not
 function buyCase(l, grade) {
   if (!has(GRADES, grade)) return 'unknown';
@@ -246,18 +252,18 @@ function cpuFrameWon(l, level) {
 const careerFrameWon = (l, tier) => ({ pay: 0, ...meterStep(l, TIER_GRADE[tier]) });
 // an event won: the cases it gives (prize money is added separately)
 function eventWon(l, tier, champ) {
-  const top = TIER_GRADE.length - 1, g = TIER_GRADE[Math.min(top, tier + (champ ? 1 : 0))], n = champ && tier === top ? 2 : 1;
+  const top = TIER_GRADE.length - 1, g = TIER_GRADE[Math.min(top, tier + (champ ? 1 : 0))], n = (champ && tier === top ? 2 : 1) * EVENT_CASES;
   l.cases[g] += n;
   return { grade: g, n };
 }
 // the day's first online win: the reward, or null if today's has been had. day: the local date, YYYY-MM-DD
 function onlineWon(l, day) {
   if (l.daily === day) return null;
-  l.daily = day; l.money += ONLINE.pay; l.cases[ONLINE.grade]++;
-  return { pay: ONLINE.pay, grade: ONLINE.grade };
+  l.daily = day; l.money += ONLINE.pay; l.cases[ONLINE.grade] += ONLINE.n;
+  return { pay: ONLINE.pay, grade: ONLINE.grade, n: ONLINE.n };
 }
 
-return { RARITY, RARITIES, GRADES, GRADE_IDS, PITY, COLLECTIONS, GRAND_FX, EFFECTS, collected, claimCollections, effects, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
+return { RARITY, RARITIES, GRADES, GRADE_IDS, PITY, KINDS, COLLECTIONS, SETS, GRAND, EFFECTS, colItems, collected, claimCollections, effects, EVENT_CASES, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
   roll, reelItems, newLocker, validateLocker, mergeLocker, owns, openCase, buyCase, buyLook, cpuFrameWon, careerFrameWon, eventWon, onlineWon };
 })(typeof CAREER !== 'undefined' ? CAREER : require('./career.js'));
 if (typeof module !== 'undefined') module.exports = LOOKS;
