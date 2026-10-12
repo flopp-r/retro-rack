@@ -158,8 +158,11 @@ function hudVars() {
   st.setProperty('--sw', Math.round(innerWidth - $('#shot').getBoundingClientRect().left) + 'px');
 }
 if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); for (const s of ['#tools', '#board', '#practice', '#shot']) ro.observe($(s)); }
+// Pixel size 0 is Max: one game pixel per real screen pixel (at most 3 per CSS pixel), so a screen scaled above 100%,
+// or a phone, shows finer detail than 1×; on a screen at 100% it's the same as 1×.
+const screenDpr = () => Math.min(3, Math.max(1, devicePixelRatio || 1));
 function resize() {
-  const px = clamp(Math.round(S.pixel), 1, 6);
+  const px = S.pixel === 0 ? 1 / screenDpr() : clamp(Math.round(S.pixel), 1, 6);
   VW = Math.max(80, Math.ceil(innerWidth / px)); VH = Math.max(60, Math.ceil(innerHeight / px));
   renderer.setSize(VW, VH, false);
   canvas.style.width = VW * px + 'px'; canvas.style.height = VH * px + 'px';
@@ -170,6 +173,16 @@ function resize() {
   postMat.uniforms.tColor.value = rt.texture; postMat.uniforms.tDepth.value = rt.depthTexture;
   postMat.uniforms.uRes.value.set(VW, VH);
   requestAnimationFrame(hudVars);
+}
+// the screen's pixels change size when the window moves to another screen or the page is zoomed
+(function watchDpr() {
+  if (!window.matchMedia) return;
+  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => { if (S.pixel === 0) resize(); pixNote(); watchDpr(); }, { once: true });
+})();
+function pixNote() {
+  const d = Math.round(screenDpr() * 100) / 100;
+  $('#sPixelNote').textContent = (d > 1 ? `Max uses every pixel your screen has: here ${d} times as many each way as 1×.` : "Max uses every pixel your screen has; here that's the same as 1×.")
+    + ' Bigger is more retro and less work for phones.';
 }
 function applyLook() {
   postMat.uniforms.uLevels.value = S.levels;
@@ -2104,7 +2117,8 @@ function refreshMenus() {
   segControl($('#sGuide'), GUIDES, () => M.guide, v => { M.guide = v; aimDirty = true; });
   segControl($('#sLevels'), [[4, '4'], [6, '6'], [8, '8'], [12, '12'], [256, 'Full']], () => S.levels, v => { S.levels = v; saveS(); applyLook(); });
   segControl($('#sVolume'), [[0, 'Off'], [0.25, '25%'], [0.5, '50%'], [0.75, '75%'], [1, '100%']], () => S.volume, v => { S.volume = v; saveS(); ensureAudio(); });
-  segControl($('#sPixel'), [[1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
+  segControl($('#sPixel'), [[0, 'Max'], [1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
+  pixNote();
   for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
