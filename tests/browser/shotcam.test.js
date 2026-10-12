@@ -1,5 +1,6 @@
-// The shot camera: your own shot swings the view down to your eyes behind the cue and back once the balls stop; not for
-// the computer's shots, not with the Settings switch off or with reduced motion, and moving the camera yourself keeps it.
+// The shot camera: pressing Shoot holds your aim while the view glides in behind the cue, then the stroke plays, and the
+// view goes back once the balls stop; not for the computer's shots, not with the Settings switch off or with reduced
+// motion (the stroke then starts at once), and moving the camera yourself keeps it.
 const { chromium, FILE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -21,14 +22,17 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   console.log('--- your own shot');
   await start('practice', 'friend'); await settle(); await aimAt(0.3);
   const before = await cam();
-  await ev(() => __rr.beginStroke()); await sleep(700);
+  await ev(() => __rr.shoot()); await sleep(150);
+  const held = await cam();
+  ok(held.mode === 'shot' && held.state === 'set' && await p.isDisabled('#bShoot'), `pressing Shoot holds the aim while the view swings in (${held.state})`);
+  ok(await until(() => ev(() => __rr.state === 'stroke' || __rr.state === 'moving'), 3000), 'then the stroke plays');
   const mid = await cam();
-  ok(mid.mode === 'shot' && Math.abs(mid.pitch - 0.24) < 0.08 && Math.abs(mid.dist - 0.62) < 0.2, `shooting swings the view down behind the cue (${JSON.stringify(mid)})`);
+  ok(mid.mode === 'shot' && Math.abs(mid.pitch - 0.4) < 0.05 && Math.abs(mid.dist - 0.95) < 0.1, `by then the view is over the cue, looking down the line (${JSON.stringify(mid)})`);
   await settle(); await sleep(200);
   ok((await cam()).mode === before.mode, `once the balls stop it goes back to the view you had ("${before.mode}")`);
 
   console.log('--- moving the camera during the shot keeps your view');
-  await ev(() => __rr.toggleTop()); await aimAt(0.3); await ev(() => __rr.beginStroke()); await sleep(500);
+  await ev(() => __rr.toggleTop()); await aimAt(0.3); await ev(() => __rr.shoot()); await sleep(500);
   ok((await cam()).mode === 'shot', 'from the overhead view too');
   await ev(() => __rr.cam.orbit(40, 0)); await settle(); await sleep(200);
   ok((await cam()).mode === 'free', 'dragging the view mid-shot keeps it where you put it, rather than going back to overhead');
@@ -38,14 +42,14 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   ok(await p.textContent('#sShotCam') === 'On', 'Settings has a Shot camera switch, on by default');
   await p.click('#sShotCam'); await sleep(150);
   ok(await p.textContent('#sShotCam') === 'Off' && await ev(() => JSON.parse(localStorage.getItem('retroRack.settings')).shotCam === false), 'switching it off is saved');
-  await p.keyboard.press('Escape'); await sleep(250); await aimAt(0.3); await ev(() => __rr.beginStroke()); await sleep(600);
-  ok((await cam()).mode !== 'shot', 'with it off, the view stays put');
+  await p.keyboard.press('Escape'); await sleep(250); await aimAt(0.3); await ev(() => __rr.shoot()); await sleep(100);
+  ok((await cam()).mode !== 'shot' && ['stroke', 'moving'].includes((await cam()).state), 'with it off, the view stays put and the stroke starts at once');
   await settle(); await ev(() => { __rr.S.shotCam = true; });
 
   console.log('--- the computer\'s shots keep the normal view');
   await start('8ball', 'bot'); await settle(); await aimAt(0.1);
   await ev(() => { const r = __rr; r.aim.phi += Math.PI; });   // away from every ball: a foul, so the computer plays next
-  await ev(() => __rr.beginStroke()); await sleep(400);
+  await ev(() => __rr.shoot()); await sleep(400);
   ok((await cam()).mode === 'shot', 'your shot against the computer gets it');
   let cpuShot = false, cpuShots = 0;
   for (let t = 0; t < 40000 && cpuShots < 1; t += 100) {
@@ -58,9 +62,9 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   console.log('--- reduced motion');
   const q = await page({ reducedMotion: 'reduce' });
   await q.evaluate(() => { const r = __rr; r.M.mode = 'practice'; r.M.opp = 'friend'; r.startGame(); }); await q.waitForTimeout(1500);
-  await q.evaluate(() => { const r = __rr, c = r.world.balls[0], o = r.world.balls.find(x => x.id); r.game.ballInHand = false; r.aim.phi = Math.atan2(o.z - c.z, o.x - c.x); r.aim.power = 0.3; r.beginStroke(); });
-  await q.waitForTimeout(600);
-  ok(await q.evaluate(() => __rr.cam.mode !== 'shot'), 'with reduced motion the view doesn\'t swing');
+  await q.evaluate(() => { const r = __rr, c = r.world.balls[0], o = r.world.balls.find(x => x.id); r.game.ballInHand = false; r.aim.phi = Math.atan2(o.z - c.z, o.x - c.x); r.aim.power = 0.3; r.shoot(); });
+  await q.waitForTimeout(100);
+  ok(await q.evaluate(() => __rr.cam.mode !== 'shot' && __rr.state !== 'set'), 'with reduced motion the view doesn\'t swing, and the stroke starts at once');
 
   ok(log.length === 0, 'console clean' + (log.length ? ': ' + log.join(' | ') : ''));
   await b.close();

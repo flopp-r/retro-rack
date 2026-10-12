@@ -1428,7 +1428,7 @@ function botAimTick(dt) {
 function idleGap() { return 0.012 + aim.power * 0.1; }
 function beginStroke() {
   if (state !== 'aim' && state !== 'botAim' && state !== 'remote') return;
-  const cue = world.balls[0], mine = state === 'aim' && humanTurn();
+  const cue = world.balls[0];
   if (state !== 'remote' && game.ballInHand && !C.validSpot(world.balls, cue.x, cue.z, 0, game.kitchen)) {
     if (isBot(game.turn)) C.placeCueHead(world.balls, cue);
     else { toast('Place the cue ball somewhere clear first', 'foul'); return; }
@@ -1442,8 +1442,19 @@ function beginStroke() {
   $('#thinking').hidden = true;
   stroke = { t: 0, from: idleGap(), back: idleGap() + 0.07 + 0.13 * aim.power, fwd: lerp(0.24, 0.075, aim.power) };
   state = 'stroke'; hideGuides();
-  if (mine && S.shotCam && !reduceMotion && cam.mode !== 'shot') { cam.shot = { x: cue.x, z: cue.z, phi: aim.phi, prev: cam.mode }; cam.mode = 'shot'; }
 }
+// Shoot pressed: with the shot camera, your aim is held (state 'set') while the view glides in behind the cue, and the
+// stroke starts once it's there (SET_T seconds), so nothing feels rushed. Without it, the stroke starts at once.
+const SET_T = 0.9;
+let setT = 0;
+function shoot() {
+  if (state !== 'aim' || !humanTurn()) return;
+  const cue = world.balls[0];
+  if (!S.shotCam || reduceMotion || (game.ballInHand && !C.validSpot(world.balls, cue.x, cue.z, 0, game.kitchen)) || (NET.on && (!NET.peer || NET.link !== 'online'))) return beginStroke();
+  cam.shot = { x: cue.x, z: cue.z, phi: aim.phi, prev: cam.mode, t: 0, from: { ...cam.cur } }; cam.mode = 'shot';
+  state = 'set'; setT = 0; hideGuides(); updateShotPanel();
+}
+function setTick(dt) { if ((setT += dt) >= SET_T) { state = 'aim'; beginStroke(); } }   // if the shot can't go now after all, the view goes back
 function strokeGap(dt) {
   const s = stroke; s.t += dt;
   const BACK = 0.32;
@@ -1529,7 +1540,7 @@ function cueFor(pl) {
 }
 function updateCue(dt) {
   const cue = world.balls[0];
-  const show = (PREV.on || state === 'aim' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
+  const show = (PREV.on || state === 'aim' || state === 'set' || state === 'botAim' || state === 'botThink' || state === 'stroke' || state === 'remote') && !cue.potted && !paused;
   cueMesh.visible = show; updateGloves(show, performance.now()); if (!show) return;
   const want = cueFor(game.turn); if (want !== cueNow) applyCue(want);
   cueFx(performance.now());
@@ -1633,9 +1644,9 @@ const cam = {
       const a = state === 'moving' && this.anchor ? this.anchor : [cue.x, cue.z];
       return { yaw: aim.phi + Math.PI, pitch: this.aimPitch, dist: this.aimDist, tx: a[0], ty: R, tz: a[1] };
     }
-    if (this.mode === 'shot') {   // your own shot, from your eyes: low behind the cue, looking down the line from where it was played
+    if (this.mode === 'shot') {   // your own shot, from your eyes: standing over the cue, looking down the line from where it was played
       const s = this.shot, dx = Math.cos(s.phi), dz = Math.sin(s.phi);
-      return { yaw: s.phi + Math.PI, pitch: 0.24, dist: 0.62, tx: s.x + dx * 0.25, ty: R, tz: s.z + dz * 0.25 };
+      return { yaw: s.phi + Math.PI, pitch: 0.4, dist: 0.95, tx: s.x + dx * 0.25, ty: R, tz: s.z + dz * 0.25 };
     }
     if (this.mode === 'show') {   // Preview: swinging slowly round the side of your cue, so the whole cue and both hands stay in view
       const dx = Math.cos(aim.phi), dz = Math.sin(aim.phi), t = reduceMotion ? 0 : (performance.now() - PREV.t0) / 1000;
@@ -1650,9 +1661,15 @@ const cam = {
   },
   update(dt) {
     if (this.mode === 'attract' && !reduceMotion) this.free.yaw += dt * 0.07;
-    const g = this.goal(), c = this.cur, k = 1 - Math.exp(-dt * 7);
-    c.yaw += wrapA(g.yaw - c.yaw) * k; c.pitch += (g.pitch - c.pitch) * k; c.dist += (g.dist - c.dist) * k;
-    c.tx += (g.tx - c.tx) * k; c.ty += (g.ty - c.ty) * k; c.tz += (g.tz - c.tz) * k;
+    const g = this.goal(), c = this.cur, k = 1 - Math.exp(-dt * 7), s = this.shot;
+    if (this.mode === 'shot' && s.from && s.t < SET_T) {   // the swing in for a shot: eased all the way there, not a snap
+      s.t += dt; const e = ease(Math.min(1, s.t / SET_T)), f = s.from;
+      c.yaw = f.yaw + wrapA(g.yaw - f.yaw) * e; c.pitch = lerp(f.pitch, g.pitch, e); c.dist = lerp(f.dist, g.dist, e);
+      c.tx = lerp(f.tx, g.tx, e); c.ty = lerp(f.ty, g.ty, e); c.tz = lerp(f.tz, g.tz, e);
+    } else {
+      c.yaw += wrapA(g.yaw - c.yaw) * k; c.pitch += (g.pitch - c.pitch) * k; c.dist += (g.dist - c.dist) * k;
+      c.tx += (g.tx - c.tx) * k; c.ty += (g.ty - c.ty) * k; c.tz += (g.tz - c.tz) * k;
+    }
     const cp = Math.cos(c.pitch);
     camera.position.set(c.tx + c.dist * cp * Math.cos(c.yaw), c.ty + c.dist * Math.sin(c.pitch), c.tz + c.dist * cp * Math.sin(c.yaw));
     camera.lookAt(c.tx, c.ty, c.tz);
@@ -1788,7 +1805,7 @@ addEventListener('keydown', e => {
   if (humanAim && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'KeyA' || k === 'KeyD')) {
     if (!e.shiftKey) { aim.phi = wrapA(aim.phi + ((k === 'ArrowRight' || k === 'KeyD') ? 1 : -1) * AIM_STEP); aimDirty = true; }
   }
-  else if ((k === 'Space' || k === 'Enter') && humanAim) beginStroke();
+  else if ((k === 'Space' || k === 'Enter') && humanAim) shoot();
   else if (k === 'KeyC') toggleAimCam();
   else if (k === 'KeyT') toggleTop();
   else if (k === 'KeyF') cam.reset();
@@ -1881,7 +1898,7 @@ dragOn(spinC, e => {
 const powEl = $('#pow');
 dragOn(powEl, e => { const r = powEl.getBoundingClientRect(); aim.power = clamp(1 - (e.clientY - r.top) / r.height, 0.02, 1); aimDirty = true; updateShotPanel(); });
 powEl.addEventListener('wheel', e => { e.preventDefault(); if (state === 'aim' && humanTurn()) { aim.power = clamp(aim.power - e.deltaY * 0.0004, 0.02, 1); aimDirty = true; updateShotPanel(); } }, { passive: false });
-$('#bShoot').addEventListener('click', () => { ensureAudio(); if (state === 'aim' && humanTurn()) beginStroke(); });
+$('#bShoot').addEventListener('click', () => { ensureAudio(); shoot(); });
 
 // ------------------------------------------------------------------ HUD: scoreboard + toasts
 function ballIcon(id, dim, ring) {
@@ -2340,7 +2357,7 @@ $('#bTrickNext').addEventListener('click', () => { M.trick = (M.trick | 0) + 1; 
 $('#bShowMe').addEventListener('click', () => {
   const t = trickList()[M.trick]; if (!t || !t.demo) return;
   startGame(false);
-  setTimeout(() => { if (state !== 'aim') return; Object.assign(aim, t.demo); aimDirty = true; updateShotPanel(); TRK.demo = true; setTimeout(beginStroke, 900); }, 350);
+  setTimeout(() => { if (state !== 'aim') return; Object.assign(aim, t.demo); aimDirty = true; updateShotPanel(); TRK.demo = true; setTimeout(shoot, 900); }, 350);
 });
 $('#bDelLayout').addEventListener('click', () => {
   const t = trickList()[M.trick]; if (!t || t.custom === undefined) return;
@@ -3237,7 +3254,7 @@ CHAT.forEach((txt, i) => { const b = document.createElement('button'); b.type = 
 $('#bChat').addEventListener('click', () => { $('#chatPop').hidden = !$('#chatPop').hidden; });
 function concedeFrame(fromRemote, loser) {
   if (game.over || M.mode === 'practice') return false;
-  if (state === 'moving' || state === 'stroke' || state === 'botAim') { if (!fromRemote) toast('Wait for the balls to stop first', 'info'); return false; }
+  if (state === 'moving' || state === 'stroke' || state === 'set' || state === 'botAim') { if (!fromRemote) toast('Wait for the balls to stop first', 'info'); return false; }
   if (loser !== 0 && loser !== 1) loser = NET.on ? NET.seat : (M.opp === 'bot' ? 0 : game.turn);
   const w = 1 - loser;
   game = { ...game, over: true, winner: w }; matchWins[w]++;
@@ -3417,6 +3434,7 @@ function frame(now) {
   if (!paused) {
     handleKeys(dt);
     if (state === 'moving') physicsTick(dt);
+    else if (state === 'set') setTick(dt);
     else if (state === 'botThink') botThinkTick(now);
     else if (state === 'botAim') botAimTick(dt);
     potAnimTick(dt);
@@ -3428,7 +3446,7 @@ function frame(now) {
   updateGuides(now);
   updateMarkers(now); clothFx(now); tableFx(now, paused ? 0 : dt);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
-  if (cam.mode === 'shot' && state !== 'stroke' && state !== 'moving') cam.shotOver();
+  if (cam.mode === 'shot' && state !== 'set' && state !== 'stroke' && state !== 'moving') cam.shotOver();
   cam.update(dt);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(postScene, postCam);
@@ -3447,7 +3465,7 @@ window.__rr = { get state() { return state; }, get world() { return world; }, ge
   get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.emissive.getHexString(), show: FX.raf }; },
   get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map, shown: cueMesh.visible, cam: cam.mode }; },
-  ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
+  ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, shoot, toggleTop, toggleAimCam,
   get hands() {   // the gloves at the table: one piece on a skeleton or built from parts, and how far the cue hand's fingertips are from the middle of the cue (cm)
     const info = root => { let sk = null, parts = 0; root.traverse(o => { if (o.isSkinnedMesh) sk = o; else if (o.isMesh) parts++; }); return { skinned: !!sk, bones: sk ? sk.skeleton.bones.length : 0, parts, geo: sk ? sk.geometry.uuid : '' }; };
     const g = gripGlove.children[0], v = new THREE.Vector3(); let tips = [];
