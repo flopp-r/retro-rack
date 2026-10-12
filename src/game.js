@@ -12,7 +12,7 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
+const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, shotCam: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
@@ -1428,7 +1428,7 @@ function botAimTick(dt) {
 function idleGap() { return 0.012 + aim.power * 0.1; }
 function beginStroke() {
   if (state !== 'aim' && state !== 'botAim' && state !== 'remote') return;
-  const cue = world.balls[0];
+  const cue = world.balls[0], mine = state === 'aim' && humanTurn();
   if (state !== 'remote' && game.ballInHand && !C.validSpot(world.balls, cue.x, cue.z, 0, game.kitchen)) {
     if (isBot(game.turn)) C.placeCueHead(world.balls, cue);
     else { toast('Place the cue ball somewhere clear first', 'foul'); return; }
@@ -1442,6 +1442,7 @@ function beginStroke() {
   $('#thinking').hidden = true;
   stroke = { t: 0, from: idleGap(), back: idleGap() + 0.07 + 0.13 * aim.power, fwd: lerp(0.24, 0.075, aim.power) };
   state = 'stroke'; hideGuides();
+  if (mine && S.shotCam && !reduceMotion && cam.mode !== 'shot') { cam.shot = { x: cue.x, z: cue.z, phi: aim.phi, prev: cam.mode }; cam.mode = 'shot'; }
 }
 function strokeGap(dt) {
   const s = stroke; s.t += dt;
@@ -1632,6 +1633,10 @@ const cam = {
       const a = state === 'moving' && this.anchor ? this.anchor : [cue.x, cue.z];
       return { yaw: aim.phi + Math.PI, pitch: this.aimPitch, dist: this.aimDist, tx: a[0], ty: R, tz: a[1] };
     }
+    if (this.mode === 'shot') {   // your own shot, from your eyes: low behind the cue, looking down the line from where it was played
+      const s = this.shot, dx = Math.cos(s.phi), dz = Math.sin(s.phi);
+      return { yaw: s.phi + Math.PI, pitch: 0.24, dist: 0.62, tx: s.x + dx * 0.25, ty: R, tz: s.z + dz * 0.25 };
+    }
     if (this.mode === 'show') {   // Preview: swinging slowly round the side of your cue, so the whole cue and both hands stay in view
       const dx = Math.cos(aim.phi), dz = Math.sin(aim.phi), t = reduceMotion ? 0 : (performance.now() - PREV.t0) / 1000;
       return { yaw: aim.phi + Math.PI / 2 + 0.3 - 0.75 * Math.sin(t * 0.2), pitch: 0.45, dist: 1.12 * (camera.aspect < 1.6 ? 1.6 / camera.aspect : 1), tx: cue.x - dx * 0.62, ty: R, tz: cue.z - dz * 0.62 };
@@ -1682,9 +1687,11 @@ const cam = {
     else this.free.dist = clamp(this.free.dist * f, 0.3, 7);
   },
   reset() { this.free = { yaw: -2.25, pitch: 0.6, dist: 3.1, tx: 0, tz: 0 }; this.mode = 'free'; updateCamButtons(); },
+  // once the balls stop, the shot camera glides back to the view you had (unless you moved the camera meanwhile)
+  shotOver() { this.mode = this.shot ? this.shot.prev : 'free'; this.shot = null; updateCamButtons(); },
 };
 function toggleAimCam() { if (cam.mode === 'aim') cam.toFree(); else { cam.mode = 'aim'; } updateCamButtons(); }
-function toggleTop() { if (cam.mode === 'top') { cam.mode = cam.prev || 'free'; } else { cam.prev = cam.mode === 'attract' ? 'free' : cam.mode; cam.mode = 'top'; } updateCamButtons(); }
+function toggleTop() { if (cam.mode === 'top') { cam.mode = cam.prev || 'free'; } else { cam.prev = cam.mode === 'attract' ? 'free' : cam.mode === 'shot' ? cam.shot.prev : cam.mode; cam.mode = 'top'; } updateCamButtons(); }
 function updateCamButtons() { $('#bCam').setAttribute('aria-pressed', cam.mode === 'aim'); $('#bTop').setAttribute('aria-pressed', cam.mode === 'top'); }
 
 // ------------------------------------------------------------------ input
@@ -2223,7 +2230,7 @@ function refreshMenus() {
   segControl($('#sVolume'), [[0, 'Off'], [0.25, '25%'], [0.5, '50%'], [0.75, '75%'], [1, '100%']], () => S.volume, v => { S.volume = v; saveS(); ensureAudio(); });
   segControl($('#sPixel'), [[0, 'Max'], [1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
   pixNote();
-  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
+  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
   const foot = document.querySelector('#menuPanel .mFoot'); foot.hidden = ![...foot.children].some(b => !b.hidden);
@@ -2236,7 +2243,7 @@ function refreshMenus() {
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
-for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sVibrate', 'vibrate']]) {
+for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sVibrate', 'vibrate']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
 function togglePause(force) {
@@ -3421,6 +3428,7 @@ function frame(now) {
   updateGuides(now);
   updateMarkers(now); clothFx(now); tableFx(now, paused ? 0 : dt);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
+  if (cam.mode === 'shot' && state !== 'stroke' && state !== 'moving') cam.shotOver();
   cam.update(dt);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(postScene, postCam);
