@@ -97,6 +97,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 
 **Settings and graphics (October 2026)**
 - **The sharpest picture is the default** (pixel size 1×, full colours), as the owner chose, and it was applied once to everyone already playing (`S.gfx`), since saved settings would otherwise keep the old 3× and 8 shades. It costs more on phones and softens the pixel-art look; anyone can pick a bigger pixel size in Settings.
+- **Pixel size Max, not a literal 0.5×** (the owner asked for finer aim lines). 1× already uses every pixel of a screen at 100%, so finer than that only helps where the screen has more pixels than the page: Windows scaled to 125% or more, and phones. Max matches the screen exactly (one game pixel per screen pixel). A literal 0.5× was tried: it matched Max at 200%, was a little softer at 150%, and at 100% the browser shrank it, leaving the 1-pixel aim line thin, faint and dotted. Max costs more drawing in proportion (2.25 times the pixels at 150%), so it isn't the default.
 - **Settings is a big panel** in four sections, two columns on computers, with bigger buttons; it fits a 1280×720 screen without scrolling. A click outside it closes it.
 - **The browser tests draw in software,** so the sharper default made them slower.
 

@@ -1,5 +1,5 @@
 // Volume, fullscreen button, sideways hint and vibration, on a desktop window and an emulated Android phone; the
-// Settings panel (two columns, closed by clicking outside it) and the sharpest-graphics default.
+// Settings panel (two columns, closed by clicking outside it), the sharpest-graphics default and pixel size Max.
 const { chromium, devices, SITE, shot } = require('./lib');
 const URL = SITE.new;   // over http, like the real site: a page opened from disk may not keep its storage across a reload
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
@@ -54,6 +54,23 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
     const p = await c.newPage(); watch(p, 'graphics'); await p.goto(URL); await p.waitForTimeout(800);
     const v = await p.evaluate(() => `${__rr.S.pixel}/${__rr.S.levels}`);
     ok(v === want, `saved ${JSON.stringify(saved)} → pixel size and colours ${v}`);
+    await c.close();
+  }
+
+  console.log('--- pixel size Max: one game pixel per screen pixel');
+  for (const dpr of [1, 1.5, 2]) {
+    const c = await b.newContext({ viewport: { width: 480, height: 360 }, deviceScaleFactor: dpr });
+    await c.addInitScript(() => localStorage.setItem('retroRack.settings', JSON.stringify({ pixel: 1, levels: 8, gfx: 2 })));
+    const p = await c.newPage(); watch(p, 'max ' + dpr); await p.goto(URL); await p.waitForTimeout(800);
+    const w1 = await p.evaluate(() => document.querySelector('#view').width);
+    await p.click('#bMenuSettings'); await p.waitForTimeout(200);
+    const seg = await p.$$eval('#sPixel .btn', bs => bs.map(x => x.textContent));
+    await p.click('#sPixel .btn:first-child'); await p.waitForTimeout(300);
+    const r = await p.evaluate(() => { const v = document.querySelector('#view'); return { w: v.width, h: v.height, cw: v.getBoundingClientRect().width, saved: JSON.parse(localStorage.getItem('retroRack.settings')).pixel, note: document.querySelector('#sPixelNote').textContent }; });
+    ok(seg.join(',') === 'Max,1×,2×,3×,4×,5×' && w1 === 480 && r.saved === 0 && r.w === Math.ceil(480 * dpr) && Math.abs(r.cw - 480) < 1,
+      `screen at ${dpr * 100}%: 1× draws ${w1} pixels across, Max ${r.w}×${r.h}, both filling the 480-wide window`);
+    ok(dpr > 1 ? r.note.includes(`here ${dpr} times as many`) : r.note.includes("same as 1×"), `its note: "${r.note}"`);
+    if (dpr === 1.5) await p.screenshot({ path: shot('c-pixel-max.png') });
     await c.close();
   }
 
