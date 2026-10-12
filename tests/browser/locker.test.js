@@ -162,6 +162,15 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('#bResume'); await sleep(200);
   await p.evaluate(() => { const r = __rr; r.M.mode = '8ball'; r.M.opp = 'bot'; r.M.diff = 'hard'; r.M.race = 0; r.startGame(false); }); await sleep(1500);
   ok(await until(async () => (await p.evaluate(() => __rr.look.glove)) === 'g-white'), 'in a game, the glove in use is at the table');
+  const hands = () => p.evaluate(() => __rr.hands), wear = async id => { await p.evaluate(id => { __rr.S.glove = id; }, id); await until(async () => (await p.evaluate(() => __rr.look.glove)) === id); await sleep(300); return hands(); };
+  let hd = await hands();
+  ok(hd.grip.skinned && hd.bridge.skinned && hd.grip.bones === 16 && hd.grip.tips.length === 4 && hd.grip.tips.every(d => d > 1.5 && d < 3.5),
+    `each glove is one smooth piece on a skeleton of ${hd.grip.bones} bones, and the cue hand's fingertips wrap round the cue (${hd.grip.tips} cm from its middle)`);
+  const navy = await wear('g-navy');
+  ok(navy.grip.geo === hd.grip.geo && navy.bridge.geo === hd.grip.geo, 'another glove of the same type shares its shape: each type is made once');
+  const robot = await wear('g-robot'), gold = await wear('g-gold');
+  ok(!robot.grip.skinned && robot.grip.parts > 10 && !robot.textured && gold.grip.skinned && gold.textured, 'the robot claw keeps its jointed parts and its steel (no gold texture); Gold leaf is one piece in gold leaf');
+  await wear('g-white');
   await p.evaluate(() => { const S = __rr.S; S.cloth = 'c-aurora'; S.glove = 'g-prism'; __rr.applyLook(); }); await until(async () => (await p.evaluate(() => __rr.look.glove)) === 'g-prism');
   let f1 = await p.evaluate(() => __rr.fx); await sleep(1000); let f2 = await p.evaluate(() => __rr.fx);
   ok(f2.cloth > f1.cloth && f1.glove !== f2.glove, `mythic looks move: the Aurora cloth drifts and the Prism glove changes colour (${JSON.stringify([f1, f2])})`);

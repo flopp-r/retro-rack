@@ -816,107 +816,347 @@ const qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vY = new THREE.V
 // from rounded parts as the design's glove type (looks.js: style), in its colours.
 // Whose gloves are at the table follows the cue (gloveFor); 'none' shows none.
 const gripGlove = new THREE.Group(), bridgeGlove = new THREE.Group(), cheerGlove = new THREE.Group();
-const GLM = {}, CHM = {}, GLOVE_KEYS = ['base', 'accent', 'cuff', 'skin', 'tip'];
+const GLM = {}, CHM = {}, GLOVE_KEYS = ['base', 'accent', 'cuff', 'skin', 'tip', 'panel'];
 for (const k of GLOVE_KEYS) { GLM[k] = new THREE.MeshLambertMaterial(); CHM[k] = new THREE.MeshLambertMaterial(); }
 let gloveNow = null, cheerNow = null, tapFinger = null;
 const CHEER = { kind: '', t0: 0, x: 0, z: 0 };
-// The glove types, built onto the hand below. panel: a slim padded panel on the back of the hand (cuff colour); bar: a
-// low bar across the knuckles; knuckles: a small guard on each knuckle; guards: a pad on each finger; tab: a strap tab
-// on the cuff (all in the accent colour); cuffL: the cuff's length; tips: the fingers' second sections bare; wraps:
-// cloth bands round the palm with the fingers bare. The novelties: ball (a boxing glove), claw (three jointed metal
-// fingers with lit tips), bones (a skeleton hand).
+// The glove types. panel: a padded panel on the back of the hand (cuff colour); bar: a slim strip across the knuckles;
+// knuckles: a moulded guard over the knuckles; guards: a pad on each finger; tab: a strap across the wrist (all three in
+// the accent colour); cuffL: the cuff's length; tips: fingerless, cut off halfway up the fingers; wraps: cloth wrapped
+// round the hand with the fingers bare. The novelties: ball (a boxing glove), claw (three jointed metal fingers with lit
+// tips), bones (a skeleton hand).
 const STYLE = {
   sport: { panel: 1, bar: 1, tab: 1 }, driver: { tab: 1 }, tactical: { panel: 1, knuckles: 1, cuffL: 0.03 }, moto: { panel: 1, knuckles: 1, guards: 1, tab: 1 },
   fingerless: { tab: 1, tips: 1 }, wraps: { wraps: 1, cuffL: 0.022 }, boxing: { ball: 1, cuffL: 0.034 }, claw: { claw: 1 }, bones: { bones: 1 },
 };
-// The hand, built from rounded parts. It's a left hand in its own frame: the wrist at the origin, the fingers along +x
-// from the knuckles, the back of the hand up (+y), the thumb on +z. Each finger and the thumb is two jointed sections
-// ending in a rounded stub; a pose bends the joints. The cue hand is the same hand mirrored (a right hand).
-const FINGER = [   // knuckle position, section lengths, thickness, and how far each fans out
-  { at: [0.086, 0.002, 0.026], len: [0.039, 0.023], r: 0.0082, fan: -0.06 },
-  { at: [0.09, 0.003, 0.0085], len: [0.044, 0.027], r: 0.0085, fan: 0 },
-  { at: [0.087, 0.002, -0.009], len: [0.041, 0.025], r: 0.008, fan: 0.06 },
-  { at: [0.079, 0, -0.025], len: [0.031, 0.019], r: 0.007, fan: 0.14 },
+// The hand in its own frame: the wrist at the origin, the fingers along +x, the back of the hand up (+y), the thumb on
+// +z. It's a left hand; the cue hand is the same hand mirrored. Each finger has three sections from its knuckle (length
+// and thickness at the knuckle and the tip, and how far it fans out); the thumb's first section starts at the wrist,
+// inside the ball of the thumb, and its rest position points out and down.
+const FINGER = [
+  { at: [0.087, 0.001, 0.026], len: [0.038, 0.023, 0.018], r: [0.0092, 0.0074], fan: -0.07 },
+  { at: [0.091, 0.002, 0.0085], len: [0.041, 0.026, 0.019], r: [0.0095, 0.0076], fan: 0 },
+  { at: [0.088, 0.001, -0.0095], len: [0.039, 0.025, 0.018], r: [0.0091, 0.0073], fan: 0.07 },
+  { at: [0.08, -0.001, -0.026], len: [0.031, 0.019, 0.016], r: [0.0082, 0.0066], fan: 0.15 },
 ];
-const THUMB = { at: [0.016, -0.006, 0.024], len: [0.04, 0.031], r: 0.0105 };
-// poses: the bend of each finger's joints (negative curls towards the palm), how widely the fingers spread, and the
-// thumb's turn out (ty), lift (tz) and bend
+const THUMB = { at: [0.016, -0.007, 0.02], len: [0.042, 0.03, 0.024], r: [0.0128, 0.0087], ty: -0.75, tz: -0.2 };
+const SPREAD0 = 1.8;   // how far apart the fingers are while the hand is shaped (a pose then sets its own)
+// poses: the bend of each finger's three joints (negative curls towards the palm), how widely the fingers spread, and
+// the thumb's turn out (ty), lift (tz) and the bend of its two joints. The grip was found by a search that wraps each
+// finger round the cue's butt. pb and pt: the bends of the robot's and skeleton's two-section fingers and thumb, where
+// they differ from the sum of the three.
 const HAND_POSE = {
-  bridge: { bend: [[-0.42, -0.35], [-0.46, -0.35], [-0.46, -0.35], [-0.42, -0.35]], spread: 1.9, ty: -0.3, tz: 0.75, tb: [-0.05] },
-  grip: { bend: [[-1.15, -1.35], [-1.2, -1.4], [-1.25, -1.4], [-1.3, -1.4]], spread: 0.4, ty: -1.1, tz: -0.3, tb: [-0.6] },
-  fist: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: 0.5, tz: -0.75, tb: [-0.6] },
-  thumb: { bend: [[-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6], [-1.5, -1.6]], spread: 0.2, ty: -1.45, tz: 0.1, tb: [0.05] },
-  open: { bend: [[-0.15, -0.1], [-0.1, -0.1], [-0.15, -0.1], [-0.2, -0.1]], spread: 1.4, ty: -0.7, tz: 0, tb: [-0.1] },
+  bridge: { bend: [[-0.42, -0.2, -0.15], [-0.46, -0.2, -0.15], [-0.46, -0.2, -0.15], [-0.42, -0.2, -0.15]], spread: 1.9, ty: -0.2, tz: 0.3, tb: [0.15, 0.1] },
+  grip: { bend: [[-0.1, -1.5, -0.5], [-0.3, -1.7, -0.3], [-0.1, -1.6, -0.4], [0.1, -1, -0.7]], spread: 0.4, ty: -0.3, tz: 0.05, tb: [-1, 0.2],
+    pb: [[-1.15, -1.35], [-1.2, -1.4], [-1.25, -1.4], [-1.3, -1.4]], pt: [-1.1, -0.3, -0.6] },
+  fist: { bend: [[-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8]], spread: 0.2, ty: 0.5, tz: -0.75, tb: [-0.6, -0.5], pb: Array(4).fill([-1.5, -1.6]), pt: [0.5, -0.75, -0.6] },
+  thumb: { bend: [[-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8], [-1.5, -1.3, -0.8]], spread: 0.2, ty: -1.45, tz: 0.1, tb: [0.05, 0.05], pb: Array(4).fill([-1.5, -1.6]), pt: [-1.45, 0.1, 0.05] },
+  open: { bend: [[-0.15, -0.08, -0.05], [-0.1, -0.08, -0.05], [-0.15, -0.08, -0.05], [-0.2, -0.08, -0.05]], spread: 1.4, ty: -0.7, tz: 0, tb: [-0.1, -0.1] },
 };
+// The hand is one smooth skin over a skeleton, shaped like a sculptor's clay: rounded shapes (cones with round ends,
+// eggs) melted together, measured as a distance field and meshed once per glove type (handGeo, kept in HAND_GEO).
+const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
+const boxDist2 = (b, x, y, z) => { const dx = Math.max(b[0] - x, 0, x - b[3]), dy = Math.max(b[1] - y, 0, y - b[4]), dz = Math.max(b[2] - z, 0, z - b[5]); return dx * dx + dy * dy + dz * dz; };
+const far = (b, x, y, z, lim) => lim <= 0 || boxDist2(b, x, y, z) > lim * lim;   // the box is further than lim away
+const unite = boxes => [0, 1, 2].map(i => Math.min(...boxes.map(b => b[i]))).concat([3, 4, 5].map(i => Math.max(...boxes.map(b => b[i]))));
+function rcone(a, b, r1, r2) {   // from a (radius r1) to b (radius r2), ends rounded
+  const bx = b[0] - a[0], by = b[1] - a[1], bz = b[2] - a[2], l2 = bx * bx + by * by + bz * bz, rr = r1 - r2, a2 = l2 - rr * rr, il2 = 1 / l2, sr = Math.sign(rr) * rr * rr;
+  const f = (x, y, z) => {
+    const px = x - a[0], py = y - a[1], pz = z - a[2], yy = px * bx + py * by + pz * bz, zz = yy - l2;
+    const qx = px * l2 - bx * yy, qy = py * l2 - by * yy, qz = pz * l2 - bz * yy, x2 = qx * qx + qy * qy + qz * qz, k = sr * x2;
+    if (Math.sign(zz) * a2 * zz * zz * l2 > k) return Math.sqrt(x2 + zz * zz * l2) * il2 - r2;
+    if (Math.sign(yy) * a2 * yy * yy * l2 < k) return Math.sqrt(x2 + yy * yy * l2) * il2 - r1;
+    return (Math.sqrt(x2 * a2 * il2) + yy * rr) * il2 - r1;
+  };
+  const m = Math.max(r1, r2); f.box = [Math.min(a[0], b[0]) - m, Math.min(a[1], b[1]) - m, Math.min(a[2], b[2]) - m, Math.max(a[0], b[0]) + m, Math.max(a[1], b[1]) + m, Math.max(a[2], b[2]) + m];
+  return f;
+}
+function ell(c, r, ry = 0) {   // an egg of radii r round c, turned by ry about the vertical
+  const cs = Math.cos(ry), sn = Math.sin(ry);
+  const f = (x, y, z) => {
+    const dx = x - c[0], dy = y - c[1], dz = z - c[2], u = (cs * dx - sn * dz) / r[0], v = dy / r[1], w = (sn * dx + cs * dz) / r[2];
+    const k0 = Math.sqrt(u * u + v * v + w * w), k1 = Math.sqrt(u * u / (r[0] * r[0]) + v * v / (r[1] * r[1]) + w * w / (r[2] * r[2]));
+    return k0 * (k0 - 1) / k1;
+  };
+  const m = Math.max(r[0], r[2]); f.box = [c[0] - m, c[1] - r[1], c[2] - m, c[0] + m, c[1] + r[1], c[2] + m];
+  return f;
+}
+function blend(parts, k) {   // shapes melted together; any too far away to matter is skipped
+  const f = (x, y, z) => { let d = 1; for (const p of parts) { if (far(p.box, x, y, z, d + k)) continue; d = d === 1 ? p(x, y, z) : smin(d, p(x, y, z), k); } return d; };
+  f.box = unite(parts.map(p => p.box)); return f;
+}
+// a chain of sections from a along d, tapering from r0 to r1; each knows its bone, for the skin
+function chainSecs(a, d, len, r0, r1, bone) {
+  const tot = len.reduce((s, l) => s + l), out = []; let s = 0, p = a;
+  len.forEach((l, i) => {
+    const last = i === len.length - 1, ra = r0 + (r1 - r0) * s / tot, rb = last ? r1 : r0 + (r1 - r0) * (s + l) / tot, e = last ? l - rb : l;
+    out.push({ f: rcone(p, [p[0] + d[0] * e, p[1] + d[1] * e, p[2] + d[2] * e], ra, rb), a: p, d, len: l, r: (ra + rb) / 2, s0: s, bone: bone + i, j: i });
+    p = [p[0] + d[0] * l, p[1] + d[1] * l, p[2] + d[2] * l]; s += l;
+  });
+  return out;
+}
+const fanDir = th => [Math.cos(th), 0, -Math.sin(th)];
+const thumbDir = (ty, tz) => [Math.cos(ty) * Math.cos(tz), Math.sin(tz), -Math.sin(ty) * Math.cos(tz)];
+// The shape of a glove type: the palm (four long bones melted into a slab, the pads of the palm and the ball of the
+// thumb), the cuff, the fingers and the thumb, and the type's padding. Bones: 0 the hand, then three per finger, then
+// three for the thumb.
+function handShape(st) {
+  const L = st.cuffL || 0.016, wr = [[0.012, 0, 0.013], [0.012, 0.001, 0.0045], [0.012, 0, -0.0045], [0.012, -0.001, -0.013]];
+  const meta = FINGER.map((f, i) => { const g = rcone(wr[i], f.at, 0.0118, 0.0108); g.meta = i; return g; });
+  const sc = 0.74, cone = rcone([0.018, 0, 0], [-L + 0.004, 0, 0], 0.0255, 0.0262), hole = rcone([-L - 0.02, 0, 0], [-L + 0.006, 0, 0], 0.0205, 0.0205);
+  const cuff = (x, y, z) => Math.max(cone(x, y / sc, z) * sc, -(x + L), -hole(x, y / sc, z) * sc);   // open at the end
+  cuff.box = [-L, -0.0262 * sc, -0.0262, 0.044, 0.0262 * sc, 0.0262];
+  const thumb = chainSecs(THUMB.at, thumbDir(THUMB.ty, THUMB.tz), THUMB.len, THUMB.r[0], THUMB.r[1], 13);
+  const fingers = FINGER.map((f, i) => chainSecs(f.at, fanDir(f.fan * SPREAD0), f.len, f.r[0], f.r[1], 1 + 3 * i));
+  const thenar = ell([0.036, -0.0075, 0.021], [0.026, 0.0115, 0.015], -0.45), pads = [ell([0.045, -0.006, -0.02], [0.032, 0.0095, 0.011]), ell([0.079, -0.0055, 0], [0.013, 0.0085, 0.033])];
+  thenar.thenar = 1; pads[1].pad = 1;
+  const extra = [];   // the padding, raised a millimetre or two
+  if (st.panel) extra.push(ell([0.047, 0.0108, 0.003], [0.028, 0.0045, 0.021]));
+  if (st.bar) extra.push(ell([0.083, 0.0096, 0.002], [0.006, 0.0032, 0.033]));
+  if (st.knuckles) { const g = ell([0.085, 0.0094, 0], [0.013, 0.0056, 0.039]); g.pad = 1; extra.push(g); }
+  if (st.tab) extra.push(ell([-0.002, 0.0172, 0.009], [0.0085, 0.0034, 0.017]));
+  const palm = blend([...meta, thenar, ...pads, thumb[0].f, cuff, ...extra], 0.013);
+  const digit = (secs, f) => {   // a finger or the thumb: its sections, with a pad (moto) or a rolled hem (fingerless)
+    const parts = secs.map(s => s.f), d0 = secs[0];
+    if (st.guards && f) { const c = d0.a.map((v, i) => v + d0.d[i] * d0.len * 0.58); c[1] += d0.r * 0.88; parts.push(ell(c, [d0.len * 0.3, 0.0026, d0.r * 0.8], Math.atan2(-d0.d[2], d0.d[0]))); }
+    if (st.tips) {   // the hem where the glove stops
+      const s = secs[0], at = s.len * (f ? 0.55 : 0.45), c = s.a.map((v, i) => v + s.d[i] * at), R = s.r + 0.0003;
+      const ring = (x, y, z) => { const qx = x - c[0], qy = y - c[1], qz = z - c[2], al = qx * s.d[0] + qy * s.d[1] + qz * s.d[2], rx = qx - s.d[0] * al, ry = qy - s.d[1] * al, rz = qz - s.d[2] * al; return Math.hypot(Math.hypot(rx, ry, rz) - R, al) - 0.0013; };
+      ring.box = [c[0] - R - 0.002, c[1] - R - 0.002, c[2] - R - 0.002, c[0] + R + 0.002, c[1] + R + 0.002, c[2] + R + 0.002]; parts.push(ring);
+    }
+    const g = (x, y, z) => { let d = 1; for (const p of parts) if (!far(p.box, x, y, z, d + 0.0018)) d = d === 1 ? p(x, y, z) : smin(d, p(x, y, z), 0.0018); return d; };
+    g.box = unite(parts.map(p => p.box)); return g;
+  };
+  const digits = [...fingers.map(s => digit(s, true)), digit(thumb.slice(1), false)];
+  const sdf = (x, y, z) => {
+    const p = palm(x, y, z); let d = p;
+    for (const g of digits) { if (far(g.box, x, y, z, p + 0.006)) continue; d = Math.min(d, smin(p, g(x, y, z), 0.006)); }
+    return d;
+  };
+  sdf.box = unite([palm.box, ...digits.map(g => g.box)]);
+  return { sdf, secs: [...fingers.flat(), ...thumb], roots: [...meta, thenar, ...pads, cuff, ...extra], meta, L };
+}
+// Surface nets: a vertex in each little cube of a grid (h apart) that the surface passes through, joined into a quad
+// across each grid edge it crosses; then each vertex is pulled onto the surface and given the field's slope as its normal
+function meshSDF(sdf, box, h) {
+  const lo = box.slice(0, 3).map(v => v - 2 * h), [nx, ny, nz] = [0, 1, 2].map(a => Math.ceil((box[a + 3] + 2 * h - lo[a]) / h) + 1);
+  const F = new Float32Array(nx * ny * nz), S = 4, mx = Math.ceil(nx / S) + 1, my = Math.ceil(ny / S) + 1, mz = Math.ceil(nz / S) + 1, G = new Float32Array(mx * my * mz);
+  for (let k = 0, q = 0; k < mz; k++) for (let j = 0; j < my; j++) for (let i = 0; i < mx; i++, q++) G[q] = sdf(lo[0] + i * S * h, lo[1] + j * S * h, lo[2] + k * S * h);
+  for (let k = 0, q = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++, q++) {   // close to the surface only: elsewhere the coarse grid's sign does
+    const c = G[Math.round(i / S) + mx * (Math.round(j / S) + my * Math.round(k / S))];
+    F[q] = Math.abs(c) > 2.6 * S * h ? c : sdf(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h);
+  }
+  const cx = nx - 1, cy = ny - 1, cell = new Int32Array(cx * cy * (nz - 1)).fill(-1), P = [], v = new Float32Array(8);
+  const E = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7];
+  for (let k = 0; k < nz - 1; k++) for (let j = 0; j < cy; j++) for (let i = 0; i < cx; i++) {
+    let m = 0;
+    for (let c = 0; c < 8; c++) { v[c] = F[(i + (c & 1)) + nx * ((j + (c >> 1 & 1)) + ny * (k + (c >> 2 & 1)))]; if (v[c] < 0) m |= 1 << c; }
+    if (m === 0 || m === 255) continue;
+    let sx = 0, sy = 0, sz = 0, n = 0;
+    for (let q = 0; q < 24; q += 2) {
+      const a = E[q], b = E[q + 1]; if ((v[a] < 0) === (v[b] < 0)) continue;
+      const t = v[a] / (v[a] - v[b]); n++;
+      sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t;
+    }
+    cell[i + cx * (j + cy * k)] = P.length / 3; P.push(lo[0] + (i + sx / n) * h, lo[1] + (j + sy / n) * h, lo[2] + (k + sz / n) * h);
+  }
+  const I = [], st = [1, nx, nx * ny], cs = [1, cx, cx * cy], dims = [nx, ny, nz], d2 = (p, r) => (P[3 * p] - P[3 * r]) ** 2 + (P[3 * p + 1] - P[3 * r + 1]) ** 2 + (P[3 * p + 2] - P[3 * r + 2]) ** 2;
+  for (let k = 1; k < nz - 1; k++) for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
+    const g = i + nx * (j + ny * k), f0 = F[g] < 0, c11 = i + cx * (j + cy * k), at = [i, j, k];
+    for (let a = 0; a < 3; a++) {
+      if (at[a] + 1 >= dims[a] - 1 || (F[g + st[a]] < 0) === f0) continue;
+      const u = cs[(a + 1) % 3], w = cs[(a + 2) % 3];
+      let q0 = cell[c11 - u - w], q1 = cell[c11 - w], q2 = cell[c11], q3 = cell[c11 - u]; if (q0 < 0 || q1 < 0 || q2 < 0 || q3 < 0) continue;
+      if (!f0) { const t = q1; q1 = q3; q3 = t; }   // facing out: from the inside end of the edge to the outside end
+      if (d2(q0, q2) < d2(q1, q3)) I.push(q0, q1, q2, q0, q2, q3); else I.push(q0, q1, q3, q1, q2, q3);
+    }
+  }
+  const N = new Float32Array(P.length), e = h * 0.1, grad = (x, y, z) => {   // the field's slope, from four samples round the point
+    const a = sdf(x + e, y - e, z - e), b = sdf(x - e, y - e, z + e), c = sdf(x - e, y + e, z - e), d = sdf(x + e, y + e, z + e);
+    const gx = a - b - c + d, gy = -a - b + c + d, gz = -a + b - c + d, l = Math.sqrt(gx * gx + gy * gy + gz * gz) || 1; return [gx / l, gy / l, gz / l];
+  };
+  for (let p = 0; p < P.length; p += 3) {
+    const g = grad(P[p], P[p + 1], P[p + 2]), d = sdf(P[p], P[p + 1], P[p + 2]);
+    P[p] -= g[0] * d; P[p + 1] -= g[1] * d; P[p + 2] -= g[2] * d; N[p] = g[0]; N[p + 1] = g[1]; N[p + 2] = g[2];
+  }
+  return { P: new Float32Array(P), N, I };
+}
+const sstep = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+// weight passed to the next bone along, at distance e before the joint (half at the joint itself, fading over w)
+const jointW = (e, w) => e >= 0 ? 0.5 * (1 - sstep(e / w)) : 0.5 + 0.5 * sstep(-e / w);
+// The mesh of a glove type, made once: where each vertex sits on the skeleton (its bones and their weights), which of the
+// glove's materials each part takes (base, accent, cuff, skin, panel), a texture position for the patterned gloves, and a shade:
+// darker in the creases and between the fingers, along seams, and inside the cuff. The panels are cut out along their
+// outlines (the mesh's triangles split exactly on the line), so their edges are clean.
+const HAND_GEO = {};
+function handGeo(key) {
+  if (HAND_GEO[key]) return HAND_GEO[key];
+  const st = STYLE[key], H = handShape(st), m = meshSDF(H.sdf, H.sdf.box, 0.0024), T = 0.032;
+  const P = Array.from(m.P), N = Array.from(m.N), n0 = P.length / 3, UV = [], SH = [], SK = [], INFO = [];
+  for (let i = 0; i < n0; i++) {
+    const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2];
+    let best = null, bd = 1, rootP = null;
+    for (const s of H.secs) { if (bd > 0 && far(s.f.box, x, y, z, bd)) continue; const d = s.f(x, y, z); if (d < bd) { bd = d; best = s; } }
+    for (const r of H.roots) { if (bd > 0 && far(r.box, x, y, z, bd)) continue; const d = r(x, y, z); if (d < bd) { bd = d; best = null; rootP = r; } }
+    const w = {}, add = (b, v) => { if (v > 0) w[b] = (w[b] || 0) + v; };
+    let sh = 1, inf = { f: -1, S: 0, th: 0 };
+    if (best) {   // on a finger or the thumb: its bone, passing weight to the next ones near the joints
+      const q = [x - best.a[0], y - best.a[1], z - best.a[2]], s = q[0] * best.d[0] + q[1] * best.d[1] + q[2] * best.d[2];
+      const side = [-best.d[2], 0, best.d[0]], up = [best.d[1] * side[2] - best.d[2] * side[1], best.d[2] * side[0] - best.d[0] * side[2], best.d[0] * side[1] - best.d[1] * side[0]];
+      const th = Math.atan2(q[0] * side[0] + q[1] * side[1] + q[2] * side[2], q[0] * up[0] + q[1] * up[1] + q[2] * up[2]);
+      const thumb = best.bone >= 13, wp = jointW(s, thumb && best.j === 0 ? 0.014 : 0.0055), wc = best.j === 2 ? 0 : jointW(best.len - s, 0.0055);
+      add(best.j === 0 ? 0 : best.bone - 1, wp); add(best.bone + 1, wc); add(best.bone, 1 - wp - wc);
+      UV.push((best.s0 + s) / T, th * best.r / T); inf = { f: thumb ? 4 : (best.bone - 1) / 3 | 0, S: best.s0 + s, th };
+      if (Math.abs(th) > 2.2) sh *= 1 - 0.22 * Math.exp(-((Math.min(Math.abs(s), Math.abs(best.len - s)) / 0.0022) ** 2));   // the creases under the joints
+    } else {   // the hand: following the nearest finger's first bone near its knuckle, and the thumb a little over its ball
+      if (rootP.thenar) { add(0, 0.65); add(13, 0.35); }
+      else {
+        const f = rootP.meta !== undefined ? rootP.meta : FINGER.reduce((b, g, k) => Math.abs(g.at[2] - z) < Math.abs(FINGER[b].at[2] - z) ? k : b, 0);
+        const wc = rootP.meta !== undefined || rootP.pad ? jointW(FINGER[f].at[0] - x, 0.0055) : 0; add(0, 1 - wc); add(1 + 3 * f, wc);
+      }
+      UV.push(x / T, z / T);
+      if (st.wraps && x > -H.L + 0.004 && ((x + 0.55 * z) / 0.0105 % 1 + 1) % 1 < 0.14) sh *= 0.82;                    // the edges of the wrapping
+      if (x < -H.L + 0.0085 && (y / 0.74) ** 2 + z * z < 0.0215 ** 2) sh *= 0.3;                                      // inside the cuff
+    }
+    let occ = 0;   // shade in the creases: how much the field closes in just off the surface
+    for (let k = 1; k <= 3; k++) { const dd = 0.003 * k; occ += (dd - H.sdf(x + N[3 * i] * dd, y + N[3 * i + 1] * dd, z + N[3 * i + 2] * dd)) / (1 << k); }
+    SH.push(sh * Math.max(0.5, Math.min(1, 1 - 8 * occ))); SK.push(w); INFO.push(inf);
+  }
+  // the parts, most important first: each a material and a measure that's below zero inside it
+  const fin = (i, f) => INFO[i].f >= 0 && INFO[i].f < 4 ? f(FINGER[INFO[i].f], INFO[i]) : 1, top = (i, y0) => (y0 - P[3 * i + 1]) / 0.004;
+  const cut = (i, a, b) => { const v = INFO[i]; return v.f < 0 ? 1 : v.f === 4 ? (THUMB.len[0] + THUMB.len[1] * b) - v.S : (FINGER[v.f].len[0] * a) - v.S; };
+  const rules = [];
+  if (st.tips) rules.push([3, i => cut(i, 0.55, 0.45)]);
+  if (st.wraps) rules.push([3, i => INFO[i].f === 4 ? THUMB.len[0] - INFO[i].S : cut(i, 0.12, 0)]);
+  if (st.tab) rules.push([1, i => Math.max(Math.abs(P[3 * i] + 0.002) / 0.0078 - 1, Math.abs(P[3 * i + 2] - 0.009) / 0.017 - 1, top(i, 0.008))]);
+  if (st.knuckles) rules.push([1, i => Math.max(((P[3 * i] - 0.085) / 0.0115) ** 2 + (P[3 * i + 2] / 0.038) ** 2 - 1, top(i, 0.004))]);
+  if (st.bar) rules.push([1, i => Math.max(Math.abs(P[3 * i] - 0.083) / 0.0042 - 1, Math.abs(P[3 * i + 2] - 0.002) / 0.032 - 1, top(i, 0.005))]);
+  if (st.guards) rules.push([1, i => fin(i, (f, v) => Math.max(Math.abs(v.th) / 0.95 - 1, Math.abs(v.S - f.len[0] * 0.58) / (f.len[0] * 0.26) - 1))]);
+  if (st.wraps) rules.push([1, i => INFO[i].f >= 0 ? 1 : (0.072 - P[3 * i]) / 0.01]);
+  if (st.panel) rules.push([5, i => Math.max(((P[3 * i] - 0.047) / 0.026) ** 2 + ((P[3 * i + 2] - 0.003) / 0.019) ** 2 - 1, top(i, 0.005))]);
+  rules.push([2, i => (P[3 * i] - 0.007 + 0.006 * (P[3 * i + 2] / 0.026) ** 2) / 0.01]);   // the cuff
+  const G = rules.map(([, g]) => Array.from({ length: n0 }, (_, i) => g(i)));
+  // split every triangle a part's outline crosses, exactly on the outline, with the new corners (shared along each edge) on the seam
+  let I = m.I;
+  rules.forEach((_, r) => {
+    const out = [], made = new Map(), g = G[r];
+    const mid = (a, b) => {
+      const key = a < b ? a * 1e6 + b : b * 1e6 + a; if (made.has(key)) return made.get(key);
+      const t = g[a] / (g[a] - g[b]), i = P.length / 3, l = (A, k, c) => A[k * a + c] + (A[k * b + c] - A[k * a + c]) * t;
+      P.push(l(P, 3, 0), l(P, 3, 1), l(P, 3, 2)); N.push(l(N, 3, 0), l(N, 3, 1), l(N, 3, 2)); UV.push(l(UV, 2, 0), l(UV, 2, 1)); SH.push(l(SH, 1, 0) * 0.8);
+      const w = {}; for (const [k, s] of [[a, 1 - t], [b, t]]) for (const bn in SK[k]) w[bn] = (w[bn] || 0) + SK[k][bn] * s;
+      SK.push(w); INFO.push(INFO[t < 0.5 ? a : b]); for (const gg of G) gg.push(gg === g ? 0 : gg[a] + (gg[b] - gg[a]) * t);
+      made.set(key, i); return i;
+    };
+    for (let k = 0; k < I.length; k += 3) {
+      const v = [I[k], I[k + 1], I[k + 2]], s = v.map(i => g[i] < 0);
+      if (s[0] === s[1] && s[1] === s[2]) { out.push(...v); continue; }
+      const o = s[0] !== s[1] && s[0] !== s[2] ? 0 : s[1] !== s[0] && s[1] !== s[2] ? 1 : 2, a = v[o], b = v[(o + 1) % 3], c = v[(o + 2) % 3], p = mid(a, b), q = mid(a, c);
+      out.push(a, p, q, p, b, c, p, c, q);
+    }
+    I = out;
+  });
+  const n = P.length / 3, skI = new Uint16Array(n * 4), skW = new Float32Array(n * 4), col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const w = SK[i], bs = Object.keys(w).map(Number).sort((a, b) => w[b] - w[a]).slice(0, 4), sum = bs.reduce((t, b) => t + w[b], 0);
+    bs.forEach((b, k) => { skI[4 * i + k] = b; skW[4 * i + k] = w[b] / sum; });
+    col[3 * i] = col[3 * i + 1] = col[3 * i + 2] = SH[i];
+  }
+  // each triangle takes the material of the first part it's inside
+  const groups = [[], [], [], [], [], []];
+  for (let k = 0; k < I.length; k += 3) { const r = rules.findIndex((_, j) => G[j][I[k]] + G[j][I[k + 1]] + G[j][I[k + 2]] < 0); groups[r < 0 ? 0 : rules[r][0]].push(I[k], I[k + 1], I[k + 2]); }
+  const geo = new THREE.BufferGeometry(), idx = [];
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(skI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(skW, 4));
+  groups.forEach((g, k) => { if (g.length) geo.addGroup(idx.length, g.length, k); for (const v of g) idx.push(v); });
+  geo.setIndex(idx); geo.userData.keep = true;
+  return (HAND_GEO[key] = geo);
+}
+// a one-piece hand on its own skeleton, in a pose: the hand's bone, then each finger's three, then the thumb's three
+function skinHand(hand, key, M, pose) {
+  const P = HAND_POSE[pose], bones = [new THREE.Bone()], fingers = [], thumb = [];
+  const chain = (at, len) => { const out = []; let parent = bones[0]; len.forEach((l, i) => { const b = new THREE.Bone(); if (i === 0) b.position.set(...at); else b.position.x = len[i - 1]; parent.add(b); bones.push(b); out.push(b); parent = b; }); return out; };
+  FINGER.forEach(f => { const c = chain(f.at, f.len); c[0].rotation.y = f.fan * SPREAD0; fingers.push(c); });
+  thumb.push(...chain(THUMB.at, THUMB.len)); thumb[0].rotation.order = 'YZX'; thumb[0].rotation.set(0, THUMB.ty, THUMB.tz);
+  const mesh = new THREE.SkinnedMesh(handGeo(key), GLOVE_KEYS.map(k => M[k]));
+  mesh.add(bones[0]); hand.add(mesh); mesh.frustumCulled = false; mesh.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
+  FINGER.forEach((f, i) => { fingers[i][0].rotation.set(0, f.fan * P.spread, 0); fingers[i].forEach((b, j) => { b.rotation.z = P.bend[i][j]; }); });
+  thumb[0].rotation.set(0, P.ty, P.tz); thumb[1].rotation.z = P.tb[0]; thumb[2].rotation.z = P.tb[1];
+  return { hand, fingers, thumb };
+}
+// a boxing glove: one padded mitt with the thumb along its side (no joints to bend)
+function boxingGeo() {
+  if (HAND_GEO.boxing) return HAND_GEO.boxing;
+  const L = STYLE.boxing.cuffL, sc = 0.78, cone = rcone([0.02, 0, 0], [-L + 0.004, 0, 0], 0.03, 0.028), cuff = (x, y, z) => Math.max(cone(x, y / sc, z) * sc, -(x + L));
+  cuff.box = [-L, -0.03, -0.03, 0.05, 0.03, 0.03];
+  const sdf = blend([ell([0.056, 0.006, 0], [0.06, 0.033, 0.045]), ell([0.05, -0.006, 0.04], [0.034, 0.016, 0.014], -0.25), cuff], 0.012), m = meshSDF(sdf, sdf.box, 0.0024);
+  const n = m.P.length / 3, col = new Float32Array(n * 3).fill(1), groups = [[], [], []], reg = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { const x = m.P[3 * i]; reg[i] = x < 0.004 ? 2 : 0; if (x < -L + 0.0009 && m.N[3 * i] < -0.85) col[3 * i] = col[3 * i + 1] = col[3 * i + 2] = 0.3; }
+  for (let t = 0; t < m.I.length; t += 3) groups[reg[m.I[t]]].push(m.I[t], m.I[t + 1], m.I[t + 2]);
+  const geo = new THREE.BufferGeometry(), idx = [];
+  geo.setAttribute('position', new THREE.BufferAttribute(m.P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(m.N, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2).map((_, k) => m.P[3 * (k >> 1) + (k & 1 ? 2 : 0)] / 0.032), 2));
+  groups.forEach((g, k) => { if (g.length) geo.addGroup(idx.length, g.length, k); idx.push(...g); });
+  geo.setIndex(idx); geo.userData.keep = true;
+  return (HAND_GEO.boxing = geo);
+}
+// The robot claw and the skeleton keep their jointed parts: two sections per finger, ending in a rounded stub.
 const capsuleX = (r, len) => { const g = new THREE.CapsuleGeometry(r, Math.max(0.0001, len - 2 * r), 3, 8); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0); return g; };
-function handBuild(parent, it, st, M, pose) {
-  const P = HAND_POSE[pose], hand = new THREE.Group(); parent.add(hand);
+function partsHand(hand, st, M, P) {
   const mesh = (geo, mat, g = hand) => { const m = new THREE.Mesh(geo, M[mat]); g.add(m); return m; };
   const blob = (sx, sy, sz, mat, x, y, z, ry = 0, g = hand) => { const m = mesh(new THREE.SphereGeometry(1, 14, 10), mat, g); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = ry; return m; };
   const ball = (r, mat, g, x = 0) => { const m = mesh(new THREE.SphereGeometry(r, 8, 6), mat, g); m.position.x = x; return m; };
-  const across = (r, len, mat, x, y, z) => { const m = mesh(capsuleX(r, len), mat); m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m; };   // along -z from z
-  // the cuff round the wrist (along -x), in the design's cuff colour
-  const L = st.cuffL || 0.016, cg = new THREE.CylinderGeometry(st.ball ? 0.031 : 0.027, 0.025, L, 14); cg.rotateZ(Math.PI / 2);
-  const cuff = mesh(cg, 'cuff'); cuff.position.x = 0.008 - L / 2; cuff.scale.set(1, 0.78, 1.12);
-  if (st.ball) {   // a boxing glove: one padded fist, the thumb along its side
-    blob(0.058, 0.031, 0.043, 'base', 0.054, 0.004, 0); blob(0.034, 0.015, 0.013, 'base', 0.046, -0.006, 0.039, -0.25);
-    return { hand, fingers: [], thumb: [] };
-  }
+  const cg = new THREE.CylinderGeometry(0.027, 0.025, 0.016, 14); cg.rotateZ(Math.PI / 2);
+  const cuff = mesh(cg, 'cuff'); cuff.position.x = 0; cuff.scale.set(1, 0.78, 1.12);
   if (st.bones) {   // no palm: the small bones of the wrist, then one long bone out to each knuckle
     blob(0.013, 0.007, 0.021, 'base', 0.012, 0, 0);
     for (const f of FINGER) {
       const z0 = f.at[2] * 0.55, b = new THREE.Group(); b.position.set(0.016, 0, z0); b.rotation.y = Math.atan2(z0 - f.at[2], f.at[0] - 0.016); hand.add(b);
       mesh(capsuleX(0.0032, Math.hypot(f.at[0] - 0.016, f.at[2] - z0)), 'base', b);
     }
-  } else {
-    blob(0.047, 0.0155, 0.041, 'base', 0.047, 0, 0);                  // the palm
-    blob(0.027, 0.0135, 0.017, 'base', 0.03, -0.003, 0.021, -0.5);    // the ball of the thumb
-  }
-  if (st.panel) blob(0.031, 0.0042, 0.017, 'cuff', 0.042, 0.0128, 0.002);
-  if (st.bar) across(0.0038, 0.058, 'accent', 0.084, 0.0085, 0.029);
-  if (st.tab) across(0.003, 0.022, 'accent', 0, 0.0185, 0.011);
-  if (st.wraps) for (const x of [0.03, 0.063]) {   // the edges of the wrapping, as thin rings hugging the palm
-    const k = Math.sqrt(1 - ((x - 0.047) / 0.047) ** 2) * 1.05, g = new THREE.TorusGeometry(1, 0.075, 5, 18); g.rotateY(Math.PI / 2);
-    const m = mesh(g, 'accent'); m.position.x = x; m.scale.set(0.003, 0.0155 * k, 0.041 * k);
-  }
+  } else { blob(0.047, 0.0155, 0.041, 'base', 0.047, 0, 0); blob(0.027, 0.0135, 0.017, 'base', 0.03, -0.003, 0.021, -0.5); }
   // a jointed chain of sections: each joint is a group turned by the pose, each section a capsule along its +x; jr adds a
   // ball at each joint, tip a lit ball at the end
-  const chain = (at, len, r, bends, mats, jr = 0, tip = 0) => {
+  const chain = (at, len, r, bends, jr = 0, tip = 0) => {
     let g = new THREE.Group(); g.position.set(...at); hand.add(g); const joints = [];
     len.forEach((l, i) => {
       g.rotation.z = bends[i]; joints.push(g);
-      const ri = r * (1 - i * 0.08); mesh(capsuleX(ri, l), mats[i], g); if (jr) ball(jr, 'accent', g);
+      const ri = r * (1 - i * 0.08); mesh(capsuleX(ri, l), 'base', g); if (jr) ball(jr, 'accent', g);
       if (i < len.length - 1) { const n = new THREE.Group(); n.position.x = l - ri * 0.4; g.add(n); g = n; }
       else if (tip) ball(tip, 'tip', g, l - ri);
     });
     return joints;
   };
-  const bare = st.wraps ? ['skin', 'skin'] : st.tips ? ['base', 'skin'] : ['base', 'base'];
-  const which = st.claw ? [0, 1, 3] : [0, 1, 2, 3], fr = st.bones ? () => 0.0034 : st.claw ? f => f.r * 1.2 : f => f.r;
+  const which = st.claw ? [0, 1, 3] : [0, 1, 2, 3], fr = st.bones ? () => 0.0034 : f => f.r[0] * 1.1;
   const fingers = which.map((fi, i) => {
-    const f = FINGER[fi], j = chain(f.at, f.len, fr(f), P.bend[fi], bare, st.bones ? 0.0052 : st.claw ? fr(f) * 1.08 : 0, st.claw ? fr(f) * 0.85 : 0);
+    const f = FINGER[fi], j = chain(f.at, [f.len[0], f.len[1]], fr(f), P.pb ? P.pb[fi] : [P.bend[fi][0], P.bend[fi][1] + P.bend[fi][2]], st.bones ? 0.0052 : fr(f) * 1.08, st.claw ? fr(f) * 0.85 : 0);
     j[0].rotation.y = (st.claw ? [-0.12, 0, 0.16][i] : f.fan) * P.spread;
-    if (st.knuckles) blob(0.0068, 0.0034, 0.0072, 'accent', f.at[0] - 0.003, f.at[1] + 0.0082, f.at[2]);
-    if (st.guards) blob(f.len[0] * 0.3, 0.0028, f.r * 0.8, 'accent', f.len[0] * 0.5, f.r * 0.92, 0, 0, j[0]);
     return j;
   });
-  const thumb = chain(THUMB.at, THUMB.len, st.bones ? 0.0038 : THUMB.r * (st.claw ? 1.1 : 1), [P.tz, ...P.tb], st.wraps ? ['base', 'skin'] : bare, st.bones ? 0.0055 : 0);
-  thumb[0].rotation.y = P.ty; thumb[0].rotation.order = 'YZX';
+  const [ty, tz, tb] = P.pt || [P.ty, P.tz, P.tb[0] + P.tb[1]], thumb = chain([0.016, -0.006, 0.024], [0.04, 0.031], st.bones ? 0.0038 : 0.0115, [tz, tb], st.bones ? 0.0055 : 0);
+  thumb[0].rotation.y = ty; thumb[0].rotation.order = 'YZX';
   return { hand, fingers, thumb };
+}
+function handBuild(parent, it, st, M, pose) {
+  const hand = new THREE.Group(); parent.add(hand);
+  if (st.claw || st.bones) return partsHand(hand, st, M, HAND_POSE[pose]);
+  if (st.ball) { hand.add(new THREE.Mesh(boxingGeo(), GLOVE_KEYS.map(k => M[k]))); return { hand, fingers: [], thumb: [] }; }
+  return skinHand(hand, it.style in STYLE ? it.style : 'sport', M, pose);
 }
 // turns a group so its +x, +y and +z point along a, b and c
 const orient = (g, a, b, c) => g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...a), new THREE.Vector3(...b), new THREE.Vector3(...c)));
 function gloveBuild(root, it, kind, M) {
-  root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); root.clear();
+  root.traverse(o => { if (o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if (o.skeleton) o.skeleton.dispose(); }); root.clear();
   const st = STYLE[it.style] || STYLE.sport, g = new THREE.Group(); root.add(g); tapFinger = null;
   if (kind === 'bridge') {   // an open bridge: heel of the hand and fingertips on the cloth, knuckles up, the cue in the V of the thumb
-    const r = handBuild(g, it, st, M, 'bridge'); r.hand.position.set(-0.115, 0.016, -0.03); r.hand.rotation.z = 0.3;
+    const r = handBuild(g, it, st, M, 'bridge'); r.hand.position.set(-0.118, 0.016, -0.036); r.hand.rotation.set(0, -0.32, 0.3);   // turned a little, the arm coming from behind and to the left
     const f = r.fingers[r.fingers.length - 1]; if (f) { tapFinger = f[0]; tapFinger.userData.bend = tapFinger.rotation.z; }
   } else if (kind === 'grip') {   // the cue hand: hanging from the wrist, fingers wrapped round the cue near its butt
     g.position.set(-1.2, 0, 0); const m = new THREE.Group(); m.scale.z = -1; g.add(m);   // mirrored: a right hand
     const r = handBuild(m, it, st, M, 'grip');
     orient(r.hand, [0, -1, 0], [0, 0, -1], [1, 0, 0]);   // fingers down, back of the hand outwards, thumb towards the tip
-    r.hand.position.set(0, 0.105, -0.022);
+    r.hand.position.set(0, 0.099, -0.022);
   } else {   // the reaction hand, facing the camera (+z): a thumbs-up, a fist pump and a shrug
     const mk = (pose, a, b, c) => { const p = new THREE.Group(); g.add(p); const r = handBuild(p, it, st, M, pose); orient(r.hand, a, b, c); r.hand.position.set(0, -0.05, 0); return p; };
     const thumb = mk('thumb', [1, 0, 0], [0, 0, -1], [0, 1, 0]), pump = mk('fist', [1, 0, 0], [0, 0, -1], [0, 1, 0]), shrug = mk('open', [0, 0, 1], [0, -1, 0], [1, 0, 0]);
@@ -932,7 +1172,7 @@ function gloveBuild(root, it, kind, M) {
 // of where the glove shines, if it does.
 const GLOVE_TEX = {};
 function gloveTex(it) {
-  const kind = { glow: 'leaf', flicker: 'fire', ghost: 'smoke', molten: 'crust', prism: 'holo' }[it.fx]; if (!kind) return null;
+  const kind = { glow: 'leaf', flicker: 'fire', ghost: 'smoke', molten: 'crust', prism: 'holo' }[it.fx]; if (!kind || !['legendary', 'mythic'].includes(it.rarity)) return null;
   if (GLOVE_TEX[it.id]) return GLOVE_TEX[it.id];
   const n = makeNoise(71), n2 = makeNoise(72), W = 64, white = [255, 255, 255];
   const cellular = (X, Y) => {   // distance to the nearest crack between irregular cells, on a 4 × 4 repeating grid
@@ -956,16 +1196,22 @@ function gloveTex(it) {
   } else { map = pic((u, v) => { const b = (u * 2 + v * 3 + 0.4 * fbm(n, u * 4, v * 4, 3, 4, 4)) % 1, c = new THREE.Color().setHSL(b, 0.85, 0.62); return clampc(mixc([c.r * 255, c.g * 255, c.b * 255], white, Math.max(0, n2(u * 16, v * 16, 16, 16) - 0.75) * 3)); }); glow = map; }
   return (GLOVE_TEX[it.id] = { map, glow });
 }
+// On a one-piece hand the trims are toned towards the glove's main colour, so they read as panels rather than blocks, and
+// it keeps less of its own colour in the shadows, so its shading shows.
+const TONE = { accent: 0.6, cuff: 0.75, panel: 0.4 };
 function gloveColours(M, it) {
-  const glow = it.fx ? it.fxc : null, tx = gloveTex(it);
+  const glow = it.fx ? it.fxc : null, tx = gloveTex(it), one = !['claw', 'bones'].includes(it.style);   // one: a one-piece hand, shaded by its vertex colours
   for (const k of GLOVE_KEYS) {
-    const col = k === 'skin' ? it.skin || it.base : k === 'tip' ? it.fxc || it.accent : it[k];
-    M[k].color.set(col); M[k].emissive.set(col).multiplyScalar(0.3);
-    if (glow && (k === 'accent' || k === 'tip')) M[k].emissive.set(glow);
-    M[k].transparent = it.fx === 'ghost'; M[k].opacity = it.fx === 'ghost' ? 0.6 : 1; M[k].needsUpdate = true;
+    const raw = k === 'skin' ? it.skin || it.base : k === 'tip' ? it.fxc || it.accent : k === 'panel' ? it.cuff : it[k];
+    const col = one && TONE[k] ? new THREE.Color(it.base).lerp(new THREE.Color(raw), TONE[k]) : new THREE.Color(raw);
+    M[k].color.copy(col); M[k].emissive.copy(col).multiplyScalar(one ? 0.16 : 0.3);
+    if (glow && (k === 'accent' || k === 'tip')) M[k].emissive.set(glow).multiplyScalar(one ? 0.5 : 1);
+    M[k].transparent = it.fx === 'ghost'; M[k].opacity = it.fx === 'ghost' ? 0.6 : 1; M[k].vertexColors = one; M[k].needsUpdate = true;
   }
-  M.base.map = tx ? tx.map : null; M.base.emissiveMap = tx ? tx.glow : null;   // a textured glove shows its picture in full colour
-  if (tx) { M.base.color.set('#ffffff'); M.base.emissive.set(tx.glow ? '#000000' : it.base).multiplyScalar(tx.glow ? 1 : 0.15); }
+  for (const k of ['base', 'panel']) {   // a textured glove shows its picture in full colour (the panel lightly tinted)
+    M[k].map = tx ? tx.map : null; M[k].emissiveMap = tx ? tx.glow : null;
+    if (tx) { M[k].color.set(k === 'base' ? '#ffffff' : new THREE.Color('#ffffff').lerp(new THREE.Color(it.cuff), 0.35)); M[k].emissive.set(tx.glow ? '#000000' : it.base).multiplyScalar(tx.glow ? 1 : 0.15); }
+  }
 }
 function applyGlove(id) {
   gloveNow = id; const it = kindOf(id) === 'glove' ? LK.ALL[id] : null;
@@ -973,6 +1219,11 @@ function applyGlove(id) {
   gloveBuild(gripGlove, it, 'grip', GLM); gloveBuild(bridgeGlove, it, 'bridge', GLM); gloveColours(GLM, it);
 }
 cueMesh.add(gripGlove); scene.add(bridgeGlove, cheerGlove); applyGlove('none'); cheerGlove.visible = false;
+// shape your own gloves while the menu is up (it takes a moment), so the first shot doesn't wait for them
+(window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => {
+  const it = kindOf(S.glove) === 'glove' ? LK.ALL[S.glove] : null;
+  if (it && it.style === 'boxing') boxingGeo(); else if (it && STYLE[it.style] && !['claw', 'bones'].includes(it.style)) handGeo(it.style);
+}, { timeout: 4000 });
 // whose gloves are at the table: the same rules as the cue (cueFor)
 function gloveFor(pl) {
   if (PREV.on) return PREV.looks.glove;
@@ -994,7 +1245,8 @@ function gloveFx(M, it, t) {
     M.base.emissive.set(it.fxc).multiplyScalar(0.4); if (map) map.offset.x = t * 0.03;
     for (const key of GLOVE_KEYS) M[key].opacity = 0.45 + 0.2 * Math.sin(t * 1.8);
   }
-  const c = new THREE.Color(it.fxc), k = 0.75 + 0.25 * Math.sin(t * 2.4);
+  if (M.panel.map) M.panel.emissive.copy(M.base.emissive);
+  const c = new THREE.Color(it.fxc), k = (0.75 + 0.25 * Math.sin(t * 2.4)) * (['claw', 'bones'].includes(it.style) ? 1 : 0.5);   // a one-piece glove's trim glows softly
   M.accent.emissive.copy(c).multiplyScalar(k); M.tip.emissive.copy(c).multiplyScalar(k);
 }
 const vG = new THREE.Vector3();
@@ -2499,14 +2751,16 @@ const caseImg = (grade, scale) => pixImg(18, 14, caseParts(grade), scale);
 // a glove from its type, as the back of the hand: fingers up, thumb out to the left, cuff below
 function gloveImg(id, scale) {
   if (id === 'none') return pixImg(16, 18, [[3, 4, 10, 10, '#4e3270'], [5, 6, 6, 6, '#2a2238', 1], [3, 8, 10, 2, '#4e3270', 1]], scale);
-  const it = LK.ALL[id], b = it.base, a = it.accent, cf = it.cuff, sk = it.skin || b, st = it.style, P = [], f = (...p) => P.push(p), tops = [3, 1, 2, 4];
+  const it = LK.ALL[id], b = it.base, sk = it.skin || b, st = it.style, P = [], f = (...p) => P.push(p), tops = [3, 1, 2, 4];
+  const one = !['claw', 'bones', 'boxing'].includes(st), tone = (x, k) => one ? '#' + new THREE.Color(b).lerp(new THREE.Color(x), k).getHexString() : x;   // trims toned as on the glove itself
+  const a = tone(it.accent, TONE.accent), cf = tone(it.cuff, TONE.cuff), pn = tone(it.cuff, TONE.panel);
   if (st === 'boxing') f(3, 2, 13, 11, b);
   else if (st === 'claw') for (let i = 0; i < 3; i++) f(4 + i * 4, [3, 1, 3][i], 3, 9 - [3, 1, 3][i], b);
   else for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], st === 'bones' ? 1 : 2, 9 - tops[i], st === 'wraps' ? sk : b);
   if (st !== 'boxing') f(4, 7, 11, 6, st === 'bones' ? cf : b);   // the palm
   f(1, 8, 4, 3, st === 'wraps' ? sk : b);                          // the thumb
   f(5, 13, 9, st === 'tactical' ? 5 : 3, cf);                      // the cuff
-  if (st === 'sport') { f(6, 8, 7, 3, cf, 1); f(4, 7, 11, 1, a, 1); }
+  if (st === 'sport') { f(6, 8, 7, 3, pn, 1); f(4, 7, 11, 1, a, 1); }
   else if (st === 'moto' || st === 'tactical') for (let i = 0; i < 4; i++) { f(4 + i * 3, 7, 2, 1, a, 1); if (st === 'moto') f(4 + i * 3, tops[i] + 2, 2, 1, a, 1); }
   else if (st === 'fingerless') for (let i = 0; i < 4; i++) f(4 + i * 3, tops[i], 2, 2, sk, 1);
   else if (st === 'wraps') for (const y of [8, 11]) f(4, y, 11, 1, a, 1);
@@ -3334,5 +3588,11 @@ window.__rr = { get state() { return state; }, get world() { return world; }, ge
   get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map, shown: cueMesh.visible, cam: cam.mode }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
+  get hands() {   // the gloves at the table: one piece on a skeleton or built from parts, and how far the cue hand's fingertips are from the middle of the cue (cm)
+    const info = root => { let sk = null, parts = 0; root.traverse(o => { if (o.isSkinnedMesh) sk = o; else if (o.isMesh) parts++; }); return { skinned: !!sk, bones: sk ? sk.skeleton.bones.length : 0, parts, geo: sk ? sk.geometry.uuid : '' }; };
+    const g = gripGlove.children[0], v = new THREE.Vector3(); let tips = [];
+    if (g) g.traverse(o => { if (o.isSkinnedMesh) tips = [3, 6, 9, 12].map(i => { v.set(0.017, 0, 0); o.skeleton.bones[i].localToWorld(v); g.worldToLocal(v); return Math.round(Math.hypot(v.y, v.z) * 1000) / 10; }); });
+    return { grip: { ...info(gripGlove), tips }, bridge: info(bridgeGlove), textured: !!GLM.base.map };
+  },
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();
