@@ -78,20 +78,33 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cMeStats{font-size:20px}
 .cEvents{display:flex;flex-direction:column;gap:6px}
 .cTiers{margin:0 0 8px}.cTiers .btn.locked{opacity:.55}
-.shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px;margin-top:10px}
-.shopItem{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:2px 10px;align-items:center;text-align:left;padding:6px 9px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-radius:0;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
-.shopItem:hover{background:var(--plum2)}.shopItem[aria-pressed="true"]{border-color:var(--lamp)}
-.shopItem>img,.shopItem>.shopSw{grid-row:1 / span 2}.shopSw{width:30px;height:30px;border:3px solid var(--ink)}
-.shopName{font-family:'Press Start 2P',monospace;font-size:9px}.shopState{font-size:18px;color:var(--lamp)}
-.shopName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.shopItem.locked{opacity:.62}.shopItem.locked:hover{opacity:.85}
-/* the locker: cases, then pages of looks */
+.shopSw{width:30px;height:30px;border:3px solid var(--ink)}
+/* the locker: cases, the inventory (one long list, rarest first) and the shop (for sale, then a row per collection).
+   The lists scroll inside the panel, so the screen itself still fits a phone on its side */
 .lockTop{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-bottom:8px}.lockTop .cInfo{margin:0;flex:1 1 auto}
-#lockBody.shopGrid{margin-top:0;grid-template-columns:repeat(4,minmax(0,1fr))}
+.lockList{max-height:calc(94vh - 238px);overflow-y:auto;overflow-x:hidden;padding-right:6px;scrollbar-color:var(--plum2) transparent}
+.invHead{font-family:'Press Start 2P',monospace;font-size:9px;margin:10px 0 5px}.invHead:first-child{margin-top:0}
+.invRow{--rc:#8f86a8;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:1px 10px;align-items:center;width:100%;text-align:left;padding:5px 9px;margin:0 0 5px;font:inherit;color:var(--paper);background:var(--plum);border:3px solid var(--ink);border-left:8px solid var(--rc);border-radius:0;cursor:pointer;box-sizing:border-box}
+.invRow:hover{background:var(--plum2)}.invRow[aria-pressed="true"]{border-color:var(--lamp);border-left-color:var(--rc)}
+.invRow>img,.invRow>.fxIco{grid-row:1 / span 2}.invRow>img.portrait{max-height:30px;width:auto}
+.invName{font-family:'Press Start 2P',monospace;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.invSub{grid-column:2 / span 2;font-size:16px;line-height:1;color:var(--rc)}.invState{font-size:17px;color:var(--lamp)}
+.fxRow{cursor:default}.fxIco{width:30px;text-align:center;font-size:26px;color:var(--rc)}.fxRow .btn{font-size:9px;padding:5px 9px}.fxRow .invSub{color:var(--paper);opacity:.8}
+.colHead{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:12px 0 6px}.colHead:first-child{margin-top:0}
+.colHead b{font-family:'Press Start 2P',monospace;font-size:9px;font-weight:400}.colN{font-size:18px;color:var(--lamp)}.colN.done{color:#8dffa0}
+.colRw{flex-basis:100%;font-size:16px;line-height:1.05;opacity:.82}
+.colRow{display:flex;flex-wrap:wrap;gap:6px}
+.colTile{position:relative;width:58px;height:58px;padding:0;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;border:3px solid;border-radius:0;cursor:pointer;box-sizing:border-box}
+.colTile>img.portrait{max-height:34px;width:auto}.colTile>.shopSw{width:30px;height:30px}
+.colTile.locked{opacity:.6}.colTile.locked>img{filter:grayscale(.85) brightness(.6)}.colTile.sale{height:66px}.colTile:hover{filter:brightness(1.15)}
+.colTile.trying{outline:3px dashed var(--lamp);outline-offset:1px}
+.colTick{position:absolute;right:3px;bottom:0;font-size:17px;color:#8dffa0;text-shadow:1px 1px 0 var(--ink)}
+.colPrice{font-size:14px;line-height:1;padding:0 3px;background:rgba(13,10,28,.78)}.colTile.sale>img.portrait{max-height:28px}.colTile.sale>.shopSw{width:26px;height:26px}
 .caseGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .caseCard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;text-align:center;background:var(--plum);border:3px solid var(--ink);box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
 .caseName{font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.3}.caseN{font-size:18px;color:var(--lamp)}.caseOdds{font-size:15px;line-height:1;opacity:.8}
 .caseBtns{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:auto}.caseBtns .btn{font-size:8px;padding:6px 7px}.caseBtns .btn.dim{opacity:.5}
-.lockFoot{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:17px}#bPreview{margin-right:8px;color:var(--lamp)}.shopItem.trying{outline:3px dashed var(--lamp);outline-offset:-1px}
+.lockFoot{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:17px}#bPreview{margin-right:8px;color:var(--lamp)}
 /* Preview: the menu steps aside; a tap anywhere comes back */
 #preview{position:fixed;inset:0;z-index:6;display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:0 16px 4vh;cursor:pointer}
 #prevTxt{max-width:min(720px,80vw);margin:0;padding:7px 12px;background:rgba(13,10,28,.82);border:3px solid var(--ink);font-size:20px;text-align:center}.lockFoot>span:first-child{margin-right:auto;opacity:.85}.lockFoot .btn{font-size:9px;padding:5px 9px}
@@ -111,6 +124,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .reelMark{position:absolute;top:0;bottom:0;left:50%;width:4px;margin-left:-2px;background:var(--lamp);box-shadow:0 0 10px var(--lamp)}
 .reelMark::before,.reelMark::after{content:'';position:absolute;left:-8px;border:10px solid transparent}.reelMark::before{top:0;border-top-color:var(--lamp)}.reelMark::after{bottom:0;border-bottom-color:var(--lamp)}
 #reelTxt{min-height:2.6em;margin:3vh auto 2vh;max-width:90vw;font-size:clamp(20px,2.6vw,34px);text-shadow:2px 2px 0 #05030a}
+.reelCol{display:block;margin-top:8px;color:#8dffa0;font-size:.8em;text-shadow:2px 2px 0 #05030a}
 .reelRarity{display:block;font-family:'Press Start 2P',monospace;font-size:clamp(13px,2vw,24px);margin-bottom:10px;text-shadow:3px 3px 0 #05030a,-2px -2px 0 #05030a,0 0 14px currentColor}
 #reelBtns{justify-content:center}#reelBtns .btn{font-size:12px;padding:12px 16px}
 .reelPanel.shake{animation:reelShake .6s linear}
@@ -142,7 +156,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cOppTxt{grid-column:1 / -1;opacity:.9}
 @media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
-@media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}#lockBody.shopGrid,.caseGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* narrow upright phones: labels above, so the buttons wrap less */
+@media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}   .caseGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
   #menu{padding:2vh 3vw}
@@ -157,8 +171,8 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   .cEvt{grid-template-columns:auto 1fr auto;padding:4px 9px}.cEvtName{font-size:8px}.cEvtTxt,.cEvtState,.cTier{font-size:16px}
   .cEvtState{grid-row:1;grid-column:3}.cEvtTxt{grid-row:1;grid-column:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cColLbl{font-size:16px}
   .cInfo{font-size:16px;margin-bottom:4px}.bracket{font-size:15px;gap:3px}.cOpp{font-size:16px}.cOppName{font-size:8px}
-  .cTiers{margin-bottom:5px}.shopGrid{gap:5px;margin-top:6px;grid-template-columns:repeat(4,minmax(0,1fr))}.shopItem{padding:4px 7px}.shopName{font-size:8px}.shopState{font-size:16px}.shopSw{width:24px;height:24px}
-  .lockTop{margin-bottom:5px}.lockTop .cInfo{font-size:16px}.shopItem>img.portrait{max-height:24px;width:auto}.caseGrid{gap:5px}.caseCard{padding:4px 4px;gap:2px}
+  .cTiers{margin-bottom:5px}.lockList{max-height:calc(94vh - 158px)}.invRow{padding:3px 7px;margin-bottom:4px}.invName{font-size:8px}.invSub,.colRw{font-size:15px}.colTile{width:48px;height:48px}.colTile.sale{height:56px}.invRow{grid-template-columns:auto auto 1fr auto;grid-template-rows:auto}.invRow>img,.invRow>.fxIco{grid-row:1}.invSub{grid-column:3;grid-row:1}.invState{grid-column:4}.fxRow .invSub{display:none}.fxRow .btn{grid-column:4;justify-self:end}.colHead{margin:8px 0 4px}
+  .lockTop{margin-bottom:5px}.lockTop .cInfo{font-size:16px}.invRow>img.portrait{max-height:24px}.colTile>img.portrait{max-height:28px}.caseGrid{gap:5px}.caseCard{padding:4px 4px;gap:2px}
   .caseCard>img{width:36px;height:28px}.caseName{font-size:8px}.caseN{font-size:16px}.caseOdds{font-size:14px}.caseBtns .btn{padding:5px 5px}
   .lockFoot{margin-top:5px;font-size:15px}.lockFoot .btn{padding:4px 8px}#lockNote{margin-top:3px;font-size:16px}
   #reelTitle{margin-bottom:2vh}#reelTxt{margin:2vh auto 1vh;min-height:2.2em}#reelBtns .btn{font-size:10px;padding:9px 12px}

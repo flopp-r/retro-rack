@@ -4,12 +4,13 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const routes = { home: [], single: ['single'], game: ['single', 'cpu'], setup: ['single', 'cpu', 'uk8'], practice: ['single', 'practice'], multi: ['multi'], online: ['multi', 'online'], newroom: ['multi', 'online', 'create', '8ball'],
-    locker: ['locker'], lockerCloths: ['locker', 'tCloth'], lockerCues: ['locker', 'tCue'], lockerGloves: ['locker', 'tGlove'] };
+    locker: ['locker'], lockerInventory: ['locker', 'tInv'], lockerShop: ['locker', 'tShop'] };
   const SEL = { single: '[data-go="single"]', multi: '[data-go="multi"]', cpu: '[data-go="game"][data-opp="bot"]', practice: '[data-go="practice"]', online: '[data-go="online"]', create: '#bCreate', uk8: '[data-mode="uk8"]', '8ball': '[data-mode="8ball"]',
-    locker: '[data-go="locker"]', tCloth: '#lockTabs .btn:nth-child(2)', tCue: '#lockTabs .btn:nth-child(3)', tGlove: '#lockTabs .btn:nth-child(4)' };
+    locker: '[data-go="locker"]', tInv: '#lockTabs .btn:nth-child(2)', tShop: '#lockTabs .btn:nth-child(3)' };
   for (const [w, h] of [[762, 341], [740, 360], [915, 412], [412, 915], [1000, 640], [1280, 720]]) {
     const ctx = await b.newContext({ viewport: { width: w, height: h }, reducedMotion: 'reduce' });
-    await ctx.addInitScript(() => { localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.menu', JSON.stringify({ last: { mode: '8ball', opp: 'bot', diff: 'medium', rack: '8ball', race: 0, guide: 'auto' } })); });
+    // dev mode's test locker owns every look, so the inventory is as long as it gets (the list scrolls; the screen mustn't)
+    await ctx.addInitScript(() => { localStorage.setItem('retroRack.rotateHint', 'off'); localStorage.setItem('retroRack.dev', '1'); localStorage.setItem('retroRack.menu', JSON.stringify({ last: { mode: '8ball', opp: 'bot', diff: 'medium', rack: '8ball', race: 0, guide: 'auto' } })); });
     const p = await ctx.newPage(); await p.goto(FILE + '?relay=ws://127.0.0.1:8787'); await p.waitForTimeout(900);
     const bad = [];
     for (const [name, steps] of Object.entries(routes)) {

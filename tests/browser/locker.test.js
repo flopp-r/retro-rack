@@ -1,7 +1,8 @@
 // The locker: old saves moving in, opening a case (the reel stops on the prize, honestly), buying cases, duplicates
 // sold, two open pages kept in step, earning from frames against the computer (and nothing from same-device games),
 // the show behind the reel (dimmed room, big reel with tiles in their rarity's colour, a background matched to the prize,
-// a still one with reduced motion), Preview (your looks at the table, trying on looks you don't own),
+// a still one with reduced motion), Preview (your looks at the table, trying on looks you don't own), the inventory
+// (one long list, rarest first), the shop's collections and their rewards and effects,
 // the looks from cases in use (a patterned cloth, a glove, mythics that move), and dev mode's test locker.
 const { chromium, SITE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
@@ -68,12 +69,11 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p2.close();
 
   console.log('--- Preview: your looks at the table, and trying on ones you don\'t own');
-  const page = async id => { for (let i = 0; i < 3 && !(await p.$(`.shopItem[data-id="${id}"]`)); i++) { await p.click('#lockPages .btn:last-child'); await sleep(150); } };
   const mine = () => p.evaluate(() => ({ S: [__rr.S.cloth, __rr.S.cue, __rr.S.glove].join(), L: localStorage.getItem('retroRack.locker') }));
   const was = await mine();
-  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(250); await page('q-plasma'); await p.click('.shopItem[data-id="q-plasma"]'); await sleep(250);
-  ok(/Preview tries it on/.test(await p.textContent('#lockNote')) && await p.evaluate(() => document.querySelector('.shopItem[data-id="q-plasma"]').classList.contains('trying')), 'tapping a cue you don\'t own marks it to try on');
-  await p.click('#lockTabs .btn:nth-child(4)'); await sleep(250); await page('g-prism'); await p.click('.shopItem[data-id="g-prism"]'); await sleep(250);
+  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(250); await p.click('.colTile[data-id="q-plasma"]'); await sleep(250);   // the shop
+  ok(/Preview tries it on/.test(await p.textContent('#lockNote')) && await p.evaluate(() => document.querySelector('.colTile[data-id="q-plasma"]').classList.contains('trying')), 'in the shop, tapping a cue you don\'t own marks it to try on');
+  await p.click('.colTile[data-id="g-prism"]'); await sleep(250);
   await p.click('#bPreview'); await sleep(1500);
   let pv = await p.evaluate(() => ({ look: __rr.look, menu: document.querySelector('#menu').hidden, bar: !document.querySelector('#preview').hidden, txt: document.querySelector('#prevTxt').textContent }));
   ok(pv.menu && pv.bar && pv.look.cam === 'show' && pv.look.shown && pv.look.cue === 'q-plasma' && pv.look.glove === 'g-prism' && pv.look.cloth === was.S.split(',')[0], `Preview: the menu steps aside, and the camera shows your cloth with Plasma and Prism at the table (${JSON.stringify(pv.look)})`);
@@ -91,7 +91,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('.caseCard:nth-child(1) .btn:nth-child(2)'); await sleep(300);
   L = await lock(); ok(L.money === 155 && L.cases.bronze === 2, `bought a bronze case for £45 (money £${L.money}, ${L.cases.bronze} bronze)`);
   const all = await p.evaluate(() => __rr.LK.CASE_ITEMS.map(it => it.id));
-  await setLock(p, { owned: all, money: 100 }); await p.reload(); await sleep(1200); await p.click('[data-go="locker"]'); await sleep(400);
+  await setLock(p, { owned: all, claimed: ['common', 'rare', 'epic', 'legendary', 'mythic', 'all'], money: 100 }); await p.reload(); await sleep(1200); await p.click('[data-go="locker"]'); await sleep(400);
   await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(300); await p.click('#reelWin'); await sleep(300);
   const r2 = await p.evaluate(() => ({ ...__rr.reel.res })); L = await lock();
   ok(r2.dup && r2.sold > 0 && L.money === 100 - 15 + r2.sold && /sold for £\d+/.test(await p.textContent('#reelTxt')) && await p.isHidden('#bReelUse'), `a duplicate is sold at once (${r2.id} for £${r2.sold})`);
@@ -123,11 +123,33 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('#bReelDone'); await sleep(200);
   ok(await p.isHidden('#reel') && !(await p.evaluate(() => __rr.fx.show)), 'Done: the reel closes and the show stops');
 
-  console.log('--- the looks, in Settings and at the table');
-  for (const t of [2, 3, 4]) { await p.click(`#lockTabs .btn:nth-child(${t})`); await sleep(250); await fits(['', '', 'Locker, cloths', 'Locker, cues', 'Locker, gloves'][t]); }
-  ok(/28 of 28 owned/.test(await p.textContent('#lockPages')) && (await p.$$('#lockPages .btn:not(#bPreview)')).length === 2, 'gloves: all owned, in pages');
-  await p.click('.shopItem[data-id="g-white"]'); await sleep(200);
-  await p.click('#lockTabs .btn:nth-child(2)'); await sleep(200); await p.click('#lockPages .btn:last-child'); await sleep(200); await p.click('.shopItem[data-id="c-galaxy"]'); await sleep(300);
+  console.log('--- collections: a row per rarity in the shop, and a reward for each one completed');
+  const pools = await p.evaluate(() => __rr.LK.POOL), allBut = all.filter(id => id !== pools.common[0]);
+  await setLock(p, { owned: allBut, claimed: ['rare', 'epic', 'legendary', 'mythic'], money: 100, cases: { bronze: 1, silver: 0, gold: 0, diamond: 0 } }); await p.reload(); await sleep(1200);
+  await p.click('[data-go="locker"]'); await sleep(400); await p.click('#lockTabs .btn:nth-child(3)'); await sleep(300); await fits('Locker, shop');
+  const rows = await p.$$eval('.colHead', hs => hs.map(h => `${h.dataset.r || 'sale'} ${h.querySelector('.colN') ? h.querySelector('.colN').textContent : ''}`.trim()));
+  ok(rows.join() === 'sale,mythic 6/6 ✓,legendary 7/7 ✓,epic 12/12 ✓,rare 18/18 ✓,common 16/17,all 4/5', `the shop: what's for sale, then a row per rarity, rarest first, with how many you have (${rows})`);
+  ok(await p.evaluate(id => document.querySelector(`.colTile[data-id="${id}"]`).classList.contains('locked'), pools.common[0]) && (await p.$$('.colTile.sale')).length === 11, 'the one still missing is dimmed; eleven looks for sale');
+  await p.click('#lockTabs .btn:nth-child(1)'); await sleep(250);
+  await force(0.1); await p.click('.caseCard:nth-child(1) .btn:nth-child(1)'); await sleep(500); await p.click('#reelWin'); await sleep(600);
+  const got = await p.evaluate(() => ({ ...__rr.reel.res })), rtxt = await p.textContent('#reelTxt'); L = await lock();
+  ok(got.id === pools.common[0] && /Common collection complete: £300, a gold case and Chalk trail!/.test(rtxt) && /All five collections: Starfield room!/.test(rtxt), `the last common completes its collection, and with it all five: the reel says so ("${rtxt}")`);
+  ok(L.money === 100 - 15 + 300 && L.cases.gold === 1 && L.claimed.includes('common') && L.claimed.includes('all'), `£300 and a gold case are paid, once (money £${L.money})`);
+  await p.click('#bReelDone'); await sleep(200);
+  let fx = await p.evaluate(() => __rr.effects);
+  ok(fx.on.join() === 'trail,rails,sparks,neon,cosmic,stars' && fx.rails && fx.cosmic && fx.stars && fx.sign === 'Tess', `every effect is on: gold rails, the cosmic cue ball, the starfield room, and your name in neon (${JSON.stringify(fx)})`);
+  await p.click('#lockTabs .btn:nth-child(2)'); await sleep(250); await fits('Locker, inventory');
+  ok((await p.$$('.fxRow')).length === 6, 'the inventory starts with the six rewards, each with a switch');
+  await p.click('.fxRow[data-fx="rails"] .btn'); await sleep(200); fx = await p.evaluate(() => __rr.effects);
+  ok(!fx.rails && !fx.on.includes('rails') && (await p.textContent('.fxRow[data-fx="rails"] .btn')) === 'Off', 'switching Gold rails off puts the wood back');
+  await p.click('.fxRow[data-fx="rails"] .btn'); await sleep(200); ok((await p.evaluate(() => __rr.effects)).rails, 'and on again');
+  await p.evaluate(() => __rr.sparkAt(0, 0, '#ffd23f')); ok((await p.evaluate(() => __rr.effects.sparks)) > 0, 'a pot throws sparks');
+
+  console.log('--- the inventory, Settings and the table');
+  const inv = await p.$$eval('.invRow[data-id]', es => es.map(e => e.dataset.id)), ranks = await p.evaluate(ids => ids.map(__rr.lookRank), inv);
+  ok(inv.length > 60 && ranks[0] === 4 && ranks.every((r, i) => !i || r <= ranks[i - 1]) && inv.includes('g-white') && inv.includes('c-galaxy'), `one long list of everything owned, rarest first (${inv.length} looks)`);
+  await p.click('.invRow[data-id="g-white"]'); await sleep(200);
+  await p.click('.invRow[data-id="c-galaxy"]'); await sleep(300);
   let lk = await p.evaluate(() => __rr.look);
   ok(lk.cloth === 'c-galaxy' && lk.clothTex, 'a patterned cloth goes on the table as a picture');
   await p.click('#bMenuSettings'); await sleep(300);
@@ -146,6 +168,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   console.log('--- a glove reacts: a shrug for a foul');
   await p.evaluate(() => { const r = __rr, c = r.world.balls[0]; r.game.breakShot = false; r.game.ballInHand = false; c.x = -0.6; c.z = 0.3; r.aim.phi = Math.PI; r.aim.power = 0.12; r.aim.sx = r.aim.sy = 0; });
   await until(() => p.evaluate(() => __rr.state === 'aim')); await p.evaluate(() => __rr.beginStroke());
+  ok(await until(() => p.evaluate(() => __rr.effects.trail), 10000), 'the chalk trail follows the cue ball');
   ok(await until(() => p.evaluate(() => __rr.cheering === 'shrug'), 20000), 'hitting no ball is a foul, and the glove shrugs');
   await until(() => p.evaluate(() => __rr.state === 'botThink' || __rr.state === 'aim'));
 
@@ -191,7 +214,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   ok(forced.rarity === 'mythic' && await p.textContent('#reelTitle') === 'Mythic!', `the next case gives a mythic (${forced.id})`);
   ok(!/mythic/.test(await p.textContent('#lockMoney')) && (await p.evaluate(() => { document.querySelector('#bMenuSettings').click(); const t = document.querySelector('#sDevMythic').textContent; document.querySelector('#bResume').click(); return t; })) === 'Next case mythic: Off', 'once only: the switch turns itself off');
   ok((await p.evaluate(() => __rr.lock)).cases.diamond === 49 && JSON.stringify(await lock()) === real, 'opening a case uses the test locker only');
-  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(200); await p.click('.shopItem[data-id="champion"]'); await sleep(200);
+  await p.click('#lockTabs .btn:nth-child(2)'); await sleep(200); await p.click('.invRow[data-id="champion"]'); await sleep(200);
   ok(await p.evaluate(() => __rr.S.cue) === 'champion', 'the dearest shop cue can be used without buying it');
   await p.reload(); await sleep(1200);
   ok(await p.evaluate(() => __rr.dev && __rr.lock.cases.diamond === 49 && __rr.S.cue === 'champion'), 'dev mode stays on after a reload, test locker and all');

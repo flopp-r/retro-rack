@@ -12,7 +12,7 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, gfx: 2 };
+const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
@@ -59,6 +59,7 @@ const DEVW = { print: 'f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc
 function devLocker() {
   const l = LK.newLocker(); l.money = 100000; l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
   for (const g of LK.GRADE_IDS) l.cases[g] = 50;
+  l.claimed = [...LK.RARITIES, 'all'];   // every collection's effect, without its money
   try { localStorage.setItem('retroRack.lockerDev', JSON.stringify(l)); } catch (e) {}
   return l;
 }
@@ -68,7 +69,7 @@ addEventListener('storage', e => {   // another open page changed the locker, or
   if (e.key === 'retroRack.dev') { DEV = e.newValue === '1'; LOCK = lockerRead() || (DEV ? devLocker() : LK.newLocker()); checkLooks(); }
   else if (e.key !== lockKey()) return;
   else LOCK = lockerRead() || LOCK;
-  if (state === 'menu') refreshMenus();
+  applyFx(); if (state === 'menu') refreshMenus();
 });
 const owns = id => (K.has(CLOTHS, id) && !K.has(LK.ALL, id)) || LK.owns(LOCK, id);
 const kindOf = id => K.has(LK.ALL, id) ? LK.ALL[id].kind : '';
@@ -194,6 +195,7 @@ const woodTex = canvasTex(64, 64, (g, w, h) => {
   while (y < h) { const t = 2 + Math.floor(Math.random() * 5); g.fillStyle = tones[Math.floor(Math.random() * 4)]; g.fillRect(0, y, w, 1 + (t > 4 ? 1 : 0)); y += t; }
   g.fillStyle = 'rgba(40,15,5,0.35)'; for (let i = 0; i < 6; i++) g.fillRect(Math.random() * w, Math.random() * h, 6 + Math.random() * 10, 1);
 }, [5, 5]);
+const railMat = new THREE.MeshLambertMaterial({ map: woodTex });   // the rails' top: wood, or gold (a collection effect)
 // The rooms: the menu's own, and one per career tier. carpet and wall: base colour, pattern, accent; skirt: skirting
 // board; glow, ink and frame: the neon sign's colours (its words come from the event, or 'Billiards').
 const VENUES = {
@@ -265,7 +267,7 @@ const skirtMat = new THREE.MeshLambertMaterial({ color: VENUES.home.skirt });
 }
 let neonMat = null;
 function drawNeon() {
-  const v = VENUES[VEN.key] || VENUES.home, text = VEN.sign;
+  const v = VENUES[VEN.key] || VENUES.home, text = signText();
   const tex = canvasTex(256, 64, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     let size = 22; do g.font = `${size}px "Press Start 2P", monospace`; while (g.measureText(text).width > w - 30 && --size > 9);   // long names get smaller letters
@@ -284,7 +286,7 @@ function setVenue(key, sign = 'Billiards') {
   if (!VENUES[key]) key = 'home';
   if (VEN.key === key && VEN.sign === sign) return;
   VEN.key = key; VEN.sign = sign;
-  const t = venueTex(key); floorMat.map = t.carpet; wallMat.map = t.wall; floorMat.needsUpdate = wallMat.needsUpdate = true;
+  const t = venueTex(key); floorMat.map = t.carpet; wallMat.map = key === 'home' && fxOn('stars') ? starTex() : t.wall; floorMat.needsUpdate = wallMat.needsUpdate = true;
   skirtMat.color.set(VENUES[key].skirt); drawNeon();
 }
 setVenue('home');
@@ -298,21 +300,25 @@ const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
 // A mythic cloth moves (clothFx, every frame): 'flow' drifts its pattern slowly along the table (the picture repeats
 // end to end), 'pulse' makes its cracks glow and fade through a glow map drawn from the same pattern.
 let clothTex = null, clothGlow = null;
+const CLOTH_CACHE = new Map(), PAINTED = ['galaxy', 'synth', 'aurora', 'lava'];   // the last few cloth pictures made
 // Preview (in the locker section): the looks tried on at the table, which the cloth, cue and gloves use while it's on
 const PREV = { on: false, looks: null, cam: null, aim: null, t0: 0 };
 function setCloth() {
   const id = PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, base = (CLOTHS[id] || CLOTHS.teal)[0], it = K.has(LK.ALL, id) && LK.ALL[id].pat ? LK.ALL[id] : null;
   const key = it ? id + T.key : '';
-  if (clothTex && clothTex.userData.key !== key) { clothTex.dispose(); clothTex = null; if (clothGlow) { clothGlow.dispose(); clothGlow = null; } }
-  if (it && !clothTex) {
-    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = 300, make = mask => {
+  if (!it) clothTex = clothGlow = null;
+  else if (CLOTH_CACHE.has(key)) ({ tex: clothTex, glow: clothGlow } = CLOTH_CACHE.get(key));
+  else {
+    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = PAINTED.includes(it.pat) ? (it.pat === 'lava' ? 200 : 150) : 300, make = mask => {
       const t = canvasTex(Math.round(ex * ppm), Math.round(ez * ppm), (g, w, h) => drawPattern(g, it, w, h, ppm, mask));
       t.repeat.set(1 / ex, 1 / ez); t.offset.set(0.5, 0.5); t.userData.key = key;
       t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;   // no shimmer at a distance
       if (it.anim === 'flow') t.wrapS = THREE.RepeatWrapping;
       return t;
     };
-    clothTex = make(false); if (it.anim === 'pulse') clothGlow = make(true);
+    clothTex = make(false); clothGlow = it.anim === 'pulse' ? make(true) : null;
+    CLOTH_CACHE.set(key, { tex: clothTex, glow: clothGlow });
+    if (CLOTH_CACHE.size > 4) { const [k0, e0] = CLOTH_CACHE.entries().next().value; e0.tex.dispose(); if (e0.glow) e0.glow.dispose(); CLOTH_CACHE.delete(k0); }
   }
   if (clothMat.map !== clothTex || clothMat.emissiveMap !== clothGlow) { clothMat.map = clothTex; clothMat.emissiveMap = clothGlow; clothMat.needsUpdate = true; }
   clothMat.color.set(clothTex ? '#ffffff' : base); clothMat.emissive.set('#000000'); cushMat.color.set(base).multiplyScalar(0.84);
@@ -328,6 +334,10 @@ function clothFx(now) {
 // draws a cloth's pattern over its colour; m is pixels per metre, so the patterns keep their real size. mask: the glow
 // map of a pulsing cloth instead (black, with its glowing parts white)
 function drawPattern(g, it, w, h, m, mask) {
+  if (it.pat === 'galaxy') return clothGalaxy(g, it, w, h, m);
+  if (it.pat === 'synth') return clothSynth(g, it, w, h, m);
+  if (it.pat === 'aurora') return clothAurora(g, it, w, h, m);
+  if (it.pat === 'lava') return clothMagma(g, it, w, h, m, mask);
   const r = K.rng(7), c2 = it.col2, lw = v => { g.lineWidth = Math.max(1, v * m); };
   g.fillStyle = mask ? '#000000' : it.col; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = c2; g.beginPath();
   const poly = pts => pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
@@ -355,41 +365,100 @@ function drawPattern(g, it, w, h, m, mask) {
     const x = w / 2, y = h / 2, s = Math.min(0.22 * m, h / 5); lw(0.012);
     poly([[x - s, y + s * 0.5], [x - s, y - s * 0.45], [x - s * 0.5, y], [x, y - s * 0.65], [x + s * 0.5, y], [x + s, y - s * 0.45], [x + s, y + s * 0.5]]); g.closePath();
     g.moveTo(x + s * 1.7, y); g.arc(x, y, s * 1.7, 0, 7); g.stroke();
-  } else if (it.pat === 'galaxy') {
-    for (let i = 0; i < 9; i++) {
-      const x = r() * w, y = r() * h, rad = (0.15 + r() * 0.3) * m, gr = g.createRadialGradient(x, y, 0, x, y, rad);
-      gr.addColorStop(0, c2); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 0.7; g.fillStyle = gr; g.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
-    }
-    g.globalAlpha = 1; g.fillStyle = '#c9c3ff'; for (let i = 0; i < w * h / (m * m) * 80; i++) { const z = Math.max(1, (r() < 0.1 ? 0.006 : 0.003) * m); g.fillRect(r() * w, r() * h, z, z); }
-  } else if (it.pat === 'synth') {
-    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, it.col); gr.addColorStop(0.5, c2); gr.addColorStop(1, it.col); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#ff4fa3'; g.globalAlpha = 0.45; for (let x = 0; x < w; x += 0.15 * m) g.fillRect(x, 0, Math.max(1, 0.005 * m), h); for (let y = 0; y < h; y += 0.15 * m) g.fillRect(0, y, w, Math.max(1, 0.005 * m));
-    g.globalAlpha = 1;
-  } else if (it.pat === 'aurora') {   // soft curtains of light; each wave fits the width a whole number of times, so the picture repeats end to end
-    g.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 5; k++) {
-      const n = [1, 2, 1, 3, 2][k], yc = h * (0.14 + 0.18 * k), A = h * 0.07;
-      g.strokeStyle = k % 2 ? it.col3 : c2;
-      for (const [wd, al] of [[0.18, 0.07], [0.09, 0.12], [0.035, 0.28]]) {
-        g.globalAlpha = al; lw(wd); g.beginPath();
-        for (let x = 0; x <= w; x += 4) { const y = yc + A * Math.sin(2 * Math.PI * n * x / w + k * 1.7); if (x) g.lineTo(x, y); else g.moveTo(x, y); }
-        g.stroke();
-      }
-    }
-    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.8; g.fillStyle = '#e8f8ff';
-    for (let i = 0; i < w * h / (m * m) * 40; i++) { const z = Math.max(1, 0.003 * m); g.fillRect(r() * w, r() * h, z, z); }
-    g.globalAlpha = 1;
-  } else if (it.pat === 'lava') {   // cracks in cooling rock, with hot spots; the mask has the same cracks in white
-    const crack = (wd, col, al) => { g.strokeStyle = col; g.globalAlpha = al; lw(wd); const rr = K.rng(11);
-      for (let i = 0; i < w * h / (m * m) * 9; i++) {
-        let x = rr() * w, y = rr() * h, a = rr() * 6.28; g.beginPath(); g.moveTo(x, y);
-        for (let k = 0; k < 6; k++) { a += (rr() - 0.5) * 1.6; x += Math.cos(a) * 0.06 * m; y += Math.sin(a) * 0.06 * m; g.lineTo(x, y); }
-        g.stroke();
-      } };
-    if (mask) { crack(0.03, '#ffffff', 0.35); crack(0.008, '#ffffff', 1); }
-    else { crack(0.03, it.col3, 0.18); crack(0.008, c2, 0.95); }
-    g.globalAlpha = 1;
   }
+}
+// The legendary and mythic cloths, painted pixel by pixel from noise (makeNoise, fbm and paint are in "collection
+// effects"). They stay mostly dark, so the balls stand out. x / m and y / m are metres on the bed.
+const clampc = c => [Math.min(255, c[0]), Math.min(255, c[1]), Math.min(255, c[2])];
+function starDots(g, w, h, m, seed, perM2, cols) {   // scattered stars: most a pixel, a few with a little cross of light
+  const r = K.rng(seed), n = Math.round(w * h / (m * m) * perM2);
+  for (let i = 0; i < n; i++) {
+    const x = r() * w | 0, y = r() * h | 0, b = r(); g.fillStyle = cols[b < 0.7 ? 0 : b < 0.95 ? 1 : 2]; g.fillRect(x, y, 1, 1);
+    if (b > 0.97 && m > 150) { g.globalAlpha = 0.5; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); g.globalAlpha = 1; }
+  }
+}
+// Galaxy: drifting clouds of violet, rose and blue dust over deep space, a spiral galaxy, and stars
+function clothGalaxy(g, it, w, h, m) {
+  const n = makeNoise(31), n2 = makeNoise(32), deep = rgb('#06041a'), base = rgb(it.col), neb = [rgb('#2d5fb8'), rgb('#5b2a9c'), rgb('#b0408f')], glow = rgb('#eadcff');
+  const gx = 0.7 * w / m, gy = 0.38 * h / m, sz = Math.min(w, h) / m;
+  paint(g, w, h, (x, y) => {
+    const X = x / m, Y = y / m, wx = fbm(n2, X * 2, Y * 2, 3) * 1.4, wy = fbm(n2, X * 2 + 7, Y * 2 + 3, 3) * 1.4;
+    const d = fbm(n, X * 1.5 + wx, Y * 1.5 + wy, 5), hue = fbm(n2, X * 0.7 + 3, Y * 0.7, 2);
+    let c = mixc(deep, base, Math.min(1, d * 1.2));
+    c = mixc(c, hue < 0.48 ? mixc(neb[0], neb[1], hue / 0.48) : mixc(neb[1], neb[2], (hue - 0.48) / 0.52), Math.max(0, d - 0.5) * 2);
+    c = mixc(c, glow, Math.pow(Math.max(0, d - 0.72) * 3, 2) * 0.6);   // the brightest wisps
+    const dx = (X - gx) / sz, dy = (Y - gy) / sz * 1.7, r = Math.hypot(dx, dy) + 1e-4, a = Math.atan2(dy, dx);
+    const arm = Math.pow(Math.max(0, Math.cos(2 * a - Math.log(r) * 4)), 8) * Math.exp(-r * 9), core = Math.exp(-r * r * 900);
+    return clampc(mixc(c, glow, Math.min(0.9, arm * 0.9 + core)));
+  });
+  starDots(g, w, h, m, 7, 300, ['#7f78b8', '#d9d2ff', '#ffffff']);
+}
+// Synthwave: a neon grid running away from each end of the table to a horizon across the middle, where a striped sun
+// sets in pink and gold (mirrored, so it reads from either end)
+function clothSynth(g, it, w, h, m) {
+  const cx = w / 2, cy = h / 2, R = h * 0.27, sky = g.createLinearGradient(0, 0, w, 0);
+  sky.addColorStop(0, '#0d0420'); sky.addColorStop(0.36, it.col); sky.addColorStop(0.47, '#5a1757'); sky.addColorStop(0.5, '#7a1f5c'); sky.addColorStop(0.53, '#5a1757'); sky.addColorStop(0.64, it.col); sky.addColorStop(1, '#0d0420');
+  g.fillStyle = sky; g.fillRect(0, 0, w, h);
+  starDots(g, w, h, m, 3, 120, ['#6b4f9e', '#c8b8ff', '#ffffff']);
+  const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+  const grid = (wd, col, al) => {
+    g.strokeStyle = col; g.globalAlpha = al; g.lineWidth = Math.max(1, wd * h);
+    for (const sd of [-1, 1]) {
+      for (let k = 0; k < 14; k++) { const f = 1 / (1 + 0.55 * k), x = cx + sd * (w / 2) * f; if (Math.abs(x - cx) > R * 0.9) line(x, 0, x, h); }   // rungs, closer together towards the horizon
+      for (let j = -8; j <= 8; j++) { const y = cy + j * h * 0.14; line(cx + sd * R * 0.9, cy + (y - cy) * R * 0.9 / (w / 2), cx + sd * w / 2, y); }   // rails to the vanishing point
+    }
+  };
+  grid(0.03, '#ff2fa0', 0.09); grid(0.012, '#ff4fd8', 0.2); grid(0.004, '#ffb3ee', 0.5);
+  g.globalAlpha = 1;
+  const halo = g.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 2.2); halo.addColorStop(0, 'rgba(255,90,170,0.32)'); halo.addColorStop(1, 'rgba(255,90,170,0)');
+  g.fillStyle = halo; g.fillRect(cx - R * 2.2, cy - R * 2.2, R * 4.4, R * 4.4);
+  const sun = g.createLinearGradient(cx - R, 0, cx + R, 0);
+  sun.addColorStop(0, '#ffb04a'); sun.addColorStop(0.42, '#ff6a8a'); sun.addColorStop(0.5, '#ff3d8b'); sun.addColorStop(0.58, '#ff6a8a'); sun.addColorStop(1, '#ffb04a');
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip(); g.globalAlpha = 0.45; g.fillStyle = sun; g.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+  g.globalAlpha = 1; g.fillStyle = '#2b0a35';   // the slices, wider towards the horizon
+  for (let k = 0; k < 6; k++) { const off = R * (0.08 + 0.13 * k), th = R * (0.075 - 0.011 * k); for (const sd of [-1, 1]) g.fillRect(cx + sd * off - th / 2, cy - R, th, 2 * R); }
+  g.restore();
+}
+// Aurora: curtains of green light with violet and cyan tops, rippling and streaked with rays, over a night sky. The
+// noise repeats exactly across the width, so the picture can drift endlessly along the table.
+function clothAurora(g, it, w, h, m) {
+  const W = w / m, H = h / m, per = Math.max(2, Math.round(W / 0.45)), cell = W / per, n = makeNoise(41), BIG = 0;
+  const sky0 = rgb('#02090f'), sky1 = rgb(it.col), green = rgb(it.col2), tops = [rgb('#7ff6ff'), rgb(it.col3), rgb('#7ff6ff')];
+  paint(g, w, h, (x, y) => {
+    const X = x / m / cell, Y = y / m;
+    let c = mixc(sky0, sky1, 0.35 + 0.65 * fbm(n, X, Y * 2, 3, per, BIG));
+    for (let k = 0; k < 3; k++) {
+      const yc = (0.2 + 0.3 * k) * H + (fbm(n, X + k * 17, k * 5.3, 3, per, BIG) - 0.5) * 0.55 * H, d = Y - yc;
+      const body = d < 0 ? Math.exp(d / 0.13) : Math.exp(-d * d / 0.0006);   // a sharp lower edge, fading away above
+      const rays = 0.45 + 0.55 * Math.pow(n(X * 9 + k * 31, Y * 0.8, per * 9, BIG), 1.5), I = body * rays * (0.6 + 0.4 * fbm(n, X * 2 + k * 9, Y * 1.5, 2, per * 2, BIG));
+      const col = mixc(green, tops[k], Math.min(1, Math.max(0, -d / 0.16)));
+      c = [c[0] + col[0] * I * 0.7, c[1] + col[1] * I * 0.7, c[2] + col[2] * I * 0.7];
+    }
+    return clampc(c);
+  });
+  starDots(g, w, h, m, 5, 140, ['#5d8a98', '#cfefff', '#ffffff']);
+}
+// Magma: plates of cooling basalt split by glowing cracks, with molten pools; the glow map (mask) is the heat alone
+function clothMagma(g, it, w, h, m, mask) {
+  const cell = 0.14, n = makeNoise(51), hj = makeNoise(52), ramp = [rgb('#2a0703'), rgb('#8a1a06'), rgb(it.col2), rgb(it.col3), rgb('#fff4c8')];
+  const heatCol = t => { const f = Math.min(3.999, t * 4), i = f | 0; return mixc(ramp[i], ramp[i + 1], f - i); };
+  const rock0 = rgb('#140806'), rock1 = rgb(it.col), rim = rgb('#4d2216');
+  paint(g, w, h, (x, y) => {
+    const X = x / m, Y = y / m, gx = Math.floor(X / cell), gy = Math.floor(Y / cell);
+    let f1 = 9, f2 = 9, id = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const cx = gx + dx, cy = gy + dy, px = (cx + 0.15 + 0.7 * hj(cx * 7.1, cy * 3.3)) * cell, py = (cy + 0.15 + 0.7 * hj(cx * 2.9 + 50, cy * 6.7)) * cell, d = Math.hypot(X - px, Y - py);
+      if (d < f1) { f2 = f1; f1 = d; id = cx * 131 + cy * 71; } else if (d < f2) f2 = d;
+    }
+    const e = (f2 - f1) / 2, wob = fbm(n, X * 14, Y * 14, 3), crack = Math.exp(-e / (0.0025 + 0.0025 * wob)) * (0.45 + 0.35 * wob), halo = Math.exp(-e / 0.015) * 0.2;
+    const pool = Math.max(0, Math.min(1, (fbm(n, X * 2.2 + 30, Y * 2.2, 4) - 0.69) / 0.06));
+    const heat = Math.min(0.82, Math.max(crack, pool * (0.55 + 0.25 * wob)) + halo * (1 - crack));
+    if (mask) { const v = Math.pow(heat, 1.4) * 255; return [v, v, v]; }
+    const shadeC = 0.55 + 0.45 * hj(id * 0.37, id * 0.11), grain = fbm(n, X * 40, Y * 40, 2);
+    let c = mixc(rock0, rock1, Math.min(1, shadeC * (0.6 + 0.6 * grain)));
+    c = mixc(c, rim, Math.max(0, 1 - Math.abs(e - 0.012) / 0.005) * 0.6);   // the raised edge of each plate catches the light
+    return clampc(heat > 0.02 ? mixc(c, heatCol(heat), Math.min(1, heat * 1.3)) : c);
+  });
 }
 const RAIL_TOP = 0.045, CUSH_TOP = 0.041;
 let tableGroup = new THREE.Group(), LAMP = []; scene.add(tableGroup);
@@ -421,10 +490,9 @@ function buildTable() {
   // cushions
   for (const c of T.cushions) extrudeFlat(new THREE.Shape(c.map(p => new THREE.Vector2(p[0], p[1]))), CUSH_TOP, CUSH_TOP, cushMat);
   // wood rails
-  const woodMat = new THREE.MeshLambertMaterial({ map: woodTex });
   const outer = new THREE.Shape(rectPts(hl + cw + RAIL_W, hw + cw + RAIL_W));
   outer.holes.push(new THREE.Path(notchedRect(hl + cw, hw + cw, T.pockets.map(p => ({ x: p.vx, z: p.vz, r: p.nr })))));
-  extrudeFlat(outer, RAIL_TOP + 0.02, RAIL_TOP, woodMat);
+  extrudeFlat(outer, RAIL_TOP + 0.02, RAIL_TOP, railMat);
   // apron + legs
   const darkWood = new THREE.MeshLambertMaterial({ color: '#4d2413' });
   const apron = new THREE.Shape(rectPts(hl + cw + RAIL_W - 0.005, hw + cw + RAIL_W - 0.005));
@@ -489,6 +557,115 @@ for (let id = 0; id <= 15; id++) {
   const s = new THREE.Mesh(shadowGeo, shadowMat); s.visible = false; s.renderOrder = 1; scene.add(s); SH.push(s);
   ROT.push(new THREE.Vector3());
 }
+// ------------------------------------------------------------------ collection effects
+// What completing collections earns (looks.js, COLLECTIONS), each switchable in the inventory (S.fxOff): a chalk trail
+// behind the cue ball, gold rails, sparks when a ball drops, your name on the neon sign at home, a cosmic cue ball, and
+// with all five a starfield room at home. Display only, and only on your own screen, so online play is unchanged.
+function fxOn(k) { return LK.effects(LOCK).includes(k) && !(S.fxOff || []).includes(k); }
+// smooth value noise for the textures, from a 256 × 256 table of random values. px and py (whole numbers up to 256):
+// make it repeat every px by py cells, so a texture can tile; 0 (the default) repeats only every 256. fbm layers it.
+function makeNoise(seed) {
+  const r = K.rng(seed * 7919 + 13), P = new Float32Array(65536); for (let i = 0; i < 65536; i++) P[i] = r();
+  return (x, y, px = 0, py = 0) => {
+    const xi = Math.floor(x), yi = Math.floor(y); let fx = x - xi, fy = y - yi; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    const x0 = (px ? ((xi % px) + px) % px : xi) & 255, x1 = (px ? ((xi + 1) % px + px) % px : xi + 1) & 255;
+    const y0 = ((py ? ((yi % py) + py) % py : yi) & 255) << 8, y1 = ((py ? ((yi + 1) % py + py) % py : yi + 1) & 255) << 8;
+    const a = P[y0 + x0], b = P[y0 + x1], c = P[y1 + x0], d = P[y1 + x1];
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  };
+}
+function fbm(n, x, y, oct, px = 0, py = 0) { let s = 0, a = 0.5, f = 1, t = 0; for (let i = 0; i < oct; i++) { s += a * n(x * f, y * f, px * f, py * f); t += a; a *= 0.5; f *= 2; } return s / t; }
+// paints a canvas pixel by pixel: fn(x, y) gives [r, g, b] (0 to 255)
+function paint(g, w, h, fn) {
+  const d = g.createImageData(w, h);
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) { const c = fn(x, y); d.data[i] = c[0]; d.data[i + 1] = c[1]; d.data[i + 2] = c[2]; d.data[i + 3] = 255; }
+  g.putImageData(d, 0, 0);
+}
+// (plain functions, not consts: the room and the cue ball can be drawn before this part of the file has run)
+function mixc(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+function rgb(hex) { return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]; }
+// gold rails: brushed gold, polished streaks along the grain
+function goldTex() {
+  return goldTex.t || (goldTex.t = canvasTex(64, 64, (g, w, h) => {
+    const n = makeNoise(5), lo = rgb('#5c3a06'), mid = rgb('#c4901c'), hi = rgb('#fff0b5');
+    paint(g, w, h, (x, y) => { const v = fbm(n, x / 16, y / 2, 3, 4, 32), band = 0.5 + 0.5 * Math.sin((y + 6 * n(x / 16, 0, 4, 1)) / 64 * 6.283 * 3), s = Math.pow(Math.max(0, n(x / 8, y / 2, 8, 32) - 0.66) * 3, 2);
+      return mixc(mixc(lo, mid, Math.min(1, 0.25 + v * 0.75 + band * 0.18)), hi, Math.min(0.9, s + Math.max(0, band - 0.9) * 2.5)); });
+  }, [5, 5]));
+}
+// the cosmic cue ball: pale and bright, so it still reads as the cue ball, swirled with nebula and specks of stars
+function cosmicTex() {
+  return cosmicTex.t || (cosmicTex.t = canvasTex(128, 64, (g, w, h) => {
+    const n = makeNoise(9), n2 = makeNoise(10), base = rgb('#f3efff'), pink = rgb('#ffb8e4'), blue = rgb('#a9dcff'), vio = rgb('#c9b0ff');
+    paint(g, w, h, (x, y) => { const a = fbm(n, x / 16, y / 16, 4, 8, 4), b = fbm(n2, x / 16, y / 16, 3, 8, 4);
+      let c = mixc(base, a > 0.5 ? pink : blue, Math.max(0, Math.abs(a - 0.5) * 2.2 - 0.15)); c = mixc(c, vio, Math.max(0, b - 0.62) * 2); return c; });
+    const r = K.rng(4);
+    for (let i = 0; i < 40; i++) { const x = r() * w | 0, y = r() * h | 0; g.fillStyle = r() < 0.3 ? '#fff6c4' : '#ffffff'; g.fillRect(x, y, 1, 1); if (r() < 0.25) { g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3); } }
+    g.fillStyle = '#c99a2a';   // the dots that show spin, in gold
+    for (const [x, y] of [[16, 32], [48, 32], [80, 32], [112, 32], [32, 10], [96, 10], [32, 54], [96, 54]]) g.fillRect(x - 2, y - 2, 4, 4);
+  }));
+}
+// the starfield room: night sky on the walls at home, deep blue to violet with drifting nebulae and stars
+function starTex() {
+  return starTex.t || (starTex.t = canvasTex(256, 128, (g, w, h) => {
+    const n = makeNoise(21), n2 = makeNoise(22), top = rgb('#05060f'), low = rgb('#140b2c'), neb1 = rgb('#3b1d6e'), neb2 = rgb('#0f4a63');
+    paint(g, w, h, (x, y) => { const v = fbm(n, x / 32, y / 32, 5, 8, 4), q = fbm(n2, x / 32, y / 32, 4, 8, 4);
+      let c = mixc(top, low, y / h); c = mixc(c, neb1, Math.max(0, v - 0.5) * 1.6); return mixc(c, neb2, Math.max(0, q - 0.6) * 1.4); });
+    const r = K.rng(13);
+    for (let i = 0; i < 260; i++) { const x = r() * w | 0, y = r() * h | 0, b = r(); g.fillStyle = b < 0.6 ? '#8a90b8' : b < 0.9 ? '#dfe4ff' : '#ffffff'; g.fillRect(x, y, 1, 1);
+      if (b > 0.96) { g.fillStyle = 'rgba(223,228,255,0.55)'; g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3); } }
+  }, [4, 1]));
+}
+// the neon sign's words: your name at home with the neon effect, else the room's own
+function signText() {
+  if (VEN.key !== 'home' || !fxOn('neon')) return VEN.sign;
+  let n = CAR.data && CAR.data.name; if (!n) try { n = localStorage.getItem('retroRack.name'); } catch (e) {}
+  return String(n || '').replace(/[<>]/g, '').trim().slice(0, 14) || 'Retro Rack';
+}
+// the chalk trail: dots of chalk dust laid every 1.2 cm along the cue ball's path, shrinking away over a second and a bit
+const TRAIL = { n: 220, i: 0, pts: [], at: null }, fxM4 = new THREE.Matrix4();
+const trailMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#c4e6ff', transparent: true, opacity: 0.55, depthWrite: false }), TRAIL.n);
+trailMesh.frustumCulled = false; trailMesh.visible = false; scene.add(trailMesh);
+// pot sparks: a burst in the ball's colour from the pocket, falling and fading (off with reduced motion)
+const SPK = { n: 200, parts: [] }, spkPos = new Float32Array(SPK.n * 3), spkCol = new Float32Array(SPK.n * 3);
+const spkGeo = new THREE.BufferGeometry(); spkGeo.setAttribute('position', new THREE.BufferAttribute(spkPos, 3)); spkGeo.setAttribute('color', new THREE.BufferAttribute(spkCol, 3));
+const spkMesh = new THREE.Points(spkGeo, new THREE.PointsMaterial({ size: 0.016, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+spkMesh.frustumCulled = false; spkMesh.visible = false; scene.add(spkMesh);
+function sparkAt(x, z, hex) {
+  if (!fxOn('sparks') || reduceMotion) return;
+  const c = new THREE.Color(hex).lerp(new THREE.Color('#ffffff'), 0.25), r = Math.random;
+  for (let i = 0; i < 28; i++) { const a = r() * 6.283, s = 0.25 + r() * 0.6; SPK.parts.push({ x, y: 0.02, z, vx: Math.cos(a) * s, vy: 0.7 + r() * 0.9, vz: Math.sin(a) * s, age: 0, life: 0.45 + r() * 0.45, c }); }
+  if (SPK.parts.length > SPK.n) SPK.parts.splice(0, SPK.parts.length - SPK.n);
+}
+function tableFx(now, dt) {
+  const on = fxOn('trail'), cue = world.balls[0];
+  if (on && cue && !cue.potted && (state === 'moving' || replay) && cue.vx * cue.vx + cue.vz * cue.vz > 1e-4) {
+    const a = TRAIL.at || (TRAIL.at = { x: cue.x, z: cue.z }), d = Math.hypot(cue.x - a.x, cue.z - a.z), step = 0.012;
+    if (d > 0.5) TRAIL.at = { x: cue.x, z: cue.z };   // a jump (a new rack, a replay starting): start afresh
+    else for (let k = 1; k * step <= d; k++) { const f = k * step / d; TRAIL.pts[TRAIL.i] = { x: a.x + (cue.x - a.x) * f, z: a.z + (cue.z - a.z) * f, t: now }; TRAIL.i = (TRAIL.i + 1) % TRAIL.n; TRAIL.at = TRAIL.pts[(TRAIL.i + TRAIL.n - 1) % TRAIL.n]; }
+  } else TRAIL.at = null;
+  let any = false;
+  for (let k = 0; k < TRAIL.n; k++) {
+    const p = TRAIL.pts[k], age = p ? (now - p.t) / 1300 : 1, sc = on && age < 1 ? R * 0.3 * (1 - age * age) : 0; if (sc) any = true;
+    fxM4.makeScale(sc || 1e-6, 1, sc || 1e-6).setPosition(p ? p.x : 0, 0.0015, p ? p.z : 0); trailMesh.setMatrixAt(k, fxM4);
+  }
+  trailMesh.visible = any; if (any) trailMesh.instanceMatrix.needsUpdate = true;
+  SPK.parts = SPK.parts.filter(p => (p.age += dt) < p.life);
+  spkMesh.visible = SPK.parts.length > 0; if (!spkMesh.visible) return;
+  for (let i = 0; i < SPK.n; i++) {
+    const p = SPK.parts[i]; if (!p) { spkPos[i * 3 + 1] = -10; continue; }
+    p.vy -= 3.5 * dt; p.x += p.vx * dt; p.y = Math.max(0.005, p.y + p.vy * dt); p.z += p.vz * dt;
+    const f = 1 - p.age / p.life; spkPos[i * 3] = p.x; spkPos[i * 3 + 1] = p.y; spkPos[i * 3 + 2] = p.z; spkCol[i * 3] = p.c.r * f; spkCol[i * 3 + 1] = p.c.g * f; spkCol[i * 3 + 2] = p.c.b * f;
+  }
+  spkGeo.attributes.position.needsUpdate = spkGeo.attributes.color.needsUpdate = true;
+}
+// puts the effects in place after a change (one switched, a collection completed, dev mode)
+function applyFx() {
+  const gold = fxOn('rails'); railMat.map = gold ? goldTex() : woodTex; railMat.emissive.set(gold ? '#140d02' : '#000000'); railMat.needsUpdate = true;
+  BM[0].material.map = fxOn('cosmic') ? cosmicTex() : ballTex(0, ukStyle()); BM[0].material.needsUpdate = true;
+  const key = VEN.key || 'home'; wallMat.map = key === 'home' && fxOn('stars') ? starTex() : venueTex(key).wall; wallMat.needsUpdate = true;
+  drawNeon();
+}
+
 // "you're on" markers: a pulsing halo round each ball the player at the table is going for. It always faces
 // the camera, so it reads from the cue view as well as from overhead (a ring flat on the cloth vanishes low down).
 const markTex = (() => {
@@ -514,6 +691,7 @@ const cueCols = id => kindOf(id) === 'cue' ? LK.ALL[id].col : CAREER.HOUSE_CUE;
 // between two colours, rainbow runs the forearm and butt through the colours (cueFx, every frame).
 const CUE_TEX = {};
 function cuePattern(it, mask) {
+  if (['holo', 'tubes', 'swirl', 'plasma'].includes(it.pat)) return cuePaint(it, mask);
   return canvasTex(32, 128, (g, W, H) => {
     const r = K.rng(3); g.fillStyle = mask ? '#000000' : it.col.fore; g.fillRect(0, 0, W, H); g.fillStyle = mask ? '#ffffff' : it.pc;
     const poly = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); };
@@ -529,18 +707,37 @@ function cuePattern(it, mask) {
     else if (it.pat === 'crystal') for (let y = -W; y < H; y += 22) { poly([[0, y], [W, y + 18], [W, y + 20], [0, y + 2]]); poly([[W, y + 6], [0, y + 20], [0, y + 21], [W, y + 7]]); }
     else if (it.pat === 'stars') for (let i = 0; i < 30; i++) { const x = r() * W, y = r() * H; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); }
     else if (it.pat === 'rings') for (let y = 4; y < H; y += 18) g.fillRect(0, y, W, 4);
-    else if (it.pat === 'swirl' || it.pat === 'plasma') {   // drawn point by point from waves that repeat round and along the cue, so it can turn and flow
-      const img = g.getImageData(0, 0, W, H), d = img.data, lo = new THREE.Color(it.col.fore), hi = new THREE.Color(it.pc), hot = new THREE.Color(it.col.inlay), c = new THREE.Color(), P = 2 * Math.PI;
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const u = x / W, v = y / H;
-        const s = it.pat === 'swirl' ? 0.5 + 0.5 * Math.sin(P * (2 * u + 3 * v)) : (Math.sin(P * u) + Math.sin(P * (2 * v + u)) + Math.sin(P * (4 * v - 2 * u)) + 3) / 6;
-        const k = Math.pow(s, it.pat === 'swirl' ? 3 : 1.6);
-        if (mask) c.setScalar(k); else { c.copy(lo).lerp(hi, Math.min(1, k * 1.4)); if (k > 0.8) c.lerp(hot, (k - 0.8) * 5); }
-        const i = 4 * (y * W + x); d[i] = c.r * 255; d[i + 1] = c.g * 255; d[i + 2] = c.b * 255; d[i + 3] = 255;
-      }
-      g.putImageData(img, 0, 0);
+  });
+}
+// The legendary and mythic cues, painted pixel by pixel; u (x) runs round the cue, v (y) along it, and the noise repeats
+// both ways, so a pattern can turn round the cue or flow along it without a seam. mask: the glow map (where it shines).
+function cuePaint(it, mask) {
+  const W = 64, H = 256, n = makeNoise(61), n2 = makeNoise(62), P = 2 * Math.PI, fore = rgb(it.col.fore), pc = rgb(it.pc), hot = rgb(it.col.inlay), white = [255, 255, 255];
+  const frac = v => v - Math.floor(v), ramp = (cs, t) => { const f = Math.max(0, Math.min(cs.length - 1.001, t * (cs.length - 1))), i = f | 0; return mixc(cs[i], cs[i + 1], f - i); };
+  return canvasTex(W, H, g => paint(g, W, H, (x, y) => {
+    const U = x / W, V = y / H;
+    if (it.pat === 'holo') {   // Spectrum: silver foil with diagonal bands of light; the cue's colours run through it (cueFx)
+      const b = 0.5 + 0.5 * Math.sin(P * (3 * U + 7 * V) + 4 * fbm(n, U * 8, V * 32, 3, 8, 32)), sp = n2(U * 32, V * 128, 32, 128);
+      const c = mixc(rgb('#b9bfd2'), white, b * 0.85); return mask ? [b * 255, b * 255, b * 255] : clampc(mixc(c, white, Math.max(0, sp - 0.8) * 4));
     }
-  }, it.fx === 'spin' || it.fx === 'plasma' ? [1, 1] : undefined);
+    if (it.pat === 'tubes') {   // Neon: two glowing tubes wound round a black forearm, cyan and pink, with a faint grain
+      let k = 0, col = pc;
+      for (const [o, cc] of [[0, pc], [0.5, rgb(it.col.joint)]]) { const d = Math.abs(frac(U - 3 * V + o) - 0.5), e = Math.exp(-Math.pow(d / 0.045, 2)); if (e > k) { k = e; col = cc; } }
+      if (mask) return [k * 255, k * 255, k * 255];
+      const base = mixc([12, 9, 18], [30, 24, 40], fbm(n, U * 16, V * 64, 2, 16, 64));
+      return clampc(mixc(mixc(base, col, Math.min(1, k * 1.6)), white, Math.max(0, k - 0.75) * 2.5));
+    }
+    if (it.pat === 'swirl') {   // Event horizon: streams of an accretion disc winding round a black hole, gold-white where hottest
+      const warp = 3 * fbm(n, U * 8, V * 32, 4, 8, 32), s = 0.5 + 0.5 * Math.sin(P * (2 * U + 5 * V) + warp), streak = n2(U * 4, V * 64, 4, 64);
+      const k = Math.pow(s, 4) * (0.55 + 0.45 * streak);
+      if (mask) return [k * 255, k * 255, k * 255];
+      return clampc(ramp([rgb('#05030a'), rgb('#4a0d05'), pc, hot, white], Math.min(1, k * 1.15)));
+    }
+    // Plasma: violet gas threaded with branching cyan filaments, pink where they gather
+    const r = 1 - Math.abs(2 * fbm(n, U * 8, V * 16, 5, 8, 16) - 1), k = Math.pow(r, 7), soft = Math.pow(r, 2.5) * 0.35, pink = Math.max(0, fbm(n2, U * 4, V * 8, 3, 4, 8) - 0.55) * 2.2;
+    if (mask) { const v = Math.min(1, k + soft * 0.5) * 255; return [v, v, v]; }
+    let c = mixc(fore, mixc(pc, hot, Math.min(1, pink)), Math.min(1, soft + k * 1.2)); return clampc(mixc(c, white, Math.max(0, k - 0.6) * 2));
+  }), [1, 1]);
 }
 function applyCue(id) {
   cueNow = id; const c = cueCols(id), it = kindOf(id) === 'cue' ? LK.ALL[id] : {};
@@ -584,7 +781,7 @@ function applyTable(key) {
   if (tableBuilt && T.key === key) return false;
   C.setTable(key); R = P.R; rebuildTable(); tableBuilt = true; if (clothTex) setCloth();   // a pattern is drawn to the table's size
   const uk = key === 'uk7', k = R / R_US;
-  for (let id = 0; id <= 15; id++) { BM[id].scale.setScalar(k); SH[id].scale.setScalar(k); BM[id].material.map = ballTex(id, uk); BM[id].material.needsUpdate = true; }
+  for (let id = 0; id <= 15; id++) { BM[id].scale.setScalar(k); SH[id].scale.setScalar(k); BM[id].material.map = id === 0 && fxOn('cosmic') ? cosmicTex() : ballTex(id, uk); BM[id].material.needsUpdate = true; }
   return true;
 }
 // trick shots: preset layouts (demo shots found by searching with the real physics) plus your saved layouts
@@ -717,14 +914,45 @@ function gloveBuild(root, it, kind, M) {
 }
 // colours and effects: a design's base, accent and cuff (skin for fingerless gloves, tip for claws), a little of their
 // own colour in the shadows so the near faces never go grey, and a glow for the designs that have one
+// Textures for the legendary and mythic gloves, round each part of the hand (repeating both ways, 64 × 64): gold leaf
+// with its crackle, flames, phantom smoke, molten crust with glowing cracks, and holographic prism bands. glow: a map
+// of where the glove shines, if it does.
+const GLOVE_TEX = {};
+function gloveTex(it) {
+  const kind = { glow: 'leaf', flicker: 'fire', ghost: 'smoke', molten: 'crust', prism: 'holo' }[it.fx]; if (!kind) return null;
+  if (GLOVE_TEX[it.id]) return GLOVE_TEX[it.id];
+  const n = makeNoise(71), n2 = makeNoise(72), W = 64, white = [255, 255, 255];
+  const cellular = (X, Y) => {   // distance to the nearest crack between irregular cells, on a 4 × 4 repeating grid
+    let f1 = 9, f2 = 9; const gx = Math.floor(X), gy = Math.floor(Y);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const cx = ((gx + dx) % 4 + 4) % 4, cy = ((gy + dy) % 4 + 4) % 4, px = gx + dx + 0.15 + 0.7 * n2(cx * 9.1, cy * 5.3), py = gy + dy + 0.15 + 0.7 * n2(cx * 3.7 + 40, cy * 8.9), d = Math.hypot(X - px, Y - py); if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d; }
+    return (f2 - f1) / 2;
+  };
+  const pic = fn => canvasTex(W, W, g => paint(g, W, W, (x, y) => fn(x / W, y / W)), [1, 1]);
+  let map, glow = null;
+  if (kind === 'leaf') map = pic((u, v) => { const e = cellular(u * 4, v * 4), sheen = fbm(n, u * 8, v * 8, 3, 8, 8);
+    return clampc(mixc(mixc(rgb('#9a6a12'), rgb('#ffd56b'), sheen * 1.2), rgb('#5a3a08'), Math.exp(-e / 0.03) * 0.8)); });
+  else if (kind === 'fire') {
+    const f = (u, v) => { const t = fbm(n, u * 8, v * 8, 4, 8, 8); return Math.max(0, Math.min(1, (t - 0.3) * 1.8)); };
+    map = pic((u, v) => { const t = f(u, v); return clampc(t < 0.5 ? mixc(rgb('#5a0d06'), rgb('#ff4a1a'), t * 2) : mixc(rgb('#ff4a1a'), rgb('#ffe27a'), (t - 0.5) * 2)); });
+    glow = pic((u, v) => { const t = Math.pow(f(u, v), 2) * 255; return [t, t, t]; });
+  } else if (kind === 'smoke') { map = pic((u, v) => { const w = fbm(n, u * 4 + 2 * fbm(n2, u * 4, v * 4, 3, 4, 4), v * 4, 4, 4, 4); return clampc(mixc(rgb('#5d4bb0'), rgb('#efe8ff'), w * 1.3)); }); glow = map; }
+  else if (kind === 'crust') {
+    const heat = (u, v) => Math.exp(-cellular(u * 4, v * 4) / (0.03 + 0.02 * n(u * 16, v * 16, 16, 16)));
+    map = pic((u, v) => { const h = heat(u, v), rock = mixc(rgb('#1a0806'), rgb('#4a1d10'), fbm(n, u * 16, v * 16, 2, 16, 16)); return clampc(mixc(rock, mixc(rgb('#ff6a1a'), rgb('#ffe27a'), Math.max(0, h - 0.6) * 2.5), Math.min(1, h * 1.3))); });
+    glow = pic((u, v) => { const h = Math.pow(heat(u, v), 1.5) * 255; return [h, h, h]; });
+  } else { map = pic((u, v) => { const b = (u * 2 + v * 3 + 0.4 * fbm(n, u * 4, v * 4, 3, 4, 4)) % 1, c = new THREE.Color().setHSL(b, 0.85, 0.62); return clampc(mixc([c.r * 255, c.g * 255, c.b * 255], white, Math.max(0, n2(u * 16, v * 16, 16, 16) - 0.75) * 3)); }); glow = map; }
+  return (GLOVE_TEX[it.id] = { map, glow });
+}
 function gloveColours(M, it) {
-  const glow = it.fx ? it.fxc : null;
+  const glow = it.fx ? it.fxc : null, tx = gloveTex(it);
   for (const k of GLOVE_KEYS) {
     const col = k === 'skin' ? it.skin || it.base : k === 'tip' ? it.fxc || it.accent : it[k];
     M[k].color.set(col); M[k].emissive.set(col).multiplyScalar(0.3);
     if (glow && (k === 'accent' || k === 'tip')) M[k].emissive.set(glow);
     M[k].transparent = it.fx === 'ghost'; M[k].opacity = it.fx === 'ghost' ? 0.6 : 1; M[k].needsUpdate = true;
   }
+  M.base.map = tx ? tx.map : null; M.base.emissiveMap = tx ? tx.glow : null;   // a textured glove shows its picture in full colour
+  if (tx) { M.base.color.set('#ffffff'); M.base.emissive.set(tx.glow ? '#000000' : it.base).multiplyScalar(tx.glow ? 1 : 0.15); }
 }
 function applyGlove(id) {
   gloveNow = id; const it = kindOf(id) === 'glove' ? LK.ALL[id] : null;
@@ -742,17 +970,19 @@ function gloveFor(pl) {
 // the glow effects: a slow pulse, a flame's flicker, a ghost's fading in and out
 function gloveFx(M, it, t) {
   if (!it.fx) return;
-  if (it.fx === 'molten' || it.fx === 'prism') {   // mythic: the glove itself changes colour, glowing as it goes
-    if (it.fx === 'molten') M.base.color.setHSL(0.015 + 0.05 * (0.5 + 0.5 * Math.sin(t * 0.9)), 1, 0.5 + 0.06 * Math.sin(t * 2.3));
-    else M.base.color.setHSL(t * 0.09 % 1, 0.85, 0.58);
-    M.base.emissive.copy(M.base.color).multiplyScalar(0.45 + 0.1 * Math.sin(t * 1.7));
-    M.accent.emissive.set(it.fxc).multiplyScalar(0.6 + 0.3 * Math.sin(t * 2.1)); M.tip.emissive.copy(M.accent.emissive);
-    return;
+  const map = M.base.map;
+  if (it.fx === 'molten') {   // mythic: the cracks glow red to orange to gold and back, and the crust creeps
+    M.base.emissive.setHSL(0.02 + 0.07 * (0.5 + 0.5 * Math.sin(t * 0.9)), 1, 0.5).multiplyScalar(0.8 + 0.2 * Math.sin(t * 1.7)); if (map) map.offset.y = t * 0.02;
+  } else if (it.fx === 'prism') {   // mythic: the holographic bands slide round the hand, shining in their own colours
+    M.base.emissive.setScalar(0.35 + 0.1 * Math.sin(t * 1.3)); if (map) map.offset.x = t * 0.08;
+  } else if (it.fx === 'flicker') {   // flames rising, their glow wavering about once a second
+    const k = 0.6 + 0.25 * Math.sin(t * 5.5) * Math.sin(t * 2.1); M.base.emissive.set(it.fxc).multiplyScalar(0.45 + 0.4 * k); if (map) map.offset.y = -t * 0.15;
+  } else if (it.fx === 'ghost') {
+    M.base.emissive.set(it.fxc).multiplyScalar(0.4); if (map) map.offset.x = t * 0.03;
+    for (const key of GLOVE_KEYS) M[key].opacity = 0.45 + 0.2 * Math.sin(t * 1.8);
   }
-  const c = new THREE.Color(it.fxc), k = it.fx === 'flicker' ? 0.55 + 0.3 * Math.sin(t * 23) * Math.sin(t * 7.3) : 0.75 + 0.25 * Math.sin(t * 2.4);
+  const c = new THREE.Color(it.fxc), k = 0.75 + 0.25 * Math.sin(t * 2.4);
   M.accent.emissive.copy(c).multiplyScalar(k); M.tip.emissive.copy(c).multiplyScalar(k);
-  if (it.fx !== 'glow') M.base.emissive.set(it.base).multiplyScalar(0.3).lerp(c, 0.35 * k);
-  if (it.fx === 'ghost') for (const key of GLOVE_KEYS) M[key].opacity = 0.45 + 0.2 * Math.sin(t * 1.8);
 }
 const vG = new THREE.Vector3();
 // places the bridge hand behind the cue ball (on the rail if the cloth runs out), hides the cue hand when the camera
@@ -1122,6 +1352,7 @@ function physicsTick(dt) {
     else if (e.t === 'cush') sfx('cush', e.v);
     else if (e.t === 'pot') {
       const b = ballById(e.id); potAnims.push({ id: e.id, t: 0, x0: b.x, z0: b.z, p: T.pockets[e.p] }); sfx('pot'); SH[e.id].visible = false;
+      sparkAt(T.pockets[e.p].vx, T.pockets[e.p].vz, e.id ? ballColor(e.id) : '#f6f1e2');
       if (e.id !== 0 && humanTurn()) buzz(30);   // your own pot (game.turn is the shooter while balls move)
     }
   }
@@ -2219,7 +2450,7 @@ $('#cFile').addEventListener('change', async () => {
   if (!c) { $('#cNote').textContent = "That file isn't a Retro Rack career."; return; }
   if (CAR.data && !confirm(`Replace ${CAR.data.name}'s career on this device with ${c.name}'s from the file?`)) return;
   // the file's locker comes too, without taking anything away (an older file has its money and bought looks instead)
-  lockerEdit(l => LK.mergeLocker(l, raw.locker || { v: 1, money: c.money, owned: c.bought }));
+  lockerEdit(l => LK.mergeLocker(l, raw.locker || { v: 1, money: c.money, owned: c.bought })); claimDue();
   delete c.money; delete c.bought; CAR.data = c; CAR.tier = null; careerStore();
   refreshMenus(); $('#cNote').textContent = `Loaded ${c.name}'s career.`;
 });
@@ -2232,7 +2463,7 @@ $('#cRetire').addEventListener('click', () => {
 // The locker screen: cases to open or buy (src/looks.js has the odds and prices), then every cloth, cue and glove,
 // owned or not. Tap a look you own to use it, a shop look to buy it; a look from cases says which cases hold it.
 // Opening a case spins a reel of the case's items that stops on the prize (see showReel).
-const LOCKV = { tab: 'cases', page: 0, try: {} }, PAGE = 12;   // try: looks tapped but not owned, by kind, for Preview
+const LOCKV = { tab: 'cases', top: false, try: {} };   // try: looks tapped but not owned, by kind, for Preview; top: back to the top of the list
 function shade(hex, k) { return '#' + [1, 3, 5].map(i => Math.round(Math.min(255, parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join(''); }
 // pixel pictures from rectangles: parts are [x, y, w, h, colour, no outline]; outlined parts get a 1-pixel ink edge
 function drawParts(g, parts, ox = 0, oy = 0) {
@@ -2302,12 +2533,59 @@ function looksOf(kind) {
 function useLook(id) { S[lookKind(id)] = id; saveS(); applyLook(); sendLook(); }
 const gradeList = ids => ids.map(g => LK.GRADES[g].name.replace(' case', '')).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]*)$/, ' or $1');
 const lockNote = t => { $('#lockNote').textContent = t; };
+// the looks in rarity order, rarest first, then the shop's and the free ones; rank: the rarity's place, -1 shop, -2 free
+const lookRank = id => { const it = K.has(LK.ALL, id) ? LK.ALL[id] : null; return it && it.rarity && id !== LK.FREE_GLOVE.id ? LK.RARITIES.indexOf(it.rarity) : K.has(K.ITEMS, id) ? -1 : -2; };
+const KINDS = ['cloth', 'cue', 'glove'], KIND_NAME = { cloth: 'cloth', cue: 'cue', glove: 'gloves' };
+const lookSort = (a, b) => lookRank(b) - lookRank(a) || KINDS.indexOf(lookKind(a)) - KINDS.indexOf(lookKind(b)) || lookName(a).localeCompare(lookName(b));
+const rankName = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].name : r === -1 ? 'From the shop' : 'Free';
+const rankCol = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].col : '#8f86a8';
+const casesTxt = c => Object.entries(c).map(([g, n]) => `${n === 1 ? 'a' : n} ${g} case${n === 1 ? '' : 's'}`).join(' and ');
+// what completing collections brought, for the reel and the toasts
+const doneTxt = done => done.map(r => r === 'all' ? `All five collections: ${LK.EFFECTS[LK.GRAND_FX].name}!` : `${LK.RARITY[r].name} collection complete: ${money(LK.COLLECTIONS[r].money)}, ${casesTxt(LK.COLLECTIONS[r].cases)} and ${LK.EFFECTS[LK.COLLECTIONS[r].fx].name}!`).join(' ');
+// pays any collection rewards due (a career file can complete one); says so
+function claimDue() {
+  if (!LK.RARITIES.some(r => !LOCK.claimed.includes(r) && LK.collected(LOCK, r))) return;
+  const done = lockerEdit(l => LK.claimCollections(l)); if (done.length) { toast(doneTxt(done), 'good'); applyFx(); refreshMenus(); }
+}
+// tapping a look, in the inventory or the shop: one you own goes into use; one you don't is marked to try on in Preview
+// (a shop look offers to be bought first)
+function lookTap(id) {
+  const it = K.has(LK.ALL, id) ? LK.ALL[id] : null, kind = lookKind(id), shop = K.has(K.ITEMS, id);
+  if (owns(id)) { delete LOCKV.try[kind]; useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
+  LOCKV.try[kind] = id; sfx('ui'); refreshMenus();
+  if (!shop) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()} ${KIND_NAME[kind]}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases. Preview tries it on.`); return; }
+  if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}. Preview tries it on.`); return; }
+  if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) { lockNote(`Preview tries ${it.name} on.`); return; }
+  delete LOCKV.try[kind];
+  if (lockerEdit(lk => LK.buyLook(lk, id)) !== 'ok') { refreshMenus(); return; }
+  useLook(id); sfx('win'); lockNote(`${it.name} is yours, and in use.`); refreshMenus();
+}
+// a row of the inventory: picture, name, rarity and kind, and whether it's in use
+function invRow(id) {
+  const kind = lookKind(id), using = S[kind] === id, b = mk('button', 'invRow'); b.type = 'button'; b.dataset.id = id;
+  b.style.setProperty('--rc', rankCol(lookRank(id))); b.setAttribute('aria-pressed', String(using));
+  b.append(lookIcon(id, 30), mk('span', 'invName', lookName(id)), mk('span', 'invState', using ? 'In use' : ''), mk('span', 'invSub', `${rankName(lookRank(id))} ${KIND_NAME[kind]}`));
+  b.addEventListener('click', () => lookTap(id));
+  return b;
+}
+// a tile in the shop: the look's picture on its rarity's colour, dim until owned
+function colTile(id) {
+  const kind = lookKind(id), own = owns(id), r = lookRank(id), col = rankCol(r), it = K.has(LK.ALL, id) ? LK.ALL[id] : null;
+  const b = mk('button', 'colTile' + (own ? ' owned' : ' locked') + (r === -1 ? ' sale' : '') + (LOCKV.try[kind] === id ? ' trying' : '')); b.type = 'button'; b.dataset.id = id;
+  b.title = `${lookName(id)} (${rankName(r).toLowerCase()} ${KIND_NAME[kind]})`; b.setAttribute('aria-label', b.title);
+  b.style.borderColor = col; b.style.background = `linear-gradient(${shade(col, 0.22)}, ${shade(col, 0.5)} 45%, ${shade(col, 0.85)})`;
+  b.append(lookIcon(id, 30));
+  if (r === -1) { b.classList.remove('locked'); b.append(mk('span', 'colPrice', own ? 'Owned' : money(it.price))); } else if (own) b.append(mk('span', 'colTick', '✓'));
+  b.addEventListener('click', () => lookTap(id));
+  return b;
+}
 function renderLocker() {
   const l = LOCK, waiting = LK.GRADE_IDS.reduce((a, g) => a + l.cases[g], 0);
   $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
-  segControl($('#lockTabs'), [['cases', 'Cases'], ['cloth', 'Cloths'], ['cue', 'Cues'], ['glove', 'Gloves']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.page = 0; lockNote(''); });
-  const body = $('#lockBody'), pager = $('#lockPages'); body.innerHTML = ''; pager.innerHTML = '';
-  body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'shopGrid';
+  segControl($('#lockTabs'), [['cases', 'Cases'], ['inv', 'Inventory'], ['shop', 'Shop']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.top = true; lockNote(''); });
+  const body = $('#lockBody'), pager = $('#lockPages'), keep = LOCKV.top ? 0 : body.scrollTop; LOCKV.top = false;
+  body.innerHTML = ''; pager.innerHTML = '';
+  body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'lockList';
   if (LOCKV.tab === 'cases') {
     for (const g of LK.GRADE_IDS) {
       const G = LK.GRADES[g], n = l.cases[g], card = mk('div', 'caseCard'), btns = mk('div', 'caseBtns');
@@ -2329,37 +2607,42 @@ function renderLocker() {
     pager.textContent = `Frames won towards cases: ${meters}. Epic or better within ${LK.PITY - l.pity} ${LK.PITY - l.pity === 1 ? 'case' : 'cases'}.`;
     return;
   }
-  const ids = looksOf(LOCKV.tab), pages = Math.ceil(ids.length / PAGE); LOCKV.page = clamp(LOCKV.page, 0, pages - 1);
-  for (const id of ids.slice(LOCKV.page * PAGE, LOCKV.page * PAGE + PAGE)) {
-    const it = K.has(LK.ALL, id) ? LK.ALL[id] : null, own = owns(id), using = S[lookKind(id)] === id, shop = K.has(K.ITEMS, id), cased = it && !shop && it.rarity && id !== LK.FREE_GLOVE.id;
-    const b = mk('button', 'shopItem' + (own ? '' : ' locked') + (LOCKV.try[LOCKV.tab] === id ? ' trying' : '')); b.type = 'button'; b.dataset.id = id;
-    const state = mk('span', 'shopState', using ? 'In use' : own ? 'Owned' : shop ? money(it.price) : LK.RARITY[it.rarity].name);
-    if (cased) state.style.color = LK.RARITY[it.rarity].col;
-    b.append(lookIcon(id, 30), mk('span', 'shopName', lookName(id)), state); b.setAttribute('aria-pressed', String(using));
-    b.addEventListener('click', () => {
-      const kind = LOCKV.tab;
-      if (own) { delete LOCKV.try[kind]; useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
-      LOCKV.try[kind] = id; sfx('ui'); refreshMenus();
-      if (cased) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases. Preview tries it on.`); return; }
-      if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}. Preview tries it on.`); return; }
-      if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) { lockNote(`Preview tries ${it.name} on.`); return; }
-      delete LOCKV.try[kind];
-      if (lockerEdit(lk => LK.buyLook(lk, id)) !== 'ok') { refreshMenus(); return; }
-      useLook(id); sfx('win'); lockNote(`${it.name} is yours, and in use.`); refreshMenus();
-    });
-    body.append(b);
-  }
-  const have = ids.filter(owns).length, pv = mk('button', 'btn', 'Preview'); pv.type = 'button'; pv.id = 'bPreview';
+  const pv = mk('button', 'btn', 'Preview'); pv.type = 'button'; pv.id = 'bPreview';
   pv.title = 'See your cloth, cue and gloves at the table, with any look you tapped to try';
   pv.addEventListener('click', () => { sfx('ui'); startPreview(); });
-  pager.append(mk('span', '', `${have} of ${ids.length} owned`), pv);
-  if (pages > 1) {
-    const prev = mk('button', 'btn', '<'), next = mk('button', 'btn', '>'); prev.type = next.type = 'button';
-    prev.setAttribute('aria-label', 'Previous page'); next.setAttribute('aria-label', 'Next page');
-    prev.addEventListener('click', () => { LOCKV.page = (LOCKV.page + pages - 1) % pages; sfx('ui'); refreshMenus(); });
-    next.addEventListener('click', () => { LOCKV.page = (LOCKV.page + 1) % pages; sfx('ui'); refreshMenus(); });
-    pager.append(prev, mk('span', 'pageNo', `${LOCKV.page + 1}/${pages}`), next);
+  if (LOCKV.tab === 'inv') {
+    const fx = LK.effects(l);
+    if (fx.length) {   // the effects collections have earned, each with its switch
+      body.append(mk('div', 'invHead', 'Collection rewards'));
+      for (const k of fx) {
+        const r = k === LK.GRAND_FX ? 4 : LK.RARITIES.findIndex(x => LK.COLLECTIONS[x].fx === k), row = mk('div', 'invRow fxRow'), on = fxOn(k), sw = mk('button', 'btn', on ? 'On' : 'Off');
+        row.style.setProperty('--rc', rankCol(r)); row.dataset.fx = k; sw.type = 'button'; sw.setAttribute('aria-pressed', String(on));
+        sw.addEventListener('click', () => { S.fxOff = (S.fxOff || []).filter(x => x !== k); if (on) S.fxOff.push(k); saveS(); applyFx(); sfx('ui'); refreshMenus(); });
+        row.append(mk('span', 'fxIco', '✦'), mk('span', 'invName', LK.EFFECTS[k].name), sw, mk('span', 'invSub', LK.EFFECTS[k].txt));
+        body.append(row);
+      }
+    }
+    const ids = KINDS.flatMap(looksOf).filter(owns).sort(lookSort); let last = null;
+    for (const id of ids) { const r = lookRank(id); if (r !== last) { last = r; const h = mk('div', 'invHead', rankName(r)); h.style.color = rankCol(r); body.append(h); } body.append(invRow(id)); }
+    pager.append(mk('span', '', `${ids.length} looks, rarest first`), pv);
+  } else {
+    const sale = mk('div', 'colRow'); for (const it of K.SHOP) sale.append(colTile(it.id));
+    const sh = mk('div', 'colHead'); sh.append(mk('b', '', 'For sale'), mk('span', 'colRw', 'Cloths and cues to buy outright. Tap one to buy it, or Cancel to try it on.'));
+    body.append(sh, sale);
+    for (const r of [...LK.RARITIES].reverse()) {
+      const pool = LK.POOL[r], have = pool.filter(id => l.owned.includes(id)).length, done = l.claimed.includes(r), C = LK.COLLECTIONS[r], h = mk('div', 'colHead'), row = mk('div', 'colRow');
+      const name = mk('b', '', `${LK.RARITY[r].name} collection`); name.style.color = LK.RARITY[r].col; h.dataset.r = r;
+      h.append(name, mk('span', 'colN' + (done ? ' done' : ''), done ? `${have}/${pool.length} ✓` : `${have}/${pool.length}`),
+        mk('span', 'colRw', done ? `Complete: ${LK.EFFECTS[C.fx].name} is yours (see Inventory).` : `Reward: ${money(C.money)}, ${casesTxt(C.cases)} and ${LK.EFFECTS[C.fx].name}: ${LK.EFFECTS[C.fx].txt.toLowerCase()}`));
+      for (const id of [...pool].sort(lookSort)) row.append(colTile(id));
+      body.append(h, row);
+    }
+    const all = l.claimed.includes('all'), gh = mk('div', 'colHead'); gh.dataset.r = 'all';
+    gh.append(mk('b', '', 'All five'), mk('span', 'colN' + (all ? ' done' : ''), all ? '✓' : `${LK.RARITIES.filter(r => l.claimed.includes(r)).length}/5`), mk('span', 'colRw', `${all ? 'Complete' : 'Reward'}: ${LK.EFFECTS[LK.GRAND_FX].name}. ${LK.EFFECTS[LK.GRAND_FX].txt}`));
+    body.append(gh);
+    pager.append(mk('span', '', `${LK.RARITIES.filter(r => l.claimed.includes(r)).length} of 5 collections complete`), pv);
   }
+  body.scrollTop = keep;
 }
 // a compact chooser for Settings: the look in use, with arrows to step through the ones owned
 function lookPicker(el, kind) {
@@ -2422,9 +2705,9 @@ function showReel(g, r) {
   REEL.end = REEL.at * tw + tw / 2 - win / 2 + (Math.random() - 0.5) * tw * 0.7; REEL.tw = tw; REEL.win = win;
   fxStart(-1, ['#6d5a96']);
   if (reduceMotion) { reelDone(); return; }
-  const T = 5400, t0 = performance.now(); let last = 0;
+  const T = 7000, t0 = performance.now(); let last = 0;
   const step = now => {
-    const u = Math.min(1, (now - t0) / T), x = REEL.end * (1 - Math.pow(1 - u, 4));
+    const u = Math.min(1, (now - t0) / T), x = REEL.end * (1 - Math.pow(1 - u, 4.5));   // a long, slow crawl at the end
     strip.style.transform = `translateX(${-x}px)`;
     const k = Math.floor((x + win / 2) / tw); if (k !== last) { last = k; blipTick(); }
     if (u < 1) REEL.anim = requestAnimationFrame(step); else reelDone();
@@ -2441,6 +2724,7 @@ function reelDone() {
   strip.style.transform = `translateX(${-REEL.end}px)`; tile.classList.add('won'); tile.style.setProperty('--glow', R.col);
   const txt = $('#reelTxt'); txt.innerHTML = ''; const rr = mk('span', 'reelRarity', R.name); rr.style.color = R.col;
   txt.append(rr, mk('span', '', `${it.kind[0].toUpperCase() + it.kind.slice(1)}: ${it.name}. ${r.dup ? `Already yours, so it's sold for ${money(r.sold)}.` : 'New!'}`));
+  if (r.done && r.done.length) { txt.append(mk('span', 'reelCol', doneTxt(r.done))); applyFx(); }
   if (tier >= 3) { const title = $('#reelTitle'); title.textContent = `${R.name}!`; title.style.color = R.col; title.classList.add('big'); }
   if (tier >= 4 && !reduceMotion) $('.reelPanel').classList.add('shake');
   const b = tile.getBoundingClientRect(), cols = tier === 4 ? ['#ff3b3b', '#ff4fd8', '#ff9a1f', '#ffd36b', lookCol(it)] : [R.col, lookCol(it), R.col];
@@ -2918,7 +3202,7 @@ async function isDevWord(v) {
 function setDev(on) {
   DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
   LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
-  checkLooks(); saveS(); applyLook(); sendLook(); refreshMenus();
+  checkLooks(); saveS(); applyLook(); applyFx(); sendLook(); refreshMenus();
   toast(on ? 'Dev mode on: every look, £100,000 and 50 of each case, in a test locker' : 'Dev mode off: your own locker is back', 'good');
 }
 $('#netName').addEventListener('input', async () => {
@@ -3004,7 +3288,7 @@ function frame(now) {
   updateCue(paused ? 0 : dt);
   if (aimDirty) updateAimTxt();
   updateGuides(now);
-  updateMarkers(now); clothFx(now);
+  updateMarkers(now); clothFx(now); tableFx(now, paused ? 0 : dt);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
   cam.update(dt);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
@@ -3017,9 +3301,12 @@ requestAnimationFrame(frame);
   const m = /#room=([A-Za-z0-9]+)/.exec(location.hash);
   if (m) { const code = cleanCode(m[1]); $('#netCode').value = code; M.opp = 'online'; if (M.mode === 'practice') M.mode = '8ball'; refreshMenus(); if (relayBase()) startOnline(code); else { menuReset(['home', 'multi', 'online']); menuNote('This is an invite link, but online play needs the relay address in config.js first.'); } }
 }
+// collection effects (see "collection effects"): their first drawing, and any reward a saved locker is owed
+applyFx(); setTimeout(claimDue, 600);
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
-  get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.color.getHexString(), show: FX.raf }; },
+  get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.emissive.getHexString(), show: FX.raf }; },
+  get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map, shown: cueMesh.visible, cam: cam.mode }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, toggleTop, toggleAimCam,
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };

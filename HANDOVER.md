@@ -113,6 +113,11 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **"Next case mythic" (dev mode only, at the owner's request):** a one-shot switch in Settings, so a mythic reveal can be seen whenever wanted; it only works in the test locker, never on real cases, and turns itself off after one case so it can't be left on by mistake. The other items on the reel still follow the case's odds.
 - **Dev mode exists so the owner can try every look:** a secret word, typed as the online name, swaps in a test locker with everything; the real locker is untouched. The word is known only to the owner; the public code holds just its fingerprint.
 - **Cloth patterns stay low-contrast:** each pattern's colour is close to its cloth's, and every one was checked in screenshots with the balls on the table.
+- **Collections and their rewards (the owner asked for a shop of collections, a row per rarity, and "cool" rewards; the owner picked effects plus money and cases):** each effect is one you can't get any other way, and they're display only and local, so online play needs no change (showing your opponent's would need both players on a new version). The amounts rise with rarity; the mythic reward is a long-term goal.
+- **No duplicate mythics until all six are owned (the owner's pick):** with duplicates, owning all six took about 490 diamond cases on average; now about 200.
+- **The inventory is one long list, rarest first, and the shop holds what you don't own (the owner asked to drop the cloth, cue and glove tabs):** the lists scroll inside the locker's panel, so the screen still fits a phone on its side.
+- **The top-tier looks are painted from noise:** the old ones were a few lines and blobs. Painting a whole bed took up to 10 seconds in the test browser, so the noise uses a lookup table, these cloths are drawn at half the usual resolution (smooth noise doesn't need more) and the last four are kept: Magma now takes about 0.3 seconds there, Galaxy under 0.1. Magma and Synthwave were toned down after the first try, which was too bright to see the balls on. Blaze's flicker was slowed from about 3.7 times a second to about once.
+- **The reel takes 7 seconds** (was 5.4), at the owner's request.
 - **Two open pages share one locker:** every change re-reads the stored locker first, and the other page updates when it hears about the change. Chromium only passes these changes between pages reliably over http(s), so the locker's browser test runs on the local web server rather than from disk.
 
 ---
@@ -160,7 +165,8 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 | Gold | 25% | 45% | 23% | 6% | 1% | £90 | £260 |
 | Diamond | 0% | 50% | 34% | 13% | 3% | £200 | £600 |
 
-- **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary), £500 (mythic).
+- **Duplicates sell for** £10 (common), £30 (rare), £80 (epic), £200 (legendary), £500 (mythic). A mythic is a duplicate only once all six are owned.
+- **Collection rewards** (`COLLECTIONS`): common £300 and a gold case (chalk trail); rare £750 and two gold cases (gold rails); epic £1,500 and two diamond cases (pot sparks); legendary £4,000 and three diamond cases (your name in neon); mythic £10,000 and five diamond cases (cosmic cue ball); all five, the starfield room.
 - **Frames won against the computer pay** £5 (Easy), £15 (Medium), £30 (Hard), £50 (Expert), and every 3 at a level fill a case of its grade (bronze, silver, gold, diamond). Career frames fill the circuit's grade (pub bronze, club silver, hall gold, national diamond) without pay.
 - **The day's first online win:** £30 and a gold case. **A new locker:** £40 and a silver case.
 - **The collection:** 60 looks in cases (14 cloths, 20 cues, 26 gloves; 17 common, 18 rare, 12 epic, 7 legendary, 6 mythic), plus the shop's 5 cloths and 6 cues and the free white gloves.
@@ -175,7 +181,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 ## 6. How things are tested
 
 - **Career rules:** `tests/career.test.js` (24 tests): tour data, tiers, draws, results and money, saving and loading (including saves from before the locker), and the opponents' CPU settings.
-- **Looks:** `tests/looks.test.js` (18 tests): the catalogue, case odds over many openings, the guarantee, mythics, opening, buying, duplicates, earning, the saved locker, and career opponents' gloves.
+- **Looks:** `tests/looks.test.js` (23 tests): the catalogue, case odds over many openings, the guarantee, mythics, collections and their rewards, no duplicate mythics, opening, buying, duplicates, earning, the saved locker, and career opponents' gloves.
 - **Physics and rules:** `tests/physics.test.js` (27 tests). These cover bit-identical determinism, pockets on both tables, breaks, the rules for every mode, the trick demos, and that the context packs are up to date.
 - **The browser:** headless Chromium (Playwright) with software WebGL (SwiftShader). The page exposes `window.__rr` (state, world, game, aim, NET, beginStroke and so on) to make scripting easy. The browser tests have lived in `tests/browser/` since 7 October 2026; `node tests/browser/run-all.js` runs them all (see `AGENTS.md`, Testing).
 - **Online:** the real Cloudflare runtime runs locally (`npx wrangler dev`), and the game is opened with `?relay=ws://127.0.0.1:8787` in **separate browser contexts**, so each gets its own client id. After every shot, the ball positions and the `game` objects of both clients are compared, and they must be identical. Covered: reload rejoin, Rejoin from the home screen, a full room, rematch, re-rack and concede, chat, replaying while the opponent shoots, duplicated tabs, and version mismatches.
@@ -192,6 +198,7 @@ Personal working preferences are kept in the owner's own Claude Code settings, n
 - **Cosmetics overhaul:** built: the locker, cases with a spinning reel, patterned cloths, patterned and glowing cues, and floating gloves with small reactions; Settings and Fullscreen became corner icons in the menus. See section 4, "Looks".
 - **A bigger case opening and a mythic rarity:** built: a dimmed room, a reel filling most of the screen, a background show in the prize's colours, and six moving mythic looks.
 - **Reel tiles in rarity colours, and Preview:** built: tiles fade from dark to their rarity's colour; Preview shows your looks at the table and can try on ones you don't own.
+- **Collections, the inventory list and new top-tier looks:** built: an inventory in rarity order, a shop with a row per collection and rewards for completing them (effects, money and cases), no duplicate mythics, repainted legendary and mythic looks, and a 7-second reel.
 - **New menus:** built. Home leads to Single player (computer, practice) and Multiplayer (online, same device), then the game and its setup, with slide transitions, a "Play again" button and back-gesture support.
 - **Small comforts:** a volume setting, a fullscreen button, a "turn your phone sideways" hint and phone vibration on pots and fouls are built.
 - **Rejoin last game:** built. An online game left by accident (app closed, tab shut) shows a Rejoin button on the home screen for 3 hours. The table comes back if the opponent's game is still open; if both left, the same room starts a fresh frame. Possible next step: keep the table when both players leave (each page saves its snapshot and the room restores the newest), which changes how online games start.

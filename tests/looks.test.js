@@ -84,13 +84,51 @@ test('opening needs a case and the money, takes both, and adds a new item', () =
   assert.ok(r.id && !r.dup && l.owned.includes(r.id) && l.money === 10 && l.cases.silver === 0);
 });
 test('a duplicate is sold at once for its rarity\'s price', () => {
-  const l = L.newLocker(); l.owned = L.CASE_ITEMS.map(it => it.id); l.money = 15; l.cases.bronze = 1;
+  const l = L.newLocker(); l.owned = L.CASE_ITEMS.map(it => it.id); l.claimed = [...L.RARITIES, 'all']; l.money = 15; l.cases.bronze = 1;
   const r = L.openCase(l, 'bronze', seeded(9));
   assert.ok(r.dup && r.sold === L.RARITY[r.rarity].sell && l.money === r.sold && l.owned.length === L.CASE_ITEMS.length);
 });
 test('the reel shows items the case can really give', () => {
   const items = L.reelItems('bronze', 500, seeded(5));
   assert.ok(items.length === 500 && items.every(id => L.ALL[id].rarity !== 'legendary'));
+});
+
+console.log('\nCollections');
+test('every rarity is a collection with a reward, bigger for the rarer ones, and its own effect', () => {
+  const C = L.COLLECTIONS, fx = L.RARITIES.map(r => C[r].fx);
+  assert.deepStrictEqual(Object.keys(C), L.RARITIES);
+  for (let i = 1; i < L.RARITIES.length; i++) assert.ok(C[L.RARITIES[i]].money > C[L.RARITIES[i - 1]].money);
+  assert.strictEqual(new Set([...fx, L.GRAND_FX]).size, 6); assert.ok([...fx, L.GRAND_FX].every(f => L.EFFECTS[f] && L.EFFECTS[f].name));
+  for (const r of L.RARITIES) for (const g in C[r].cases) assert.ok(L.GRADES[g], g);
+});
+test('completing a collection pays once: money, cases and its effect; all five add the starfield room', () => {
+  const l = L.newLocker(); l.money = 0; for (const g of L.GRADE_IDS) l.cases[g] = 0;
+  l.owned = L.POOL.common.slice(1); assert.deepStrictEqual(L.claimCollections(l), []); assert.ok(!L.collected(l, 'common'));
+  l.owned.push(L.POOL.common[0]);
+  assert.deepStrictEqual(L.claimCollections(l), ['common']); assert.ok(l.money === 300 && l.cases.gold === 1);
+  assert.deepStrictEqual(L.claimCollections(l), []); assert.strictEqual(l.money, 300, 'never paid twice');
+  assert.deepStrictEqual(L.effects(l), ['trail']);
+  l.owned = L.CASE_ITEMS.map(it => it.id);
+  assert.deepStrictEqual(L.claimCollections(l), ['rare', 'epic', 'legendary', 'mythic', 'all']);
+  assert.ok(l.money === 300 + 750 + 1500 + 4000 + 10000 && l.cases.gold === 3 && l.cases.diamond === 10);
+  assert.deepStrictEqual(L.effects(l), ['trail', 'rails', 'sparks', 'neon', 'cosmic', 'stars']);
+});
+test('opening the case that completes a collection says so', () => {
+  const l = L.newLocker(); l.money = 1000; l.cases.diamond = 1; l.owned = L.POOL.mythic.slice(1);
+  const r = L.openCase(l, 'diamond', seeded(2), 'mythic');
+  assert.ok(r.id === L.POOL.mythic[0] && !r.dup && r.done.includes('mythic') && l.claimed.includes('mythic'), JSON.stringify(r));
+});
+test('a mythic is never a duplicate until all six are owned', () => {
+  const l = L.newLocker(), rnd = seeded(8); l.money = 1e6; l.cases.diamond = 6;
+  for (let i = 0; i < 6; i++) assert.ok(!L.openCase(l, 'diamond', rnd, 'mythic').dup);
+  assert.ok(L.collected(l, 'mythic')); l.cases.diamond = 1;
+  const r = L.openCase(l, 'diamond', rnd, 'mythic'); assert.ok(r.dup && r.sold === 500 && r.done.length === 0);
+});
+test('the saved locker keeps what was claimed, cleaned, and merging never pays a reward twice', () => {
+  assert.deepStrictEqual(L.validateLocker({ v: 1, claimed: ['rare', 'rare', 'tin', 'all', '__proto__'] }).claimed, ['rare', 'all']);
+  assert.deepStrictEqual(L.newLocker().claimed, []);
+  const l = L.newLocker(); L.mergeLocker(l, { v: 1, owned: L.POOL.common, claimed: ['common'], money: 0 });
+  const m = l.money; assert.deepStrictEqual(L.claimCollections(l), []); assert.strictEqual(l.money, m);
 });
 
 console.log('\nBuying');
