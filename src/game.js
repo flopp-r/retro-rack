@@ -644,7 +644,7 @@ function tableFx(now, dt) {
     else for (let k = 1; k * step <= d; k++) { const f = k * step / d; TRAIL.pts[TRAIL.i] = { x: a.x + (cue.x - a.x) * f, z: a.z + (cue.z - a.z) * f, t: now }; TRAIL.i = (TRAIL.i + 1) % TRAIL.n; TRAIL.at = TRAIL.pts[(TRAIL.i + TRAIL.n - 1) % TRAIL.n]; }
   } else TRAIL.at = null;
   let any = false;
-  for (let k = 0; k < TRAIL.n; k++) {
+  if (on || trailMesh.visible) for (let k = 0; k < TRAIL.n; k++) {
     const p = TRAIL.pts[k], age = p ? (now - p.t) / 1300 : 1, sc = on && age < 1 ? R * 0.3 * (1 - age * age) : 0; if (sc) any = true;
     fxM4.makeScale(sc || 1e-6, 1, sc || 1e-6).setPosition(p ? p.x : 0, 0.0015, p ? p.z : 0); trailMesh.setMatrixAt(k, fxM4);
   }
@@ -2564,7 +2564,8 @@ function lookTap(id) {
 function invRow(id) {
   const kind = lookKind(id), using = S[kind] === id, b = mk('button', 'invRow'); b.type = 'button'; b.dataset.id = id;
   b.style.setProperty('--rc', rankCol(lookRank(id))); b.setAttribute('aria-pressed', String(using));
-  b.append(lookIcon(id, 30), mk('span', 'invName', lookName(id)), mk('span', 'invState', using ? 'In use' : ''), mk('span', 'invSub', `${rankName(lookRank(id))} ${KIND_NAME[kind]}`));
+  const r = lookRank(id), sub = r >= 0 ? rankName(r) : r === -1 ? 'Shop' : 'Free';
+  b.append(lookIcon(id, 30), mk('span', 'invName', lookName(id)), mk('span', 'invState', using ? 'In use' : ''), mk('span', 'invSub', `${sub} ${KIND_NAME[kind]}`));
   b.addEventListener('click', () => lookTap(id));
   return b;
 }
