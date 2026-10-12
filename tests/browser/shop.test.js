@@ -27,7 +27,7 @@ const PUB_DONE = { redlion: { played: 1, won: 1, best: 3 }, crown: { played: 1, 
   const saved = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.career')));
   const settings = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.settings') || '{}'));
   const lock = () => p.evaluate(() => JSON.parse(localStorage.getItem('retroRack.locker')));
-  const item = id => `.shopItem[data-id="${id}"]`;
+  const item = id => `.colTile[data-id="${id}"]`;
 
   console.log('--- the hub, one tier at a time');
   await p.click('[data-go="single"]'); await p.click('[data-go="career"]'); await sleep(400);
@@ -56,23 +56,24 @@ const PUB_DONE = { redlion: { played: 1, won: 1, best: 3 }, crown: { played: 1, 
   await p.click('#mBack'); await sleep(300);
   lk = await look(); ok(lk.venue === 'home', 'back on the hub: the usual room');
   ok(await p.textContent('#cShop') === 'Locker', 'the hub has a Locker button');
-  await p.click('#cShop'); await sleep(400); await p.click('#lockTabs .btn:nth-child(2)'); await sleep(300);
-  ok(/£600 to spend/.test(await p.textContent('#lockMoney')), 'the locker shows what you can spend'); await fits('Locker, cloths');
-  const prices = await p.$$eval('.shopItem', es => es.filter(e => /^£/.test(e.querySelector('.shopState').textContent)).map(e => e.querySelector('.shopName').textContent));
-  ok(prices.join() === 'Charcoal,Navy,Olive,Tan,Ice blue', `cloths for sale: ${prices}`);
+  await p.click('#cShop'); await sleep(400); await p.click('#lockTabs .btn:nth-child(3)'); await sleep(300);
+  ok(/£600 to spend/.test(await p.textContent('#lockMoney')), 'the locker shows what you can spend'); await fits('Locker, shop');
+  const prices = await p.$$eval('.colTile.sale', es => es.filter(e => /^£/.test(e.querySelector('.colPrice').textContent)).map(e => e.title.replace(/ \(.*/, '')));
+  ok(prices.join() === 'Charcoal,Navy,Olive,Tan,Ice blue,Ash,Ebony,Racing red,Arcade,Gold rush,Champion', `the shop's first row: the cloths and cues for sale (${prices})`);
   await p.click(item('ice')); await sleep(300);
   ok(/You need £300 more for Ice blue/.test(await p.textContent('#lockNote')), 'too dear: says how much more is needed');
   await p.click(item('navy')); await sleep(300);
   let L = await lock(), st = await settings();
   ok(L.money === 350 && L.owned.includes('navy') && st.cloth === 'navy', `Navy bought for £250 and put on the table (money £${L.money})`);
-  ok((await p.$eval(item('navy') + ' .shopState', e => e.textContent)) === 'In use', 'the locker marks it In use');
-  await p.click('#lockTabs .btn:nth-child(3)'); await sleep(300); await fits('Locker, cues');
-  ok((await p.$$eval('.shopItem .shopName', es => es.map(e => e.textContent))).slice(0, 7).join() === 'House cue,Ash,Ebony,Racing red,Arcade,Gold rush,Champion', 'cues: the house cue and six to buy come first');
+  ok((await p.$eval(item('navy') + ' .colPrice', e => e.textContent)) === 'Owned', 'the shop marks it Owned');
   await p.click(item('ash')); await sleep(300);
   st = await settings(); ok(st.cue === 'ash' && (await lock()).money === 200, 'Ash bought for £150 and in use');
-  await p.click(item('house')); await sleep(200);
+  await p.click('#lockTabs .btn:nth-child(2)'); await sleep(300); await fits('Locker, inventory');
+  ok((await p.$$eval('.invRow', es => es.map(e => e.dataset.id))).slice(0, 2).join() === 'navy,ash' && (await p.$eval('.invRow[data-id="navy"] .invState', e => e.textContent)) === 'In use',
+    'the inventory: the looks bought come before the free ones, and Navy is in use');
+  await p.click('.invRow[data-id="house"]'); await sleep(200);
   ok((await settings()).cue === 'house' && (await lock()).money === 200, 'switching back to an owned cue costs nothing');
-  await p.click(item('ash')); await sleep(200);
+  await p.click('.invRow[data-id="ash"]'); await sleep(200);
 
   console.log('--- bought looks in Settings, and in an ordinary game');
   await p.click('#bMenuSettings'); await sleep(300);

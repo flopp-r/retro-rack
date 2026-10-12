@@ -25,6 +25,24 @@ const GRADES = {
 };
 const GRADE_IDS = Object.keys(GRADES);
 const PITY = 8;   // at least one epic or better in every 8 cases opened
+// Collections: every case look of one rarity. Completing one pays its reward, once: money, cases and an effect only a
+// collection gives (drawn by game.js; display only, and only on your own screen). All five add the starfield room.
+const COLLECTIONS = {
+  common: { money: 300, cases: { gold: 1 }, fx: 'trail' },
+  rare: { money: 750, cases: { gold: 2 }, fx: 'rails' },
+  epic: { money: 1500, cases: { diamond: 2 }, fx: 'sparks' },
+  legendary: { money: 4000, cases: { diamond: 3 }, fx: 'neon' },
+  mythic: { money: 10000, cases: { diamond: 5 }, fx: 'cosmic' },
+};
+const GRAND_FX = 'stars';
+const EFFECTS = {
+  trail: { name: 'Chalk trail', txt: 'The cue ball leaves a trail of chalk dust as it rolls.' },
+  rails: { name: 'Gold rails', txt: 'The table\'s rails are trimmed in polished gold.' },
+  sparks: { name: 'Pot sparks', txt: 'A burst of sparks in the ball\'s colour when it drops.' },
+  neon: { name: 'Your name in neon', txt: 'Your name lights up the neon sign at home.' },
+  cosmic: { name: 'Cosmic cue ball', txt: 'A cue ball swirled with a far-off nebula.' },
+  stars: { name: 'Starfield room', txt: 'The room at home opens onto the night sky.' },
+};
 
 // What playing earns. A frame won against the computer pays money and moves that level's case meter on; METER frames
 // fill it. Career frames fill the meter of the tier's grade (prize money is their pay). An event won gives a case of
@@ -78,8 +96,8 @@ const CASE_ITEMS = [
   { id: 'q-scales', kind: 'cue', name: 'Dragon', rarity: 'epic', col: cue('#e3c68f', '#d9a441', '#1f6b3a', '#141018', '#1f6b3a', '#d9a441'), pat: 'scales', pc: '#2f8f50' },
   { id: 'q-ice', kind: 'cue', name: 'Frostbite', rarity: 'epic', col: cue('#e8f4ff', '#bfe9ff', '#7fc8e8', '#e8f4ff', '#7fc8e8', '#ffffff'), pat: 'crystal', pc: '#e8f8ff', fx: 'glow' },
   { id: 'q-stars', kind: 'cue', name: 'Starlight', rarity: 'epic', col: cue('#e3c68f', '#cfd0dc', '#1b1f4a', '#141018', '#1b1f4a', '#ffffff'), pat: 'stars', pc: '#ffffff', fx: 'glow' },
-  { id: 'q-rainbow', kind: 'cue', name: 'Spectrum', rarity: 'legendary', col: cue('#f1e4c4', '#ffffff', '#ff4d4d', '#141018', '#4d6bff', '#ffffff'), fx: 'rainbow' },
-  { id: 'q-neon', kind: 'cue', name: 'Neon', rarity: 'legendary', col: cue('#2a2238', '#ff4fd8', '#141018', '#141018', '#141018', '#4ff0ff'), pat: 'rings', pc: '#4ff0ff', fx: 'neon' },
+  { id: 'q-rainbow', kind: 'cue', name: 'Spectrum', rarity: 'legendary', col: cue('#f1e4c4', '#ffffff', '#ff4d4d', '#141018', '#4d6bff', '#ffffff'), pat: 'holo', pc: '#ffffff', fx: 'rainbow' },
+  { id: 'q-neon', kind: 'cue', name: 'Neon', rarity: 'legendary', col: cue('#2a2238', '#ff4fd8', '#141018', '#141018', '#141018', '#4ff0ff'), pat: 'tubes', pc: '#4ff0ff', fx: 'neon' },
   { id: 'q-horizon', kind: 'cue', name: 'Event horizon', rarity: 'mythic', col: cue('#2a2238', '#ff8a3d', '#05030a', '#05030a', '#05030a', '#ffd36b'), pat: 'swirl', pc: '#ff8a3d', fx: 'spin' },
   { id: 'q-plasma', kind: 'cue', name: 'Plasma', rarity: 'mythic', col: cue('#e8f4ff', '#7fe8ff', '#1a0f3a', '#141018', '#1a0f3a', '#ff4fd8'), pat: 'plasma', pc: '#7fe8ff', fx: 'plasma' },
   // gloves: style is the glove type (sport, driver, tactical, moto, fingerless, wraps), or a novelty (boxing, claw, bones)
@@ -137,9 +155,10 @@ const reelItems = (grade, n, rnd) => Array.from({ length: n }, () => roll(grade,
 
 // The locker. money: what's left to spend. owned: looks owned beyond the free ones. cases: unopened cases by grade.
 // meter: frames towards the next case of each grade. pity: cases opened since the last epic or better. daily: the day
-// (YYYY-MM-DD) of the last online win that paid. opened: cases opened in all.
+// (YYYY-MM-DD) of the last online win that paid. opened: cases opened in all. claimed: the collections whose reward
+// has been paid (rarities, and 'all').
 function newLocker() {
-  const l = { v: 1, money: START.money, owned: [], cases: {}, meter: {}, pity: 0, daily: '', opened: 0 };
+  const l = { v: 1, money: START.money, owned: [], cases: {}, meter: {}, pity: 0, daily: '', opened: 0, claimed: [] };
   for (const g of GRADE_IDS) { l.cases[g] = START.cases[g] || 0; l.meter[g] = 0; }
   return l;
 }
@@ -151,6 +170,7 @@ function validateLocker(o) {
   l.owned = Array.isArray(o.owned) ? [...new Set(o.owned.filter(id => has(ALL, id) && !FREE.includes(id)))] : [];
   for (const g of GRADE_IDS) { l.cases[g] = n(o.cases && o.cases[g], 999); l.meter[g] = n(o.meter && o.meter[g], METER - 1); }
   l.pity = n(o.pity, PITY - 1); l.daily = typeof o.daily === 'string' && /^\d{4}-\d\d-\d\d$/.test(o.daily) ? o.daily : ''; l.opened = n(o.opened);
+  l.claimed = Array.isArray(o.claimed) ? [...new Set(o.claimed.filter(r => r === 'all' || has(COLLECTIONS, r)))] : [];
   return l;
 }
 // brings another locker (from a career file) into this one without taking anything away: the looks of both, and the
@@ -161,22 +181,41 @@ function mergeLocker(l, o) {
   l.money = Math.max(l.money, m.money);
   for (const g of GRADE_IDS) { l.cases[g] = Math.max(l.cases[g], m.cases[g]); l.meter[g] = Math.max(l.meter[g], m.meter[g]); }
   l.opened = Math.max(l.opened, m.opened);
+  for (const r of m.claimed) if (!l.claimed.includes(r)) l.claimed.push(r);   // a reward paid in the other locker isn't paid again
   return l;
 }
 const owns = (l, id) => FREE.includes(id) || l.owned.includes(id);
 
-// opens one of the locker's cases and pays for it: { id, rarity, dup, sold } or why not ('unknown', 'none', 'money').
-// A duplicate is sold at once for its rarity's price. force: see roll().
+// opens one of the locker's cases and pays for it: { id, rarity, dup, sold, done } or why not ('unknown', 'none',
+// 'money'). A duplicate is sold at once for its rarity's price, except that a mythic is always one not owned yet until
+// all are. done: the collections it completed (see claimCollections). force: see roll().
 function openCase(l, grade, rnd, force) {
   if (!has(GRADES, grade)) return 'unknown';
   if (!(l.cases[grade] > 0)) return 'none';
   if (l.money < GRADES[grade].open) return 'money';
   l.cases[grade]--; l.money -= GRADES[grade].open; l.opened++;
-  const id = roll(grade, l.pity, rnd, force), rarity = ALL[id].rarity, dup = l.owned.includes(id);
+  let id = roll(grade, l.pity, rnd, force); const rarity = ALL[id].rarity;
+  if (rarity === 'mythic' && l.owned.includes(id)) { const left = POOL.mythic.filter(x => !l.owned.includes(x)); if (left.length) id = left[Math.min(left.length - 1, Math.floor(rnd() * left.length))]; }
+  const dup = l.owned.includes(id);
   l.pity = RARITIES.indexOf(rarity) >= 2 ? 0 : l.pity + 1;
   if (dup) l.money += RARITY[rarity].sell; else l.owned.push(id);
-  return { id, rarity, dup, sold: dup ? RARITY[rarity].sell : 0 };
+  return { id, rarity, dup, sold: dup ? RARITY[rarity].sell : 0, done: claimCollections(l) };
 }
+// a collection is complete when every case look of its rarity is owned
+const collected = (l, r) => POOL[r].every(id => l.owned.includes(id));
+// pays the rewards of collections completed since last time, each only once: the rarities newly completed, and 'all'
+// when the last of the five is
+function claimCollections(l) {
+  const out = [];
+  for (const r of RARITIES) if (!l.claimed.includes(r) && collected(l, r)) {
+    const c = COLLECTIONS[r]; l.claimed.push(r); l.money += c.money; out.push(r);
+    for (const g in c.cases) l.cases[g] = Math.min(999, l.cases[g] + c.cases[g]);
+  }
+  if (!l.claimed.includes('all') && RARITIES.every(r => l.claimed.includes(r))) { l.claimed.push('all'); out.push('all'); }
+  return out;
+}
+// the effects a locker has earned, in collection order
+const effects = l => [...RARITIES.filter(r => l.claimed.includes(r)).map(r => COLLECTIONS[r].fx), ...(l.claimed.includes('all') ? [GRAND_FX] : [])];
 // buys a case: 'ok' or why not
 function buyCase(l, grade) {
   if (!has(GRADES, grade)) return 'unknown';
@@ -218,7 +257,7 @@ function onlineWon(l, day) {
   return { pay: ONLINE.pay, grade: ONLINE.grade };
 }
 
-return { RARITY, RARITIES, GRADES, GRADE_IDS, PITY, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
+return { RARITY, RARITIES, GRADES, GRADE_IDS, PITY, COLLECTIONS, GRAND_FX, EFFECTS, collected, claimCollections, effects, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
   roll, reelItems, newLocker, validateLocker, mergeLocker, owns, openCase, buyCase, buyLook, cpuFrameWon, careerFrameWon, eventWon, onlineWon };
 })(typeof CAREER !== 'undefined' ? CAREER : require('./career.js'));
 if (typeof module !== 'undefined') module.exports = LOOKS;
