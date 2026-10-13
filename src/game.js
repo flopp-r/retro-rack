@@ -154,10 +154,10 @@ function hudVars() {
   // --lw / --sw: the right edge of the left-hand buttons and the width of the spin panel, so on a phone on its
   // side the ball picker can sit in the gap between them
   const right = s => { const el = $(s); return el && !el.closest('[hidden]') ? el.getBoundingClientRect().right : 0; };
-  st.setProperty('--lw', Math.round(Math.max(right('#practice'), right('#tools'))) + 'px');
+  st.setProperty('--lw', Math.round(Math.max(right('#practice'), right('#tools'), right('#trickInfo'))) + 'px');   // the trick panel is wider than the icon buttons above it
   st.setProperty('--sw', Math.round(innerWidth - $('#shot').getBoundingClientRect().left) + 'px');
 }
-if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); for (const s of ['#tools', '#board', '#practice', '#shot']) ro.observe($(s)); }
+if (window.ResizeObserver) { const ro = new ResizeObserver(() => hudVars()); for (const s of ['#tools', '#board', '#practice', '#shot', '#trickInfo']) ro.observe($(s)); }
 // Pixel size 0 is Max: one game pixel per real screen pixel (at most 3 per CSS pixel), so a screen scaled above 100%,
 // or a phone, shows finer detail than 1×; on a screen at 100% it's the same as 1×.
 const screenDpr = () => Math.min(3, Math.max(1, devicePixelRatio || 1));
