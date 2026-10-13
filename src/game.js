@@ -1587,7 +1587,7 @@ function startReplay() {
   const cue = world.balls[0]; [cue.vx, cue.vz, cue.wx, cue.wy, cue.wz] = lastShot.v;
   potAnims = []; syncBallMeshes(); hideGuides();
   state = 'moving'; acc = 0; movingT = 0;
-  $('#bSlow').textContent = 'Slow motion'; $('#replayBar').hidden = false; sfx('cue', Math.hypot(cue.vx, cue.vz));
+  setLab($('#bSlow'), 'Slow motion', 'slow'); $('#replayBar').hidden = false; sfx('cue', Math.hypot(cue.vx, cue.vz));
   updateHUD();
 }
 function endReplay() {
@@ -1761,7 +1761,7 @@ const cam = {
     const c = this.cur, k = 1 - Math.exp(-dt * 7), s = this.shot;
     if (this.mode === 'shot' && !s.up && state === 'moving' && !paused && (s.hit = (s.hit || 0) + dt) >= RISE_WAIT)   // the cue has struck: a beat, then up
       Object.assign(s, { up: true, side: camera.position.z < 0 ? -Math.PI / 2 : Math.PI / 2, from: { ...c }, t: 0, dur: RISE_T });   // to the long side you're nearer
-    const up = this.mode === 'shot' && s.up; if (up !== !!this.away) { this.away = up; $('#shot').classList.toggle('away', up); }   // the spin and power panel fades while the camera's up, so the whole table shows
+    const up = this.mode === 'shot' && s.up; if (up !== !!this.away) { this.away = up; for (const q of ['#shot', '#tools', '#practice']) $(q).classList.toggle('away', up); }   // the buttons fade while the camera's up, so the whole table shows (they still work)
     const g = this.goal();
     if (this.mode === 'shot' && s.from && s.t < s.dur) {   // the swing in for a shot, and the rise after it: eased all the way there, not a snap
       s.t += dt; const e = ease(Math.min(1, s.t / s.dur)), f = s.from;
@@ -1882,7 +1882,7 @@ canvas.addEventListener('dblclick', e => { if (state === 'aim' && humanTurn()) a
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.zoom(e.deltaY); }, { passive: false });
 
 const keys = new Set(); let holdT = 0;
-const AIM_STEP = 0.05 * DEG;   // one press = one step; auto-repeat is ignored. Shift + key turns freely while held.
+const AIM_STEP = 0.05 * DEG, AIM_FINE = 0.01 * DEG;   // one press = one step (with Ctrl, a fifth of one); auto-repeat is ignored. Shift + key turns freely while held.
 addEventListener('blur', () => keys.clear());
 addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
@@ -1901,11 +1901,14 @@ addEventListener('keydown', e => {
   if (k === 'KeyV' && !e.repeat && state !== 'menu' && state !== 'lobby') { if (replay) endReplay(); else startReplay(); return; }
   if (state === 'menu' || state === 'lobby' || paused || state === 'over') return;
   if (e.repeat && !['KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(k)) { keys.add(k); return; }
-  keys.add(k);
+  keys.add(k); keyAct(k, e.shiftKey, e.ctrlKey);
+});
+// what a single press of a key does (the Controls panel's keys call it too)
+function keyAct(k, shift, ctrl) {
   const humanAim = state === 'aim' && humanTurn();
-  const spinStep = e.shiftKey ? 0.05 : 0.2;
+  const spinStep = shift ? 0.05 : 0.2;
   if (humanAim && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'KeyA' || k === 'KeyD')) {
-    if (!e.shiftKey) { aim.phi = wrapA(aim.phi + ((k === 'ArrowRight' || k === 'KeyD') ? 1 : -1) * AIM_STEP); aimDirty = true; }
+    if (!shift && !(ctrl && k.startsWith('Key'))) { aim.phi = wrapA(aim.phi + ((k === 'ArrowRight' || k === 'KeyD') ? 1 : -1) * (ctrl ? AIM_FINE : AIM_STEP)); aimDirty = true; }   // Ctrl + A or D is the browser's
   }
   else if ((k === 'Space' || k === 'Enter') && humanAim) shoot();
   else if (k === 'KeyC') toggleAimCam();
@@ -1920,7 +1923,7 @@ addEventListener('keydown', e => {
   else if (k === 'KeyU') undo();
   else if (k === 'KeyR' && M.mode === 'practice' && state === 'aim') startGame(false);
   else if (k === 'KeyB' && M.mode === 'practice' && state === 'aim') { game.ballInHand = !game.ballInHand; toast(game.ballInHand ? 'Ball in hand: drag the cue ball' : 'Ball in hand off', 'info'); updateHUD(); }
-});
+}
 addEventListener('keyup', e => keys.delete(e.code));
 function handleKeys(dt) {
   if (state === 'menu' || state === 'lobby' || paused) return;
@@ -1936,7 +1939,7 @@ function handleKeys(dt) {
   } else holdT = 0;
   if (touchTurn.dir) {
     touchTurn.t += dt;
-    if (touchTurn.t > 0.35) { const rate = 10 + Math.min(30, Math.max(0, touchTurn.t - 0.8) * 60); aim.phi = wrapA(aim.phi + touchTurn.dir * rate * DEG * dt); aimDirty = true; }
+    if (touchTurn.t > 0.35) { const rate = Math.min(40, 0.5 * Math.pow(2, (touchTurn.t - 0.35) / 0.4)); aim.phi = wrapA(aim.phi + touchTurn.dir * rate * DEG * dt); aimDirty = true; }   // starts at 0.5°/s, doubling every 0.4 s
   }
   const up = has('ArrowUp') || has('KeyW'), dn = has('ArrowDown') || has('KeyS');
   if (up || dn) { aim.power = clamp(aim.power + (up ? 1 : -1) * (shift ? 0.06 : 0.35) * dt, 0.02, 1); aimDirty = true; updateShotPanel(); }
@@ -1963,6 +1966,21 @@ function drawSpin() {
   g.fillStyle = '#0d0a1c'; g.fillRect(x - 2, y - 2, 5, 5);
   g.fillStyle = '#ff4f6f'; g.fillRect(x - 1, y - 1, 3, 3);
 }
+// the small ball beside the power bar: where the tip will strike, and a button to show or hide the full diagram. Phones
+// start with the diagram hidden, computers with it shown; a choice made is kept (S.spinOpen).
+const miniG = $('#spinMini').getContext('2d'), phoneUI = matchMedia('(max-width:760px),(max-height:500px)');
+function drawMini() {
+  const g = miniG; g.clearRect(0, 0, 16, 16);
+  g.fillStyle = '#0d0a1c'; g.beginPath(); g.arc(8, 8, 7.5, 0, 7); g.fill();
+  g.fillStyle = '#f6f1e2'; g.beginPath(); g.arc(8, 8, 6.5, 0, 7); g.fill();
+  const x = Math.round(8 + aim.sx * 3.5), y = Math.round(8 - aim.sy * 3.5);
+  g.fillStyle = '#ff4f6f'; g.fillRect(x - 1, y - 1, 2, 2);
+}
+const spinOpen = () => S.spinOpen === undefined ? !phoneUI.matches : S.spinOpen;
+function applySpinOpen() { const o = spinOpen(); $('#shot').classList.toggle('noSpin', !o); $('#bSpin').setAttribute('aria-pressed', String(o)); }
+$('#bSpin').addEventListener('click', () => { sfx('ui'); S.spinOpen = !spinOpen(); saveS(); applySpinOpen(); });
+phoneUI.addEventListener('change', applySpinOpen);
+applySpinOpen();
 function spinText() {
   const v = aim.sy, h = aim.sx, pct = x => Math.round(Math.abs(x) * 100) + '%';
   const top = Math.abs(v) >= 0.05 ? `${v > 0 ? 'Follow' : 'Draw'} ${pct(v)}` : 'No top or draw';
@@ -1971,13 +1989,15 @@ function spinText() {
   return top + '\n' + side;
 }
 let lastAimTxt = '';
+const JOG = 0.0025 * DEG;   // the aim readout's slide: 0.01° for every 4 screen pixels
 function updateAimTxt() {
   let d = (((aim.phi * 180 / Math.PI) % 360 + 360) % 360).toFixed(2); if (d === '360.00') d = '0.00';
   const t = `Aim ${d}°`;
   if (t !== lastAimTxt) { $('#aimTxt').textContent = t; lastAimTxt = t; }
+  $('#aimTxt').style.backgroundPositionX = (aim.phi / JOG % 6).toFixed(1) + 'px';
 }
 function updateShotPanel() {
-  drawSpin();
+  drawSpin(); drawMini();
   $('#spinTxt').textContent = spinText();
   $('#powFill').style.height = (aim.power * 100).toFixed(1) + '%';
   const v = C.strikeImpulse(C.powerToCueSpeed(aim.power), aim.sx, aim.sy);
@@ -2410,9 +2430,21 @@ for (const [id, dir] of [['#bAimL', -1], ['#bAimR', 1]]) {
   });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => { touchTurn = { dir: 0, t: 0 }; });
 }
+// sliding a finger (or the mouse) along the aim readout turns the aim very finely: JOG per screen pixel
+let jog = null;
+$('#aimTxt').addEventListener('pointerdown', e => {
+  if (state !== 'aim' || !humanTurn()) return;
+  e.preventDefault(); ensureAudio(); jog = { x: e.clientX, id: e.pointerId };
+  try { $('#aimTxt').setPointerCapture(e.pointerId); } catch (err) {}
+});
+$('#aimTxt').addEventListener('pointermove', e => {
+  if (!jog || e.pointerId !== jog.id || state !== 'aim') return;
+  aim.phi = wrapA(aim.phi + (e.clientX - jog.x) * JOG); jog.x = e.clientX; aimDirty = true;
+});
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) $('#aimTxt').addEventListener(ev, () => { jog = null; });
 $('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else startReplay(); });
 $('#bOverReplay').addEventListener('click', startReplay);
-$('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; $('#bSlow').textContent = replay.speed < 1 ? 'Normal speed' : 'Slow motion'; });
+$('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; setLab($('#bSlow'), replay.speed < 1 ? 'Normal speed' : 'Slow motion', replay.speed < 1 ? 'play' : 'slow'); });
 $('#bSkip').addEventListener('click', () => endReplay());
 $('#bMove').addEventListener('click', () => { if (M.mode !== 'practice') return; EDIT = !EDIT; updateTrickUI(); if (EDIT) toast('Drag balls to move them', 'info'); });   // kept short, so on phones it clears the new Add balls button
 $('#bReturn').addEventListener('click', () => {
@@ -2471,7 +2503,7 @@ function updateTrickUI() {
   $('#bMove').setAttribute('aria-pressed', String(EDIT));
   $('#bBalls').hidden = !EDIT; if (!EDIT) $('#ballPick').hidden = true;
   $('#bBalls').setAttribute('aria-pressed', String(!$('#ballPick').hidden));
-  $('#bRerack').textContent = on ? 'Retry (R)' : 'Rerack';
+  setLab($('#bRerack'), on ? 'Retry (R)' : 'Rerack');
   if (!on) return;
   const list = trickList(), t = list[M.trick] || list[0];
   $('#trickTitle').textContent = `Trick ${M.trick + 1} of ${list.length}: ${t.name}`;
@@ -3496,8 +3528,27 @@ function toggleFull() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
 }
-// the menu's corner icons: drawn as pixel art from these rows (x = a pixel)
+// pixel-art icons, drawn from these rows (x = a pixel): the menu's corner buttons, and on phones the game's buttons
 const ICONS = {
+  cam: ['......xxx.', '.....xxxxx', '.....xxxxx', '...x.xxxxx', '..xx..xxx.', '.xx.......', 'xx........', 'x.........'],
+  top: ['xx..xx..xx', 'xxxxxxxxxx', '.x......x.', '.x......x.', '.x......x.', '.x......x.', 'xxxxxxxxxx', 'xx..xx..xx'],
+  help: ['..xxxxx...', '.xx...xx..', '......xx..', '.....xx...', '....xx....', '....xx....', '..........', '....xx....', '....xx....'],
+  pause: ['.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.', '.xxx..xxx.'],
+  replay: ['...xxxx.x.', '.xx....xx.', 'x.....xxx.', 'x.........', 'x........x', 'x........x', '.x......x.', '..xxxxxx..'],
+  chat: ['.xxxxxxxx.', 'xxxxxxxxxx', 'xx.xx.xx.x', 'xxxxxxxxxx', '.xxxxxxxx.', '..xx......', '..x.......'],
+  rack: ['....xx....', '....xx....', '..xx..xx..', '..xx..xx..', 'xx..xx..xx', 'xx..xx..xx'],
+  undo: ['...x......', '..xx......', '.xxxxxxx..', '..xx....x.', '...x.....x', '.........x', '........x.', '....xxxx..'],
+  hand: ['...x.x....', '.x.x.x.x..', '.x.x.x.x..', '.x.x.x.x..', '.xxxxxxx.x', '.xxxxxxxxx', '.xxxxxxxx.', '..xxxxxx..', '...xxxx...'],
+  move: ['....xx....', '...xxxx...', '....xx....', '.x..xx..x.', 'xxxxxxxxxx', 'xxxxxxxxxx', '.x..xx..x.', '....xx....', '...xxxx...', '....xx....'],
+  addball: ['..xxx.....', '.xxxxx....', 'xxxxxxx...', 'xxxxxxx...', 'xxxxxxx.x.', '.xxxxx.xxx', '..xxx...x.'],
+  save: ['xxxxxxxxx.', 'x.xxxxx.xx', 'x.xxxxx..x', 'x.xxxxx..x', 'x........x', 'x.xxxxxx.x', 'x.x....x.x', 'xxxxxxxxxx'],
+  left: ['...xx', '..xx.', '.xx..', 'xx...', '.xx..', '..xx.', '...xx'],
+  right: ['xx...', '.xx..', '..xx.', '...xx', '..xx.', '.xx..', 'xx...'],
+  eye: ['...xxxx...', '.xx....xx.', 'x...xx...x', 'x..xxxx..x', 'x...xx...x', '.xx....xx.', '...xxxx...'],
+  bin: ['...xxxx...', 'xxxxxxxxxx', '.x......x.', '.x.x..x.x.', '.x.x..x.x.', '.x.x..x.x.', '.x......x.', '..xxxxxx..'],
+  slow: ['xxxxxxxx', '.x....x.', '..x..x..', '...xx...', '..x..x..', '.x.xx.x.', 'xxxxxxxx'],
+  play: ['x.....', 'xxx...', 'xxxxx.', 'xxxxxx', 'xxxxx.', 'xxx...', 'x.....'],
+  skip: ['x....x', 'xx...x', 'xxx..x', 'xxxx.x', 'xxx..x', 'xx...x', 'x....x'],
   gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
   full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
   unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],
@@ -3509,9 +3560,49 @@ function setIcon(btn, name) {
   btn.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" fill="currentColor" aria-hidden="true">${cells.join('')}</svg>`);
 }
 setIcon($('#bMenuSettings'), 'gear');
+// On phones the game's buttons are small squares with an icon; their names show on a computer, and on a phone a long
+// press shows one. A button's name (label) can change: setLab keeps its words, icon and aria-label together.
+function setLab(b, label, icon) { const l = b.querySelector('.lab'); if (l) l.textContent = label; else b.textContent = label; b.setAttribute('aria-label', label); if (icon) setIcon(b, icon); }
+for (const [q, icon, name] of [['#bCam', 'cam'], ['#bTop', 'top'], ['#bHelp', 'help'], ['#bPause', 'pause'], ['#bFull', 'full'], ['#bReplay', 'replay'], ['#bChat', 'chat'],
+  ['#bRerack', 'rack'], ['#bUndo', 'undo'], ['#bHand', 'hand'], ['#bMove', 'move'], ['#bBalls', 'addball'], ['#bSave', 'save'], ['#bAimL', 'left', 'Turn aim left'], ['#bAimR', 'right', 'Turn aim right'],
+  ['#bTrickPrev', 'left', 'Previous trick'], ['#bTrickNext', 'right', 'Next trick'], ['#bShowMe', 'eye'], ['#bDelLayout', 'bin'], ['#bSlow', 'slow'], ['#bSkip', 'skip']]) {
+  const b = $(q), words = b.textContent; b.textContent = ''; b.classList.add('ib'); b.insertAdjacentHTML('beforeend', '<span class="lab"></span>');
+  setLab(b, words, icon); if (name) b.setAttribute('aria-label', name);
+}
+const LP = { t: 0, b: null, fired: false };   // a long press on an icon button (not the aim arrows, which turn while held)
+addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('.ib'); LP.fired = false; clearTimeout(LP.t);
+  if (!b || !phoneUI.matches || b.closest('#aimRow')) return;
+  LP.b = b; LP.t = setTimeout(() => {
+    LP.fired = true; const t = $('#ibTip'), r = b.getBoundingClientRect(); t.textContent = b.getAttribute('aria-label'); t.hidden = false;
+    t.style.left = Math.max(4, Math.min(innerWidth - t.offsetWidth - 4, r.left + r.width / 2 - t.offsetWidth / 2)) + 'px';
+    t.style.top = (r.top > t.offsetHeight + 12 ? r.top - t.offsetHeight - 6 : r.bottom + 6) + 'px';
+  }, 450);
+}, true);
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, () => { clearTimeout(LP.t); if (LP.fired) setTimeout(() => { $('#ibTip').hidden = true; }, 900); }, true);
+addEventListener('click', e => { if (LP.fired && e.target.closest && e.target.closest('.ib') === LP.b) { e.stopImmediatePropagation(); e.preventDefault(); LP.fired = false; } }, true);   // the name, not the button
+addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.ib')) e.preventDefault(); });
+// The Controls panel's keys can be tapped, each doing what the key does. Views, shots and the practice keys close the
+// panel first, so you see what happens; the ones that adjust the shot (aim, power, spin) leave it open for more taps.
+const KEY_OF = { '←': 'ArrowLeft', '→': 'ArrowRight', '↑': 'ArrowUp', '↓': 'ArrowDown', Space: 'Space' }, KEY_STAY = /^(Arrow|Key[ADWSIJKLO]$)/;
+for (const kb of document.querySelectorAll('#help kbd')) {
+  const t = kb.textContent.trim(), k = KEY_OF[t] || (/^[A-Z]$/.test(t) ? 'Key' + t : null); if (!k) continue;   // Shift, Ctrl and Alt only go with other keys
+  kb.classList.add('tap'); kb.setAttribute('role', 'button'); kb.tabIndex = 0; kb.dataset.k = k;
+  kb.addEventListener('click', () => tapKey(k));
+  kb.addEventListener('keydown', e => { if (e.code === 'Enter') { e.preventDefault(); e.stopPropagation(); tapKey(k); } });
+}
+function tapKey(k) {
+  ensureAudio(); if (!KEY_STAY.test(k)) $('#help').hidden = true;
+  if (state === 'menu' || state === 'lobby' || paused) return;
+  if (k === 'KeyV') { if (replay) endReplay(); else startReplay(); return; }
+  if (state === 'over') return;
+  if (k === 'KeyQ' || k === 'KeyE') { cam.orbit(k === 'KeyE' ? 70 : -70, 0); return; }   // a turn of about 25°
+  if (/^(Arrow(Up|Down)|Key[WS])$/.test(k)) { if (state === 'aim' && humanTurn()) { aim.power = clamp(aim.power + (k === 'ArrowUp' || k === 'KeyW' ? 0.025 : -0.025), 0.02, 1); aimDirty = true; updateShotPanel(); } return; }
+  keyAct(k, false, false);
+}
 function updateFullBtns() {
   const on = !!document.fullscreenElement, word = on ? 'Exit fullscreen' : 'Fullscreen';
-  $('#bFull').hidden = !canFull; $('#bFull').textContent = word; $('#bFull').setAttribute('aria-pressed', String(on));
+  $('#bFull').hidden = !canFull; setLab($('#bFull'), word, on ? 'unfull' : 'full'); $('#bFull').setAttribute('aria-pressed', String(on));
   const m = $('#bMenuFull'); m.hidden = !canFull; m.title = word; m.querySelector('.vh').textContent = word; m.setAttribute('aria-pressed', String(on)); setIcon(m, on ? 'unfull' : 'full');
 }
 $('#bFull').addEventListener('click', () => { sfx('ui'); toggleFull(); });

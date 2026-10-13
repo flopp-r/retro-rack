@@ -217,18 +217,27 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 @keyframes dots{0%{width:0}100%{width:1.4em}}
 #tools{position:fixed;top:8px;right:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 #practice{position:fixed;top:8px;left:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-#shot{position:fixed;right:10px;bottom:10px;display:grid;grid-template-columns:110px 64px;gap:8px 10px;padding:9px 10px;align-items:start;transition:opacity .2s}
+#shot{position:fixed;right:10px;bottom:10px;display:grid;grid-template-columns:auto auto;gap:8px 10px;padding:9px 10px;align-items:start;transition:opacity .2s}
 #shot.dim{opacity:.5}
-#shot.away{opacity:.12;transition-duration:.6s}
-.spinWrap,.powWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+#shot.away,#tools.away,#practice.away{opacity:.12;transition-duration:.6s}
+#tools,#practice{transition:opacity .2s}
+#shot.noSpin{grid-template-columns:auto}#shot.noSpin .spinWrap{display:none}#shot.noSpin .powWrap{justify-self:center}
+.spinWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.powWrap{display:grid;grid-template-columns:auto auto;gap:6px;align-items:start;justify-items:center}
+#powTxt{grid-column:1 / -1}
+#bSpin{padding:3px;line-height:0}#spinMini{width:24px;height:24px;image-rendering:pixelated}
 #spin{width:96px;height:96px;image-rendering:pixelated;cursor:crosshair;touch-action:none}
 #spinTxt{font-size:17px;line-height:1.05;height:2.1em;overflow:hidden;white-space:pre-line;text-align:center;width:110px}
 #pow{position:relative;width:24px;height:122px;background:var(--ink);border:3px solid var(--plum2);cursor:ns-resize;touch-action:none}
 #powFill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--chalk) 0 33%,var(--lamp) 33% 70%,var(--rose) 70% 100%);background-size:100% 116px;background-position:bottom}
-#powTxt{font-size:17px;white-space:nowrap;width:64px;text-align:center;font-variant-numeric:tabular-nums}
-#aimTxt{grid-column:1 / 3;text-align:center;font-size:17px;margin-bottom:-4px;font-variant-numeric:tabular-nums}
-#bShoot{grid-column:1 / 3;font-size:10px;padding:10px;background:var(--lamp);color:var(--ink)}
+#powTxt{font-size:17px;white-space:nowrap;min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
+#aimTxt{flex:1;text-align:center;font-size:17px;font-variant-numeric:tabular-nums;padding:2px 4px;cursor:ew-resize;touch-action:none;background:var(--ink) repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,transparent 1px 6px);border:2px solid var(--plum2)}   /* slide along it to turn finely; its marks move with the aim */
+#bShoot{grid-column:1 / -1;font-size:10px;padding:10px;background:var(--lamp);color:var(--ink)}
 #bShoot:hover{background:#ffd48e}
+.ib svg{display:none}
+#ibTip{position:fixed;z-index:9;padding:3px 8px;font-size:17px;background:var(--ink);border:2px solid var(--lamp);pointer-events:none;white-space:nowrap}
+#help kbd.tap{cursor:pointer}#help kbd.tap:active{background:var(--lamp);color:var(--ink)}
+.tapNote{color:var(--chalk)}
 #bihTip{font-size:19px;text-align:center;padding:5px 10px;background:rgba(13,10,28,.85);border:3px solid #7dffb0}
 #help{position:fixed;left:10px;bottom:10px;width:min(400px,92vw);max-height:80vh;overflow:auto;padding:12px 14px 10px;font-size:18px}
 #help h2,#pause h2{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;color:var(--lamp);margin:0 0 10px}
@@ -264,13 +273,18 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #board{top:6px;gap:5px;transform:translateX(-50%) scale(.82);transform-origin:top center}
   .pl{min-width:130px}
   #shot{right:6px;bottom:6px;padding:7px;gap:5px 6px}
-  #shot{grid-template-columns:84px 56px}
-  #spin{width:64px;height:64px}#spinTxt{width:84px;font-size:15px}#powTxt{width:56px;font-size:15px}#aimTxt{font-size:15px}
+  #spin{width:64px;height:64px}#spinTxt{width:84px;font-size:15px}#powTxt{min-width:56px;font-size:15px}#aimTxt{font-size:15px}
+  #bSpin{padding:2px}#spinMini{width:22px;height:22px}
   #pow{height:92px}#powFill{background-size:100% 86px}
   .toast{font-size:18px}#thinking,#bihTip{font-size:17px}
   #tools{top:auto;bottom:8px;right:auto;left:8px;display:grid;grid-template-columns:1fr 1fr;max-width:44vw}
   #tools .btn,#practice .btn{font-size:8px;padding:7px 6px}
   #practice{top:auto;bottom:calc(var(--tb,120px) + 6px);display:grid;grid-template-columns:1fr 1fr;align-items:start;max-width:44vw}
+  .ib{width:34px;height:34px;padding:0 !important;display:inline-grid;place-items:center;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  .ib svg{display:block;width:20px;height:20px}.ib .lab{display:none}
+  #tools,#practice{grid-template-columns:repeat(4,34px);gap:5px;max-width:none}
+  #aimRow .ib,#trickInfo .ib{width:30px;height:30px}#aimRow .ib svg,#trickInfo .ib svg{width:14px;height:14px}
+  #replayBar .ib{width:32px;height:32px}
   #help{bottom:auto;top:8px;max-height:70vh}
 }
 @media (prefers-reduced-motion:reduce){.toast,#shot,.card{transition:none}.card:hover{transform:none}#thinking::after{animation:none;width:1.4em}}
@@ -300,7 +314,7 @@ input:focus{border-color:var(--chalk)}
 .roomItem .btn{flex:none}
 #chatPop{position:fixed;top:8px;right:118px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;z-index:6}
 .toast[data-kind=chat]{border-color:#7dffb0}
-#aimRow{grid-column:1 / 3;display:flex;align-items:center;justify-content:space-between;gap:6px}
+#aimRow{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:6px}
 #aimRow .btn{padding:8px 12px;font-size:10px;touch-action:none}
 #trickInfo{padding:8px 10px;max-width:250px;font-size:17px}
 #trickTitle{font-family:'Press Start 2P',monospace;font-size:8px;line-height:1.5;color:var(--lamp);margin-bottom:4px}
@@ -319,7 +333,7 @@ input:focus{border-color:var(--chalk)}
 #rotate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,86vw);padding:14px 16px 16px;text-align:center;z-index:8}
 #rotate p{margin:0 0 12px;font-size:22px}
 .offerPanel{width:min(420px,92vw);padding:18px 20px}.offerPanel p{margin:0 0 6px;font-size:22px}
-@media (max-width:760px),(max-height:500px){#chatPop{top:auto;bottom:calc(var(--tb,120px) + 6px);right:auto;left:8px}#replayBar{bottom:auto;top:calc(var(--bb,90px) + 10px)}#trickInfo{grid-column:1 / 3;max-width:none}#aimRow .btn{padding:7px 9px}}
+@media (max-width:760px),(max-height:500px){#chatPop{top:auto;bottom:calc(var(--tb,120px) + 6px);right:auto;left:8px}#replayBar{bottom:auto;top:calc(var(--bb,90px) + 10px)}#trickInfo{grid-column:1 / -1;max-width:none;width:min(300px,42vw)}#aimRow .btn{padding:7px 9px}}
 </style>
 </head>
 <body>
@@ -360,17 +374,19 @@ input:focus{border-color:var(--chalk)}
   </div>
   <div id="shot" class="panel">
     <div class="spinWrap"><canvas id="spin" width="32" height="32" aria-label="Cue tip position: drag to add spin"></canvas><div id="spinTxt">Centre ball</div></div>
-    <div class="powWrap"><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt">0 m/s</div></div>
-    <div id="aimRow"><button class="btn" id="bAimL" aria-label="Turn aim left">&lt;</button><div id="aimTxt">Aim 0.00°</div><button class="btn" id="bAimR" aria-label="Turn aim right">&gt;</button></div>
+    <div class="powWrap"><button class="btn" id="bSpin" aria-pressed="true" title="Show or hide the spin diagram"><canvas id="spinMini" width="16" height="16"></canvas><span class="vh">Spin diagram</span></button><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt">0 m/s</div></div>
+    <div id="aimRow"><button class="btn" id="bAimL" aria-label="Turn aim left">&lt;</button><div id="aimTxt" title="Slide along here to turn very finely">Aim 0.00°</div><button class="btn" id="bAimR" aria-label="Turn aim right">&gt;</button></div>
     <button class="btn" id="bShoot">Shoot</button>
   </div>
+  <div id="ibTip" hidden></div>
   <div id="help" class="panel" hidden>
     <h2>Controls</h2>
+    <p class="tapNote">Tap a key to use it.</p>
     <dl>
       <dt>Aim</dt><dd>Drag across the table and the cue points at your cursor. Double-click to aim at a spot.</dd>
-      <dt>Fine aim</dt><dd><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> turn 0.05° per press (holding does nothing more). Hold <kbd>Shift</kbd> with them to turn freely.</dd>
+      <dt>Fine aim</dt><dd><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> turn 0.05° per press (holding does nothing more); with <kbd>Ctrl</kbd>, <kbd>←</kbd><kbd>→</kbd> turn 0.01°. Hold <kbd>Shift</kbd> with them to turn freely. On a touch screen, slide along the aim readout to turn very finely.</dd>
       <dt>Power</dt><dd><kbd>↑</kbd><kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd>, or drag the bar.</dd>
-      <dt>Spin</dt><dd>Drag on the cue ball, or <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>. <kbd>O</kbd> resets.</dd>
+      <dt>Spin</dt><dd>Drag on the cue ball, or <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>. <kbd>O</kbd> resets. The small ball by the power bar shows or hides the diagram.</dd>
       <dt>Shoot</dt><dd><kbd>Space</kbd> or the Shoot button.</dd>
       <dt>Camera</dt><dd>Right-drag (or <kbd>Alt</kbd>-drag) to orbit, wheel to zoom, middle-drag to pan, <kbd>Q</kbd><kbd>E</kbd> to turn.</dd>
       <dt>Views</dt><dd><kbd>C</kbd> cue view, <kbd>T</kbd> overhead, <kbd>F</kbd> reset.</dd>
