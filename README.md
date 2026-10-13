@@ -91,12 +91,15 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 - **Quick chat:** in online games, the **Chat** button sends a short preset message.
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Edit table** lets you drag balls into your own layout and shows **Add balls**, which puts more on the table (or takes them off). **Save layout** adds it to the list.
 - **Reds & yellows, "On black":** on the setup screen, choose whether a player on the black gets two visits after a foul or only one (a common pub rule). Online, the host's choice applies to both players.
-- **Shot camera:** when you press Shoot, your aim is held for a moment while the view glides in to stand over the cue; then the cue strikes, and a moment later the view rises high above the side of the table so you can watch every ball (if you shot from the Overhead view, it rises back to that). It goes back to your view once the balls stop. Turn it off under **Pause**, **Shot camera**.
+- **Shot camera:** when you press Shoot, your aim is held for a moment while the view glides in to stand over the cue; then the cue strikes, and a moment later the view rises high above the side of the table so you can watch every ball, with the buttons faded out of the way (if you shot from the Overhead view, it rises back to that). It goes back to your view once the balls stop. Turn it off under **Pause**, **Shot camera**.
 - **Markers:** a pulsing gold halo shows the balls you're on once you have a colour (in 9-ball, the lowest ball). Turn it off under **Pause**, **Markers**.
 - **Settings:** the cog (top right in the menus, Pause in a game) opens a big panel: aim guide and markers, looks, display (pixel size and colours; 1× and full colours are the default, Max uses every pixel a scaled screen or phone has for the finest lines, and a bigger pixel size is more retro and easier on phones) and sound. Click anywhere outside it to close it.
 - **Sound and fullscreen:** **Settings** sets the volume (Off to 100%). The **Fullscreen** button, in the menu and in game, hides the browser's bars where the browser allows it (not on iPhone, where installing the app does the same job).
 - **Phones:** held upright, the game suggests turning sideways (tap OK to stop the hint). On Android, your pots give a short buzz and fouls a longer one; switch it off under **Vibration**.
-- **Fine aim on phones:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap, or smoothly if held.
+- **Fine aim:** the **<** and **>** buttons either side of the aim readout turn by 0.05° per tap; held, they start turning slowly and speed up. For finer still, slide a finger (or the mouse) along the aim readout: 4 screen pixels turn 0.01°. On a keyboard, **Ctrl** with **←** or **→** turns 0.01°.
+- **Phone buttons:** on a phone the game's buttons are small squares with pictures (Shoot keeps its word). Press and hold one to see its name.
+- **Spin diagram:** the small ball beside the power bar shows where the tip will strike; tap it to show or hide the big spin diagram. It starts hidden on a phone and shown on a computer, and remembers your choice.
+- **Controls panel:** the keys listed in it can be tapped, and do what the key does: handy on a phone for things like **O** (centre the spin) and **F** (reset the view). The views, Shoot and the practice keys close the panel; aim, power and spin keys leave it open for more taps.
 
 ## Updating later
 

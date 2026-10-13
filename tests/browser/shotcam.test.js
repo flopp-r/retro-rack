@@ -17,7 +17,7 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   const start = (mode, opp) => ev(([m, o]) => { const r = __rr; r.M.mode = m; r.M.opp = o; r.M.diff = 'hard'; r.startGame(); }, [mode, opp]);
   // a gentle shot at the 1-ball from the cue ball's own spot
   const aimAt = power => ev(pw => { const r = __rr, c = r.world.balls[0], o = r.world.balls.find(x => x.id && !x.potted); r.game.ballInHand = false; r.game.breakShot = false; r.aim.phi = Math.atan2(o.z - c.z, o.x - c.x); r.aim.power = pw; r.aim.sx = r.aim.sy = 0; }, power);
-  const cam = () => ev(() => ({ mode: __rr.cam.mode, pitch: __rr.cam.cur.pitch, yaw: __rr.cam.cur.yaw, dist: __rr.cam.cur.dist, state: __rr.state, turn: __rr.game.turn, frame: __rr.tableFrame(), away: document.querySelector('#shot').classList.contains('away') }));
+  const cam = () => ev(() => ({ mode: __rr.cam.mode, pitch: __rr.cam.cur.pitch, yaw: __rr.cam.cur.yaw, dist: __rr.cam.cur.dist, state: __rr.state, turn: __rr.game.turn, frame: __rr.tableFrame(), away: ['#shot', '#tools', '#practice'].every(q => document.querySelector(q).classList.contains('away')), back: !['#shot', '#tools', '#practice'].some(q => document.querySelector(q).classList.contains('away')) }));
   const risen = async () => { await until(() => ev(() => __rr.state === 'moving'), 5000); await sleep(2000); return cam(); };
   const settle = () => until(() => ev(() => __rr.state === 'aim'));
 
@@ -39,9 +39,9 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   ok(up.mode === 'shot' && up.state === 'moving' && Math.abs(up.pitch - 60 * Math.PI / 180) < 0.03 && Math.abs(Math.cos(up.yaw)) < 0.03,
     `the view rises high above a long side, 60 degrees down (${JSON.stringify(up)})`);
   ok(up.frame > 0.6 && up.frame <= 1, `the whole table is on screen, filling it (its corners reach ${up.frame.toFixed(2)} of the way to the edge)`);
-  ok(up.away, 'the spin and power panel fades meanwhile');
+  ok(up.away, 'the spin and power panel and the buttons on the left fade meanwhile');
   await settle(); await sleep(200); const back = await cam();
-  ok(back.mode === before.mode && !back.away, 'and once the balls stop, your view and the panel come back');
+  ok(back.mode === before.mode && back.back, 'and once the balls stop, your view and the buttons come back');
   await ev(() => __rr.toggleTop()); await aimAt(0.6); await ev(() => __rr.shoot());
   up = await risen();
   ok(up.mode === 'shot' && up.pitch > 1.5, `a shot played from the overhead view rises back to the overhead view (pitch ${up.pitch.toFixed(2)})`);
