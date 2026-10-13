@@ -219,6 +219,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #practice{position:fixed;top:8px;left:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 #shot{position:fixed;right:10px;bottom:10px;display:grid;grid-template-columns:110px 64px;gap:8px 10px;padding:9px 10px;align-items:start;transition:opacity .2s}
 #shot.dim{opacity:.5}
+#shot.away{opacity:.12;transition-duration:.6s}
 .spinWrap,.powWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
 #spin{width:96px;height:96px;image-rendering:pixelated;cursor:crosshair;touch-action:none}
 #spinTxt{font-size:17px;line-height:1.05;height:2.1em;overflow:hidden;white-space:pre-line;text-align:center;width:110px}
@@ -1937,7 +1938,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = 'fc920d49';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '08c197c5';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -3461,14 +3462,15 @@ function beginStroke() {
   state = 'stroke'; hideGuides();
 }
 // Shoot pressed: with the shot camera, your aim is held (state 'set') while the view glides in behind the cue, and the
-// stroke starts once it's there (SET_T seconds), so nothing feels rushed. Without it, the stroke starts at once.
-const SET_T = 0.9;
+// stroke starts once it's there (SET_T seconds), so nothing feels rushed. Without it, the stroke starts at once. Once
+// the cue has struck, the view rises to a high one of the whole table (cam.high) while the balls run.
+const SET_T = 0.9, RISE_WAIT = 0.3, RISE_T = 1.2, HIGH_PITCH = 60 * DEG;   // after the strike: 0.3 s, then 1.2 s up to the high view
 let setT = 0;
 function shoot() {
   if (state !== 'aim' || !humanTurn()) return;
   const cue = world.balls[0];
   if (!S.shotCam || reduceMotion || (game.ballInHand && !C.validSpot(world.balls, cue.x, cue.z, 0, game.kitchen)) || (NET.on && (!NET.peer || NET.link !== 'online'))) return beginStroke();
-  cam.shot = { x: cue.x, z: cue.z, phi: aim.phi, prev: cam.mode, t: 0, from: { ...cam.cur } }; cam.mode = 'shot';
+  cam.shot = { x: cue.x, z: cue.z, phi: aim.phi, prev: cam.mode, t: 0, dur: SET_T, from: { ...cam.cur } }; cam.mode = 'shot';
   state = 'set'; setT = 0; hideGuides(); updateShotPanel();
 }
 function setTick(dt) { if ((setT += dt) >= SET_T) { state = 'aim'; beginStroke(); } }   // if the shot can't go now after all, the view goes back
@@ -3663,24 +3665,36 @@ const cam = {
     }
     if (this.mode === 'shot') {   // your own shot, from your eyes: standing over the cue, looking down the line from where it was played
       const s = this.shot, dx = Math.cos(s.phi), dz = Math.sin(s.phi);
+      if (s.up) return s.prev === 'top' ? this.top() : this.high(s.side);   // then up, to see the whole table while the balls run
       return { yaw: s.phi + Math.PI, pitch: 0.4, dist: 0.95, tx: s.x + dx * 0.25, ty: R, tz: s.z + dz * 0.25 };
     }
     if (this.mode === 'show') {   // Preview: swinging slowly round the side of your cue, so the whole cue and both hands stay in view
       const dx = Math.cos(aim.phi), dz = Math.sin(aim.phi), t = reduceMotion ? 0 : (performance.now() - PREV.t0) / 1000;
       return { yaw: aim.phi + Math.PI / 2 + 0.3 - 0.75 * Math.sin(t * 0.2), pitch: 0.45, dist: 1.12 * (camera.aspect < 1.6 ? 1.6 / camera.aspect : 1), tx: cue.x - dx * 0.62, ty: R, tz: cue.z - dz * 0.62 };
     }
-    if (this.mode === 'top') {
-      const th = Math.tan(22.5 * DEG), d = Math.max((T.hw + 0.26) / th, (T.hl + 0.26) / (th * camera.aspect)) * this.topZoom;
-      return { yaw: Math.PI / 2, pitch: 1.553, dist: d, tx: 0, ty: 0, tz: 0 };
-    }
+    if (this.mode === 'top') return this.top();
     const f = this.free, narrow = camera.aspect < 1.25 ? Math.pow(1.25 / camera.aspect, 0.85) : 1;
     return { yaw: f.yaw, pitch: f.pitch, dist: f.dist * narrow, tx: f.tx, ty: 0, tz: f.tz };
   },
+  top() {
+    const th = Math.tan(22.5 * DEG), d = Math.max((T.hw + 0.26) / th, (T.hl + 0.26) / (th * camera.aspect)) * this.topZoom;
+    return { yaw: Math.PI / 2, pitch: 1.553, dist: d, tx: 0, ty: 0, tz: 0 };
+  },
+  // high above one long side (side: its yaw), 60 degrees down, far enough back that the table and its rails fill 90% of
+  // the screen: the near rail sets the height it needs, and the length its width
+  high(side) {
+    const p = HIGH_PITCH, t = Math.tan(22.5 * DEG) * 0.9, X = T.hl + 0.22, Z = T.hw + 0.22;
+    return { yaw: side, pitch: p, dist: Z * Math.cos(p) + Math.max(Z * Math.sin(p), X / camera.aspect) / t, tx: 0, ty: 0, tz: 0 };
+  },
   update(dt) {
     if (this.mode === 'attract' && !reduceMotion) this.free.yaw += dt * 0.07;
-    const g = this.goal(), c = this.cur, k = 1 - Math.exp(-dt * 7), s = this.shot;
-    if (this.mode === 'shot' && s.from && s.t < SET_T) {   // the swing in for a shot: eased all the way there, not a snap
-      s.t += dt; const e = ease(Math.min(1, s.t / SET_T)), f = s.from;
+    const c = this.cur, k = 1 - Math.exp(-dt * 7), s = this.shot;
+    if (this.mode === 'shot' && !s.up && state === 'moving' && !paused && (s.hit = (s.hit || 0) + dt) >= RISE_WAIT)   // the cue has struck: a beat, then up
+      Object.assign(s, { up: true, side: camera.position.z < 0 ? -Math.PI / 2 : Math.PI / 2, from: { ...c }, t: 0, dur: RISE_T });   // to the long side you're nearer
+    const up = this.mode === 'shot' && s.up; if (up !== !!this.away) { this.away = up; $('#shot').classList.toggle('away', up); }   // the spin and power panel fades while the camera's up, so the whole table shows
+    const g = this.goal();
+    if (this.mode === 'shot' && s.from && s.t < s.dur) {   // the swing in for a shot, and the rise after it: eased all the way there, not a snap
+      s.t += dt; const e = ease(Math.min(1, s.t / s.dur)), f = s.from;
       c.yaw = f.yaw + wrapA(g.yaw - f.yaw) * e; c.pitch = lerp(f.pitch, g.pitch, e); c.dist = lerp(f.dist, g.dist, e);
       c.tx = lerp(f.tx, g.tx, e); c.ty = lerp(f.ty, g.ty, e); c.tz = lerp(f.tz, g.tz, e);
     } else {
@@ -3721,7 +3735,8 @@ const cam = {
     else this.free.dist = clamp(this.free.dist * f, 0.3, 7);
   },
   reset() { this.free = { yaw: -2.25, pitch: 0.6, dist: 3.1, tx: 0, tz: 0 }; this.mode = 'free'; updateCamButtons(); },
-  // once the balls stop, the shot camera glides back to the view you had (unless you moved the camera meanwhile)
+  // once the balls stop, the shot camera glides back to the view you had (unless you moved the camera meanwhile); a shot
+  // played from the overhead view rises back to it
   shotOver() { this.mode = this.shot ? this.shot.prev : 'free'; this.shot = null; updateCamButtons(); },
 };
 function toggleAimCam() { if (cam.mode === 'aim') cam.toFree(); else { cam.mode = 'aim'; } updateCamButtons(); }
@@ -5489,6 +5504,7 @@ window.__rr = { get state() { return state; }, get world() { return world; }, ge
     if (g) g.traverse(o => { if (o.isSkinnedMesh) tips = [4, 7, 10, 13].map(i => { v.set(0, 0, -0.018); o.skeleton.bones[i].localToWorld(v); g.worldToLocal(v); return Math.round(Math.hypot(v.y, v.z) * 1000) / 10; }); });
     return { grip: { ...info(gripGlove), tips }, bridge: info(bridgeGlove), textured: !!GLM.base.map };
   },
+  tableFrame() { const v = new THREE.Vector3(); let m = 0; for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { v.set(x * (T.hl + 0.2), 0, z * (T.hw + 0.2)).project(camera); m = Math.max(m, Math.abs(v.x), Math.abs(v.y)); } return m; },   // how far the table's corners reach across the screen (1: the edge)
   marked() { return MK.map((k, id) => k.visible ? id : -1).filter(id => id >= 0); } };
 })();
 </script>

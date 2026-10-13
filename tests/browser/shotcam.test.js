@@ -1,6 +1,7 @@
-// The shot camera: pressing Shoot holds your aim while the view glides in behind the cue, then the stroke plays, and the
-// view goes back once the balls stop; not for the computer's shots, not with the Settings switch off or with reduced
-// motion (the stroke then starts at once), and moving the camera yourself keeps it.
+// The shot camera: pressing Shoot holds your aim while the view glides in behind the cue, then the stroke plays; after
+// the strike the view rises to a high one of the whole table (the overhead view, if that's where you shot from), and it
+// goes back once the balls stop; not for the computer's shots, not with the Settings switch off or with reduced motion
+// (the stroke then starts at once), and moving the camera yourself keeps it.
 const { chromium, FILE } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -16,7 +17,8 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   const start = (mode, opp) => ev(([m, o]) => { const r = __rr; r.M.mode = m; r.M.opp = o; r.M.diff = 'hard'; r.startGame(); }, [mode, opp]);
   // a gentle shot at the 1-ball from the cue ball's own spot
   const aimAt = power => ev(pw => { const r = __rr, c = r.world.balls[0], o = r.world.balls.find(x => x.id && !x.potted); r.game.ballInHand = false; r.game.breakShot = false; r.aim.phi = Math.atan2(o.z - c.z, o.x - c.x); r.aim.power = pw; r.aim.sx = r.aim.sy = 0; }, power);
-  const cam = () => ev(() => ({ mode: __rr.cam.mode, pitch: __rr.cam.cur.pitch, dist: __rr.cam.cur.dist, state: __rr.state }));
+  const cam = () => ev(() => ({ mode: __rr.cam.mode, pitch: __rr.cam.cur.pitch, yaw: __rr.cam.cur.yaw, dist: __rr.cam.cur.dist, state: __rr.state, turn: __rr.game.turn, frame: __rr.tableFrame(), away: document.querySelector('#shot').classList.contains('away') }));
+  const risen = async () => { await until(() => ev(() => __rr.state === 'moving'), 5000); await sleep(2000); return cam(); };
   const settle = () => until(() => ev(() => __rr.state === 'aim'));
 
   console.log('--- your own shot');
@@ -30,6 +32,21 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   ok(mid.mode === 'shot' && Math.abs(mid.pitch - 0.4) < 0.05 && Math.abs(mid.dist - 0.95) < 0.1, `by then the view is over the cue, looking down the line (${JSON.stringify(mid)})`);
   await settle(); await sleep(200);
   ok((await cam()).mode === before.mode, `once the balls stop it goes back to the view you had ("${before.mode}")`);
+
+  console.log('--- after the strike, up to see the whole table');
+  await aimAt(0.6); await ev(() => __rr.shoot());
+  let up = await risen();
+  ok(up.mode === 'shot' && up.state === 'moving' && Math.abs(up.pitch - 60 * Math.PI / 180) < 0.03 && Math.abs(Math.cos(up.yaw)) < 0.03,
+    `the view rises high above a long side, 60 degrees down (${JSON.stringify(up)})`);
+  ok(up.frame > 0.6 && up.frame <= 1, `the whole table is on screen, filling it (its corners reach ${up.frame.toFixed(2)} of the way to the edge)`);
+  ok(up.away, 'the spin and power panel fades meanwhile');
+  await settle(); await sleep(200); const back = await cam();
+  ok(back.mode === before.mode && !back.away, 'and once the balls stop, your view and the panel come back');
+  await ev(() => __rr.toggleTop()); await aimAt(0.6); await ev(() => __rr.shoot());
+  up = await risen();
+  ok(up.mode === 'shot' && up.pitch > 1.5, `a shot played from the overhead view rises back to the overhead view (pitch ${up.pitch.toFixed(2)})`);
+  await settle(); await sleep(200); ok((await cam()).mode === 'top', 'and stays there once the balls stop');
+  await ev(() => __rr.toggleTop());
 
   console.log('--- moving the camera during the shot keeps your view');
   await ev(() => __rr.toggleTop()); await aimAt(0.3); await ev(() => __rr.shoot()); await sleep(500);
@@ -54,7 +71,7 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   let cpuShot = false, cpuShots = 0;
   for (let t = 0; t < 40000 && cpuShots < 1; t += 100) {
     const c = await cam();
-    if (c.state === 'stroke' || c.state === 'moving') { if (await ev(() => __rr.game.turn === 1)) { cpuShots += c.state === 'moving' ? 1 : 0; if (c.mode === 'shot') cpuShot = true; } }
+    if ((c.state === 'stroke' || c.state === 'moving') && c.turn === 1) { cpuShots += c.state === 'moving' ? 1 : 0; if (c.mode === 'shot') cpuShot = true; }   // one reading, so your own shot ending between two can't count
     await sleep(100);
   }
   ok(cpuShots > 0 && !cpuShot, `the computer's shot doesn't (${cpuShots ? 'watched it play' : 'it never played'})`);
