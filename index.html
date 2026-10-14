@@ -2039,7 +2039,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '6b7b2d5d';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '6a94d3be';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -2293,7 +2293,7 @@ function ballTexture(id, uk) {
 // ------------------------------------------------------------------ scene: lights + room
 // physically based light units (r155+): values are the old look scaled by PI
 const PI = Math.PI;
-scene.add(new THREE.HemisphereLight(0xb7c0ff, 0x2a1a3a, 0.32 * PI));
+const HEMI = new THREE.HemisphereLight(0xb7c0ff, 0x2a1a3a, 0.32 * PI); scene.add(HEMI);
 const sun = new THREE.DirectionalLight(0xfff0d8, 0.22 * PI); sun.position.set(0.5, 3, 1.4); scene.add(sun);
 const fill = new THREE.DirectionalLight(0xdfe4ff, 0.2 * PI); scene.add(fill); scene.add(fill.target);
 for (const x of [-0.62, 0.62]) { const pl = new THREE.PointLight(0xffdca4, 0.51 * PI, 6, 0.43); pl.position.set(x, 1.02, 0); scene.add(pl); }
@@ -2313,7 +2313,7 @@ const skirtMat = new THREE.MeshLambertMaterial({ color: VENUES.home.skirt });
 }
 let neonMat = null;
 function drawNeon() {
-  const v = VENUES[VEN.key] || VENUES.home, text = signText();
+  const v = HALL.on ? HALL.sign : VENUES[VEN.key] || VENUES.home, text = signText();
   const tex = canvasTex(256, 64, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     let size = 22; do g.font = `${size}px "Press Start 2P", monospace`; while (g.measureText(text).width > w - 30 && --size > 9);   // long names get smaller letters
@@ -2331,9 +2331,175 @@ function drawNeon() {
 function setVenue(key, sign = 'Billiards') {
   if (!VENUES[key]) key = 'home';
   if (VEN.key === key && VEN.sign === sign) return;
-  VEN.key = key; VEN.sign = sign;
-  const t = venueTex(key); floorMat.map = t.carpet; wallMat.map = key === 'home' && fxOn('stars') ? starTex() : t.wall; floorMat.needsUpdate = wallMat.needsUpdate = true;
-  skirtMat.color.set(VENUES[key].skirt); drawNeon();
+  VEN.key = key; VEN.sign = sign; dressRoom();
+}
+// the room's floor, walls and skirting for the venue; at home the Haunted Hall or the starfield, if earned and switched on
+function dressRoom() {
+  const key = VEN.key || 'home', home = key === 'home', hall = home && fxOn('haunted'), t = venueTex(key);
+  floorMat.map = hall ? hallTex().floor : t.carpet; wallMat.map = hall ? hallTex().wall : home && fxOn('stars') ? starTex() : t.wall; floorMat.needsUpdate = wallMat.needsUpdate = true;
+  skirtMat.color.set(hall ? '#100a10' : VENUES[key].skirt); showHall(hall); drawNeon();
+}
+// The Haunted Hall: the room at home for the Halloween season's grand reward (looks.js, SERIES.halloween.grand), with its
+// own switch like the other rewards (it wins over the starfield room). Damask walls and dark boards; jack-o'-lanterns
+// round the room, their candles flickering slowly; bats hanging from the beams that stir now and then; cobwebs in the
+// corners, on the lamp and on the table legs; two tall windows with a moon and drifting cloud; fog creeping across the
+// floor; a crooked portrait whose eyes follow the cue ball; a skeleton slumped in a corner; the neon sign in orange and
+// purple. Everything stays by the walls, out of every view of the table. Display only; with reduced motion it all holds
+// still (the candles steady). Built the first time it's shown.
+const HALL = { g: null, on: false, sign: { glow: '#ff8a1f', ink: '#ffe6c2', frame: '#9b4dff' }, tex: null, lights: [], lanterns: [], bats: [], drift: [], eyes: [], legWebs: [], lampWeb: null };
+function hallTex() {
+  if (HALL.tex) return HALL.tex;
+  const n = makeNoise(121), n2 = makeNoise(122), clear = g => g.clearRect(0, 0, g.canvas.width, g.canvas.height);
+  const t = HALL.tex = {
+    wall: canvasTex(32, 32, g => {   // damask: a lattice of flourishes, faintly lighter than the plum ground
+      g.fillStyle = '#1a0f1f'; g.fillRect(0, 0, 32, 32); g.fillStyle = '#2a1830';
+      for (const [cx, cy] of [[16, 16], [0, 0], [32, 0], [0, 32], [32, 32]]) { g.beginPath(); g.moveTo(cx, cy - 9); g.quadraticCurveTo(cx + 7, cy - 3, cx, cy + 9); g.quadraticCurveTo(cx - 7, cy - 3, cx, cy - 9); g.fill(); g.fillRect(cx - 5, cy - 1, 10, 2); }
+      g.fillStyle = '#231427'; g.fillRect(0, 15, 32, 1); g.fillRect(15, 0, 1, 32);
+    }, [24, 5]),
+    floor: canvasTex(64, 64, g => {   // dark boards, each a slightly different shade, with grain and the odd knot
+      for (let i = 0; i < 4; i++) { const v = 24 + (i * 7) % 11; g.fillStyle = `rgb(${v + 8},${v - 2},${v - 6})`; g.fillRect(0, i * 16, 64, 16); g.fillStyle = '#0c0807'; g.fillRect(0, i * 16, 64, 1); g.fillRect((i * 23) % 64, i * 16, 1, 16); }
+      g.fillStyle = 'rgba(0,0,0,0.25)'; for (let i = 0; i < 40; i++) g.fillRect((i * 37) % 64, (i * 13) % 64, 6 + i % 9, 1);
+    }, [20, 20]),
+    web: canvasTex(64, 64, g => {   // a cobweb spun from the top-left corner
+      clear(g); g.strokeStyle = 'rgba(220,220,235,0.55)'; g.lineWidth = 1; g.beginPath();
+      for (let i = 0; i <= 6; i++) { const a = i / 6 * Math.PI / 2; g.moveTo(0, 0); g.lineTo(64 * Math.cos(a), 64 * Math.sin(a)); }
+      for (let r = 9; r < 64; r += 8) for (let i = 0; i <= 6; i++) { const a = i / 6 * Math.PI / 2, s = r * (i % 2 ? 0.92 : 1); if (i) g.lineTo(s * Math.cos(a), s * Math.sin(a)); else g.moveTo(s * Math.cos(a), s * Math.sin(a)); }
+      g.stroke();
+    }),
+    sky: [true, false].map(moon => canvasTex(32, 64, (g, w, h) => {   // the night outside, one window with the moon
+      paint(g, w, h, (x, y) => mixc(mixc(rgb('#0b0a24'), rgb('#2a1a4a'), y / h), rgb('#3a2a6a'), Math.max(0, fbm(n, x / 8, y / 8, 3) - 0.55) * 1.5));
+      const r = K.rng(moon ? 3 : 4); for (let i = 0; i < 26; i++) { g.fillStyle = r() < 0.8 ? '#8a90c8' : '#ffffff'; g.fillRect(r() * w | 0, r() * h * 0.7 | 0, 1, 1); }
+      if (moon) { const glow = g.createRadialGradient(18, 18, 4, 18, 18, 18); glow.addColorStop(0, 'rgba(255,240,200,0.5)'); glow.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = glow; g.fillRect(0, 0, w, 40);
+        g.fillStyle = '#f2ead0'; g.beginPath(); g.arc(18, 18, 7, 0, 7); g.fill(); g.fillStyle = '#d8ccaa'; g.fillRect(15, 15, 2, 2); g.fillRect(20, 19, 3, 2); g.fillRect(16, 21, 2, 1); }
+      g.fillStyle = '#05040a'; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 2) g.lineTo(x, h - 6 - 4 * fbm(n2, x / 6, 1, 2) - (Math.abs(x - 22) < 2 ? 10 : 0)); g.lineTo(w, h); g.fill();   // hills, and a dead tree
+    })),
+    cloud: canvasTex(64, 64, (g, w, h) => { paint(g, w, h, () => [0, 0, 0]); const d = g.getImageData(0, 0, w, h);   // drifting cloud: dark, soft-edged, seamless across
+      for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) { const c = Math.max(0, fbm(n2, x / 16, y / 10, 4, 4, 0) - 0.48) * 3; d.data[i] = 30; d.data[i + 1] = 22; d.data[i + 2] = 48; d.data[i + 3] = Math.min(220, c * 255); }
+      g.putImageData(d, 0, 0); }),
+    fog: canvasTex(64, 64, (g, w, h) => { const d = g.createImageData(w, h);   // low fog, seamless both ways
+      for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) { const c = Math.max(0, fbm(n, x / 16, y / 16, 4, 4, 4) - 0.4) * 2.2; d.data[i] = 190; d.data[i + 1] = 185; d.data[i + 2] = 215; d.data[i + 3] = Math.min(255, c * 255); }
+      g.putImageData(d, 0, 0); }),
+    portrait: canvasTex(32, 48, (g, w, h) => {   // a pale gentleman in black, his eyes left blank for the moving ones
+      g.fillStyle = '#1c1410'; g.fillRect(0, 0, w, h); g.fillStyle = '#2c2018'; g.fillRect(0, 0, w, h * 0.5);
+      g.fillStyle = '#0b0a0c'; g.beginPath(); g.moveTo(3, h); g.quadraticCurveTo(16, 22, 29, h); g.fill();
+      g.fillStyle = '#c8bfa8'; g.beginPath(); g.ellipse(16, 18, 7, 9, 0, 0, 7); g.fill(); g.fillStyle = '#d8d0ba'; g.fillRect(14, 31, 4, 3);
+      g.fillStyle = '#0b0a0c'; g.beginPath(); g.ellipse(16, 11, 8, 4, 0, Math.PI, 0); g.fill(); g.fillRect(13, 25, 6, 1);
+      g.fillStyle = '#e8e4d8'; g.fillRect(11, 16, 4, 3); g.fillRect(17, 16, 4, 3);
+    }),
+    face: canvasTex(64, 32, g => {   // a jack-o'-lantern's carving (the glow map), on the side of the pumpkin facing +z
+      g.fillStyle = '#000000'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#ffffff';
+      const cx = 16, poly = p => { g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); };
+      poly([[cx - 6, 14], [cx - 2, 14], [cx - 4, 10]]); poly([[cx + 2, 14], [cx + 6, 14], [cx + 4, 10]]); poly([[cx - 1, 17], [cx + 1, 17], [cx, 15]]);
+      poly([[cx - 7, 19], [cx - 4, 21], [cx - 2, 19], [cx, 21], [cx + 2, 19], [cx + 4, 21], [cx + 7, 19], [cx + 5, 24], [cx - 5, 24]]);
+    }),
+  };
+  t.web.magFilter = THREE.NearestFilter;
+  for (const k of ['cloud', 'fog']) { t[k].wrapS = t[k].wrapT = THREE.RepeatWrapping; }
+  return t;
+}
+function buildHall() {
+  const g = HALL.g = new THREE.Group(), t = hallTex(), Fy = FLOOR_Y, top = Fy + 3.4; g.visible = false; scene.add(g);
+  const lam = (col, o = {}) => new THREE.MeshLambertMaterial({ color: col, flatShading: true, ...o }), add = (geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; g.add(m); return m; };
+  const wood = lam('#2a1a14'), bone = lam('#e6dec6'), dark = lam('#0b0a0c');
+  // beams along the walls (never over the table), the bats hanging from them
+  for (const z of [-3.5, 3.5]) add(new THREE.BoxGeometry(10.6, 0.16, 0.2), wood, 0, top - 0.5, z);
+  for (const x of [-4.9, 4.9]) add(new THREE.BoxGeometry(0.2, 0.16, 6.8), wood, x, top - 0.5, 0);
+  const batMat = lam('#16121c'), wingG = new THREE.BufferGeometry(); wingG.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.11, -0.02, 0, 0, -0.13, 0, 0.11, -0.02, 0, 0.07, -0.1, 0, 0, -0.13, 0], 3)); wingG.computeVertexNormals();
+  const r = K.rng(131);
+  for (const [x, z] of [[-3.8, -3.5], [-1.2, -3.5], [2.1, -3.5], [3.6, -3.5], [-2.6, 3.5], [0.6, 3.5], [3.0, 3.5], [-4.9, 1.6], [4.9, -1.2]]) {
+    const b = new THREE.Group(); b.position.set(x + (r() - 0.5) * 0.4, top - 0.58, z); b.rotation.y = r() * 6.28; b.scale.setScalar(1.9); g.add(b);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), batMat); body.scale.set(1, 1.7, 0.9); body.position.y = -0.07; b.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), batMat); head.position.y = -0.14; b.add(head);
+    const wings = [-1, 1].map(s => { const w = new THREE.Mesh(wingG, new THREE.MeshLambertMaterial({ color: '#16121c', side: THREE.DoubleSide, flatShading: true })); w.position.set(0, -0.02, 0); w.scale.x = s; b.add(w); return w; });
+    HALL.bats.push({ wings, next: 3 + r() * 12, t0: -9 });
+  }
+  // jack-o'-lanterns: ribbed pumpkins, carved on the side facing the room, a candle glowing in each
+  const pumpG = new THREE.SphereGeometry(1, 14, 9), pp = pumpG.attributes.position;
+  for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i), a = Math.atan2(z, x), k = 1 + 0.07 * Math.cos(a * 8); pp.setXYZ(i, x * k, pp.getY(i) * 0.78, z * k); }
+  pumpG.computeVertexNormals();
+  const stalkG = new THREE.CylinderGeometry(0.08, 0.12, 0.35, 5), stalkM = lam('#3a5a1f');
+  const spots = [[-5.0, -3.6, 0.4], [-4.45, -3.85, 0.27], [-5.1, -3.0, 0.23], [-5.0, 3.6, 0.38], [-4.4, 3.85, 0.22], [5.0, -3.6, 0.36], [4.45, -3.85, 0.24], [4.15, 3.8, 0.27], [-1.9, -3.9, 0.25], [2.9, -3.9, 0.3], [-5.1, 0.9, 0.26], [5.1, 1.4, 0.3]];
+  for (const [x, z, s] of spots) {
+    const m = lam('#d0601a', { emissive: '#ffb03a', emissiveMap: t.face, emissiveIntensity: 1 }), p = add(pumpG, m, x, Fy + s * 0.78, z);
+    p.scale.setScalar(s); p.rotation.y = Math.atan2(-x, -z) + (r() - 0.5) * 0.5;   // facing into the room (its carving is on +z)
+    const st = new THREE.Mesh(stalkG, stalkM); st.position.y = 0.85; st.rotation.z = (r() - 0.5) * 0.5; p.add(st);
+    HALL.lanterns.push({ m, ph: r() * 6.28 });
+  }
+  for (const [x, z] of [[-4.6, -3.3], [4.3, 3.4], [4.6, -3.3]]) { const l = new THREE.PointLight(0xff8a2a, 0.85 * PI, 5, 1.3); l.position.set(x, Fy + 0.55, z); g.add(l); HALL.lights.push(l); }
+  // two tall arched windows on the far wall, the sky behind and cloud drifting across; a lantern on each sill
+  const arch = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h - w / 2); s.absarc(0, h - w / 2, w / 2, 0, Math.PI, false); s.lineTo(-w / 2, 0); return s; };
+  const archUV = (geo, w, h) => { const p = geo.attributes.position, uv = []; for (let i = 0; i < p.count; i++) uv.push(p.getX(i) / w + 0.5, p.getY(i) / h); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); return geo; };
+  [-2.4, 1.6].forEach((x, i) => {
+    const wnd = new THREE.Group(), W = 1.15, H = 2.0; wnd.position.set(x, Fy + 1.05, 4.19); wnd.rotation.y = Math.PI; g.add(wnd);
+    const skyM = new THREE.MeshBasicMaterial({ map: t.sky[i], fog: false }), sky = new THREE.Mesh(archUV(new THREE.ShapeGeometry(arch(W, H), 12), W, H), skyM); wnd.add(sky);
+    const cloudT = t.cloud.clone(); cloudT.needsUpdate = true; cloudT.repeat.set(1.5, 1); const cl = new THREE.Mesh(sky.geometry, new THREE.MeshBasicMaterial({ map: cloudT, transparent: true, depthWrite: false, fog: false }));
+    cl.position.z = 0.005; wnd.add(cl); HALL.drift.push({ tex: cloudT, sx: 0.006 + i * 0.002, sy: 0 });
+    const frame = lam('#140c0a'), bar = (bw, bh, bx, by) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.06), frame); m.position.set(bx, by, 0.02); wnd.add(m); };
+    bar(0.08, H - W / 2, -W / 2, (H - W / 2) / 2); bar(0.08, H - W / 2, W / 2, (H - W / 2) / 2); bar(W + 0.2, 0.1, 0, -0.03); bar(0.05, H, 0, H / 2); bar(W, 0.05, 0, H * 0.45);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(W / 2, 0.04, 4, 12, Math.PI), frame); ring.position.set(0, H - W / 2, 0.02); wnd.add(ring);
+    const p = new THREE.Mesh(pumpG, lam('#d0601a', { emissive: '#ffb03a', emissiveMap: t.face })); p.scale.setScalar(0.13); p.position.set(W * 0.28, 0.1, -0.12); p.rotation.y = Math.PI; wnd.add(p); HALL.lanterns.push({ m: p.material, ph: r() * 6.28 });
+  });
+  // cobwebs in the top corners of the room, on both walls of each corner
+  const webM = new THREE.MeshBasicMaterial({ map: t.web, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }), webG = new THREE.PlaneGeometry(1.1, 1.1);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const a = add(webG, webM, sx * 5.49, top - 0.55, sz * (4.19 - 0.55), sx > 0 ? -Math.PI / 2 : Math.PI / 2); a.scale.x = sx * sz;   // on the end wall
+    const b = add(webG, webM, sx * (5.49 - 0.55), top - 0.55, sz * 4.19, sz > 0 ? Math.PI : 0); b.scale.x = -sx * sz;   // on the side wall
+  }
+  for (let i = 0; i < 4; i++) { const w = add(new THREE.PlaneGeometry(0.34, 0.34), webM, 0, -0.3, 0); HALL.legWebs.push(w); }   // placed by the table's legs each frame
+  HALL.lampWeb = add(new THREE.PlaneGeometry(0.5, 0.5), webM, 0, 1.5, 0);
+  // fog creeping over the floor, in three thin layers drifting different ways
+  for (const [y, o, sx, sy] of [[0.05, 0.3, 0.012, 0.004], [0.16, 0.2, -0.008, 0.006], [0.3, 0.12, 0.005, -0.007]]) {
+    const ft = t.fog.clone(); ft.needsUpdate = true; ft.repeat.set(4, 2);
+    const f = add(new THREE.PlaneGeometry(15.6, 8.0), new THREE.MeshBasicMaterial({ map: ft, transparent: true, opacity: o, depthWrite: false, fog: false }), 0, Fy + y, 0); f.rotation.x = -Math.PI / 2; f.renderOrder = 1;
+    HALL.drift.push({ tex: ft, sx, sy });
+  }
+  // the crooked portrait on the left-hand wall, its eyes following the cue ball
+  const pt = new THREE.Group(); pt.position.set(-5.44, Fy + 1.85, 0.6); pt.rotation.set(0, Math.PI / 2, 0); g.add(pt);
+  const tilt = new THREE.Group(); tilt.rotation.z = 0.11; pt.add(tilt);
+  const gilt = lam('#7a5a22'); for (const [bw, bh, bx, by] of [[0.86, 0.08, 0, 0.56], [0.86, 0.08, 0, -0.56], [0.08, 1.2, -0.43, 0], [0.08, 1.2, 0.43, 0]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.06), gilt); m.position.set(bx, by, 0); tilt.add(m); }
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 1.04), new THREE.MeshLambertMaterial({ map: t.portrait })); pic.position.z = -0.01; tilt.add(pic);
+  t.portrait.magFilter = THREE.NearestFilter;
+  for (const ex of [-0.075, 0.075]) { const p = new THREE.Mesh(new THREE.CircleGeometry(0.018, 6), dark); p.position.set(ex, 0.13, 0.005); tilt.add(p); HALL.eyes.push({ p, x: ex, y: 0.13 }); }
+  HALL.portrait = tilt;
+  // a skeleton slumped in the far corner, back to the wall, legs out across the floor
+  const sk = new THREE.Group(); sk.position.set(5.05, Fy, 3.75); sk.rotation.y = Math.PI * 1.25; g.add(sk);
+  const cap = (r0, len, x, y, z, rx, rz) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r0, len, 2, 5), bone); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); sk.add(m); return m; };
+  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.16), bone); pelvis.position.set(0, 0.1, 0.12); sk.add(pelvis);
+  for (let i = 0; i < 6; i++) cap(0.025, 0.03, 0, 0.18 + i * 0.075, 0.1 - i * 0.022, -0.3, 0);   // the spine, leaning back to the wall
+  for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.TorusGeometry(0.11 - i * 0.008, 0.012, 3, 8, Math.PI * 1.3), bone); rib.position.set(0, 0.34 + i * 0.07, 0.07 - i * 0.02); rib.rotation.set(Math.PI / 2 - 0.3, 0, Math.PI * 1.15); sk.add(rib); }
+  const skull = new THREE.Group(); skull.position.set(0.04, 0.74, -0.04); skull.rotation.set(0.35, 0.3, 0.35); sk.add(skull);
+  const cran = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), bone); cran.scale.set(0.9, 1, 1.05); skull.add(cran);
+  for (const ex of [-0.035, 0.035]) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 4), dark); s.position.set(ex, 0.005, 0.085); skull.add(s); }
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.04, 0.08), bone); jaw.position.set(0, -0.085, 0.04); jaw.rotation.x = 0.35; skull.add(jaw);   // dropped open
+  for (const s of [-1, 1]) {
+    cap(0.022, 0.24, s * 0.17, 0.48, 0.1, 0.2, s * 0.25); cap(0.019, 0.22, s * 0.21, 0.24, 0.2, 0.9, s * 0.1);   // arms hanging, hands on the floor
+    cap(0.03, 0.34, s * 0.09, 0.07, 0.36, Math.PI / 2, 0); cap(0.025, 0.32, s * 0.11, 0.07, 0.74, Math.PI / 2, s * 0.05);   // legs out in front
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.04, 0.13), bone); foot.position.set(s * 0.11, 0.05, 0.96); sk.add(foot);
+  }
+}
+// switches the hall in or out (the room's walls, floor and light are set by dressRoom)
+function showHall(on) {
+  HALL.on = on; if (on && !HALL.g) buildHall();
+  if (HALL.g) HALL.g.visible = on;
+  HEMI.intensity = (on ? 0.22 : 0.32) * PI; HEMI.color.set(on ? '#9a88cc' : '#b7c0ff');
+}
+// each frame while it's shown: candles, bats, cloud, fog, the portrait's eyes, and the cobwebs by the table's legs and lamp
+const vH = new THREE.Vector3();
+function hallFx(now) {
+  if (!HALL.on || !HALL.g) return;
+  const t = reduceMotion ? 0 : now / 1000;
+  for (const L of HALL.lanterns) L.m.emissiveIntensity = reduceMotion ? 0.9 : 0.82 + 0.12 * Math.sin(t * 2.1 + L.ph) * Math.sin(t * 0.7 + L.ph * 2);
+  HALL.lights.forEach((l, i) => { l.intensity = (reduceMotion ? 0.85 : 0.8 + 0.1 * Math.sin(t * 1.9 + i * 2) * Math.sin(t * 0.6 + i)) * PI; });
+  for (const b of HALL.bats) {   // folded, until now and then one opens its wings for a moment
+    if (!reduceMotion && t > b.next) { b.t0 = t; b.next = t + 8 + ((b.next * 7.3) % 1) * 14; }
+    const u = (t - b.t0) / 1.4, k = u > 0 && u < 1 ? Math.sin(u * Math.PI) : 0;
+    for (const w of b.wings) w.rotation.y = (w.scale.x > 0 ? -1 : 1) * (1.35 - 1.1 * k);
+  }
+  for (const d of HALL.drift) d.tex.offset.set(t * d.sx, t * d.sy);
+  const cue = world.balls[0]; vH.set(cue.x, R, cue.z); HALL.portrait.worldToLocal(vH);
+  for (const e of HALL.eyes) { const dx = vH.x - e.x, dy = vH.y - e.y, dz = Math.max(0.5, vH.z), k = reduceMotion ? 0 : 0.012; e.p.position.set(e.x + clamp(dx / dz, -1, 1) * k, e.y + clamp(dy / dz, -1, 1) * k * 0.6, 0.005); }
+  HALL.legWebs.forEach((w, i) => { const sx = i % 2 ? 1 : -1, sz = i < 2 ? 1 : -1; w.position.set(sx * (T.hl - 0.1), -0.34, sz * (T.hw + 0.05)); w.scale.x = -sx; w.rotation.y = sz > 0 ? Math.PI : 0; });
+  const rod = LAMP[LAMP.length - 1]; if (rod) { HALL.lampWeb.position.set(rod.position.x * 0.55, 1.5, 0.002); HALL.lampWeb.scale.set(rod.position.x > 0 ? -1 : 1, 1, 1); }
 }
 setVenue('home');
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawNeon);
@@ -2771,6 +2937,7 @@ function starTex() {
 }
 // the neon sign's words: your name at home with the neon effect, else the room's own
 function signText() {
+  if (VEN.key === 'home' && HALL.on && !fxOn('neon')) return 'Haunted Hall';
   if (VEN.key !== 'home' || !fxOn('neon')) return VEN.sign;
   let n = CAR.data && CAR.data.name; if (!n) try { n = localStorage.getItem('retroRack.name'); } catch (e) {}
   return String(n || '').replace(/[<>]/g, '').trim().slice(0, 14) || 'Retro Rack';
@@ -2816,8 +2983,7 @@ function tableFx(now, dt) {
 function applyFx() {
   const gold = fxOn('rails'); railMat.map = gold ? goldTex() : woodTex; railMat.emissive.set(gold ? '#140d02' : '#000000'); railMat.needsUpdate = true;
   BM[0].material.map = fxOn('cosmic') ? cosmicTex() : ballTex(0, ukStyle()); BM[0].material.needsUpdate = true;
-  const key = VEN.key || 'home'; wallMat.map = key === 'home' && fxOn('stars') ? starTex() : venueTex(key).wall; wallMat.needsUpdate = true;
-  drawNeon();
+  dressRoom();
 }
 
 // "you're on" markers: a pulsing halo round each ball the player at the table is going for. It always faces
@@ -5883,7 +6049,7 @@ function frame(now) {
   updateCue(paused ? 0 : dt);
   if (aimDirty) updateAimTxt();
   updateGuides(now);
-  updateMarkers(now); clothFx(now); tableFx(now, paused ? 0 : dt);
+  updateMarkers(now); clothFx(now); tableFx(now, paused ? 0 : dt); hallFx(now);
   if (state !== 'aim') { G_CUE.visible = G_CUE2.visible = G_OBJ.visible = G_GHOST.visible = false; }
   if (cam.mode === 'shot' && state !== 'set' && state !== 'stroke' && state !== 'moving') cam.shotOver();
   cam.update(dt);
@@ -5902,7 +6068,7 @@ applyFx(); setTimeout(claimDue, 600);
 window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
   get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.emissive.getHexString(), show: FX.raf }; },
-  get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
+  get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, hall: HALL.on, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
   get look() { return { venue: VEN.key, sign: VEN.sign, cue: cueNow, cloth: PREV.on ? PREV.looks.cloth : NET.on && NET.cloth ? NET.cloth : S.cloth, glove: gloveNow, clothTex: !!clothMat.map, shown: cueMesh.visible, cam: cam.mode }; },
   ballScreen(id) { const b = world.balls.find(x => x.id === id); const v = new THREE.Vector3(b.x, R, b.z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, aim, cam, startGame, M, S, beginStroke, shoot, toggleTop, toggleAimCam,
   get hands() {   // the gloves at the table: one piece on a skeleton or built from parts, and how far the cue hand's fingertips are from the middle of the cue (cm)
