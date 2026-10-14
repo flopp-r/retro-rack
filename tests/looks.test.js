@@ -185,5 +185,68 @@ test('merging a locker from a file takes nothing away', () => {
   assert.ok(l.money === 500 && l.owned.join() === 'g-gold,q-neon' && l.cases.gold === 2 && l.cases.bronze === 4);
 });
 
+console.log('\nHalloween: a season of its own looks, in Trick and Treat cases');
+const H = L.seriesItems('halloween');
+test('thirty Halloween looks: two of each kind at each rarity, proper colours, none in the everyday cases', () => {
+  assert.strictEqual(H.length, 30); assert.strictEqual(new Set(H).size, 30);
+  for (const r of L.RARITIES) for (const k of L.KINDS) assert.strictEqual(L.SERIES_POOL.halloween[r].filter(id => L.ALL[id].kind === k).length, 2, r + ' ' + k);
+  for (const id of H) {
+    const it = L.ALL[id]; assert.ok(it.series === 'halloween' && it.name && !K.has(K.ITEMS, id) && !L.CASE_ITEMS.includes(it), id);
+    if (it.kind === 'cloth') assert.ok(hex(it.col) && hex(it.col2) && it.pat, id);
+    else if (it.kind === 'cue') assert.ok(Object.keys(K.HOUSE_CUE).every(k => hex(it.col[k])) && hex(it.pc), id);
+    else assert.ok(hex(it.base) && hex(it.accent) && hex(it.cuff) && it.style && (!it.fx || hex(it.fxc)), id);
+  }
+  for (const g of L.GRADE_IDS) for (let i = 0; i < 300; i++) assert.ok(!H.includes(L.roll(g, 0, seeded(i + 1))), 'never in ' + g);
+});
+test('the season runs from 1 October to 10 November', () => {
+  assert.ok(L.inSeason('halloween', '2026-10-01') && L.inSeason('halloween', '2026-10-31') && L.inSeason('halloween', '2026-11-10'));
+  assert.ok(!L.inSeason('halloween', '2026-09-30') && !L.inSeason('halloween', '2026-11-11') && !L.inSeason('halloween', '2027-06-01'));
+});
+test('Trick and Treat cases hold only Halloween looks, by their odds', () => {
+  const rnd = seeded(9), seen = { trick: new Set(), treat: new Set() };
+  for (const g of ['trick', 'treat']) for (let i = 0; i < 3000; i++) { const id = L.roll(g, 0, rnd); assert.ok(H.includes(id), g + ' ' + id); seen[g].add(L.ALL[id].rarity); }
+  assert.ok(L.RARITIES.every(r => seen.trick.has(r) && seen.treat.has(r)), 'every rarity comes up');
+  assert.ok(L.reelItems('trick', 40, rnd).every(id => H.includes(id)), 'the reel shows what the case holds');
+});
+test('a Trick case can give a duplicate, sold at once for its rarity\'s price', () => {
+  const l = L.newLocker(); l.money = 1e5; l.cases.trick = 200; l.owned = [...L.SERIES_POOL.halloween.common];
+  let dups = 0; for (let i = 0; i < 40; i++) { const m = l.money, r = L.openCase(l, 'trick', seeded(i + 3)); if (r.dup && !r.done.length) { dups++; assert.strictEqual(l.money, m - L.GRADES.trick.open + L.RARITY[r.rarity].sell); } }
+  assert.ok(dups > 0, 'duplicates happen');
+});
+test('a Treat case always gives a look you don\'t have, so thirty finish the set, paying each rarity\'s reward and the Haunted Hall', () => {
+  const l = L.newLocker(); l.money = 0; l.cases.treat = 30; const got = [], done = [];
+  for (let i = 0; i < 30; i++) { const r = L.openCase(l, 'treat', seeded(i * 7 + 1)); assert.ok(!r.dup, 'never a duplicate'); got.push(r.id); done.push(...r.done); }
+  assert.strictEqual(new Set(got).size, 30); assert.ok(H.every(id => l.owned.includes(id)));
+  assert.deepStrictEqual([...done].sort(), [...L.RARITIES.map(r => 'halloween:' + r), 'halloween:all'].sort());
+  const R = L.SERIES.halloween.reward, pay = L.RARITIES.reduce((a, r) => a + R[r].money, 0) + L.SERIES.halloween.grand.money;
+  assert.strictEqual(l.money, pay, 'the money of every reward, once (Treat cases cost nothing to open)');
+  assert.strictEqual(l.cases.trick, R.common.cases.trick + R.rare.cases.trick); assert.strictEqual(l.cases.treat, R.epic.cases.treat + R.legendary.cases.treat);
+  assert.ok(L.effects(l).includes('haunted'), 'the Haunted Hall is earned');
+  assert.ok(!['common', 'rare', 'epic', 'legendary', 'mythic', 'all'].some(k => l.claimed.includes(k)), 'the everyday collections are untouched');
+  assert.strictEqual(L.buyCase(l, 'treat', '2026-10-14'), 'complete', 'no more Treat cases once you have them all');
+  const m = l.money, r = L.openCase(l, 'treat', seeded(5)); assert.ok(r.dup && l.money === m + L.RARITY[r.rarity].sell, 'a Treat case held then gives a duplicate, sold');
+});
+test('a Trick case\'s mythic is one you don\'t have, until you have both', () => {
+  const l = L.newLocker(); l.money = 1e4; l.cases.trick = 3; const myth = L.SERIES_POOL.halloween.mythic; l.owned = [myth[0]];
+  const r = L.openCase(l, 'trick', seeded(2), 'mythic'); assert.ok(r.id !== myth[0] && !r.dup && L.ALL[r.id].series === 'halloween');
+});
+test('Halloween cases can be bought only in the season; the season\'s daily case comes with the first frame won each day', () => {
+  const l = L.newLocker(); l.money = 2000;
+  assert.strictEqual(L.buyCase(l, 'trick', '2026-12-01'), 'season'); assert.strictEqual(L.buyCase(l, 'treat', '2027-03-01'), 'season');
+  assert.strictEqual(L.buyCase(l, 'trick', '2026-10-20'), 'ok'); assert.strictEqual(L.buyCase(l, 'treat', '2026-10-20'), 'ok');
+  assert.ok(l.cases.trick === 1 && l.cases.treat === 1 && l.money === 2000 - 120 - 400);
+  assert.strictEqual(L.seasonWon(l, '2026-12-25'), null, 'nothing out of season');
+  assert.deepStrictEqual(L.seasonWon(l, '2026-10-20'), { grade: 'trick', n: 1 }); assert.strictEqual(L.seasonWon(l, '2026-10-20'), null, 'once a day');
+  assert.deepStrictEqual(L.seasonWon(l, '2026-10-21'), { grade: 'trick', n: 1 }); assert.strictEqual(l.cases.trick, 3);
+  assert.strictEqual(L.buyCase(l, 'diamond', '2026-12-01'), 'ok', 'the everyday cases sell all year');
+});
+test('a saved locker keeps its Halloween cases, looks, rewards and daily case; merging takes nothing away', () => {
+  const l = L.validateLocker({ v: 1, money: 10, owned: ['c-h-moon', 'g-h-mummy'], cases: { trick: 4, treat: 2 }, sdaily: '2026-10-20', claimed: ['halloween:common', 'halloween:all', 'halloween:nope', 'spooky:all'] });
+  assert.ok(l.owned.join() === 'c-h-moon,g-h-mummy' && l.cases.trick === 4 && l.cases.treat === 2 && l.sdaily === '2026-10-20');
+  assert.deepStrictEqual(l.claimed, ['halloween:common', 'halloween:all']);
+  assert.ok(!('trick' in L.newLocker().meter), 'no meters for season cases');
+  const m = L.newLocker(); L.mergeLocker(m, l); assert.ok(m.cases.treat === 2 && m.owned.includes('c-h-moon') && m.sdaily === '2026-10-20' && m.claimed.includes('halloween:all'));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -54,17 +54,19 @@ if (CAR.data && (CAR.data.money || CAR.data.bought)) {
 // Dev mode, for trying every look without unlocking them: typing the dev word as your name on the Online screen
 // switches it on or off (see the online section), leaving your name as it was. Only a fingerprint of the word is kept
 // here, because the repository is public. While it's on, the locker is a separate test locker with everything owned,
-// £100,000 and 50 of each case; the real locker is left alone and comes back when it's switched off.
+// £100,000 and 50 of each case; the real locker is left alone and comes back when it's switched off. A test locker kept
+// from before is topped up at start-up with any looks, cases and rewards added since.
 const DEVW = { print: 'f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc48e6ee5' };
-function devLocker() {
-  const l = LK.newLocker(); l.money = 100000; l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
-  for (const g of LK.GRADE_IDS) l.cases[g] = 50;
-  l.claimed = [...Object.keys(LK.COLLECTIONS), ...LK.RARITIES, 'all'];   // every set's effect, without the money
+function devLocker(l) {
+  if (!l) { l = LK.newLocker(); l.money = 100000; for (const g of LK.CASE_IDS) l.cases[g] = 50; }
+  l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
+  for (const g of LK.CASE_IDS) if (LK.GRADES[g].series && !l.cases[g]) l.cases[g] = 50;
+  l.claimed = [...Object.keys(LK.COLLECTIONS), ...LK.RARITIES, 'all', ...LK.SERIES_IDS.flatMap(sid => [...LK.RARITIES.map(r => `${sid}:${r}`), `${sid}:all`])];   // every effect, without the money
   try { localStorage.setItem('retroRack.lockerDev', JSON.stringify(l)); } catch (e) {}
   return l;
 }
 try { DEV = localStorage.getItem('retroRack.dev') === '1'; } catch (e) {}
-if (DEV) LOCK = lockerRead() || devLocker();
+if (DEV) LOCK = devLocker(lockerRead());
 addEventListener('storage', e => {   // another open page changed the locker, or dev mode
   if (e.key === 'retroRack.dev') { DEV = e.newValue === '1'; LOCK = lockerRead() || (DEV ? devLocker() : LK.newLocker()); checkLooks(); }
   else if (e.key !== lockKey()) return;
@@ -313,7 +315,7 @@ const cushMat = new THREE.MeshLambertMaterial({ color: '#187563' });
 // A mythic cloth moves (clothFx, every frame): 'flow' drifts its pattern slowly along the table (the picture repeats
 // end to end), 'pulse' makes its cracks glow and fade through a glow map drawn from the same pattern.
 let clothTex = null, clothGlow = null;
-const CLOTH_CACHE = new Map(), PAINTED = ['galaxy', 'synth', 'aurora', 'lava'];   // the last few cloth pictures made
+const CLOTH_CACHE = new Map(), PAINTED = ['galaxy', 'synth', 'aurora', 'lava', 'mist', 'lantern', 'moon', 'soul'];   // the last few cloth pictures made
 // Preview (in the locker section): the looks tried on at the table, which the cloth, cue and gloves use while it's on
 const PREV = { on: false, looks: null, cam: null, aim: null, t0: 0 };
 function setCloth() {
@@ -322,7 +324,7 @@ function setCloth() {
   if (!it) clothTex = clothGlow = null;
   else if (CLOTH_CACHE.has(key)) ({ tex: clothTex, glow: clothGlow } = CLOTH_CACHE.get(key));
   else {
-    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = PAINTED.includes(it.pat) ? (it.pat === 'lava' ? 200 : 150) : 300, make = mask => {
+    const ex = 2 * (T.hl + 0.13), ez = 2 * (T.hw + 0.13), ppm = PAINTED.includes(it.pat) ? (it.pat === 'lava' || it.pat === 'moon' ? 200 : 150) : 300, make = mask => {
       const t = canvasTex(Math.round(ex * ppm), Math.round(ez * ppm), (g, w, h) => drawPattern(g, it, w, h, ppm, mask));
       t.repeat.set(1 / ex, 1 / ez); t.offset.set(0.5, 0.5); t.userData.key = key;
       t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;   // no shimmer at a distance
@@ -351,6 +353,10 @@ function drawPattern(g, it, w, h, m, mask) {
   if (it.pat === 'synth') return clothSynth(g, it, w, h, m);
   if (it.pat === 'aurora') return clothAurora(g, it, w, h, m);
   if (it.pat === 'lava') return clothMagma(g, it, w, h, m, mask);
+  if (it.pat === 'mist') return clothMist(g, it, w, h, m);
+  if (it.pat === 'lantern') return clothLantern(g, it, w, h, m);
+  if (it.pat === 'moon') return clothMoon(g, it, w, h, m, mask);
+  if (it.pat === 'soul') return clothSoul(g, it, w, h, m);
   const r = K.rng(7), c2 = it.col2, lw = v => { g.lineWidth = Math.max(1, v * m); };
   g.fillStyle = mask ? '#000000' : it.col; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = c2; g.beginPath();
   const poly = pts => pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
@@ -374,6 +380,42 @@ function drawPattern(g, it, w, h, m, mask) {
       for (let k = 0; k < 3; k++) { if (r() < 0.5) x += (r() < 0.5 ? -2 : 2) * q; else y += (r() < 0.5 ? -2 : 2) * q; g.lineTo(x, y); }
       g.stroke(); g.fillRect(x - 0.01 * m, y - 0.01 * m, 0.02 * m, 0.02 * m);
     }
+  } else if (it.pat === 'seeds') {   // pumpkin seeds, scattered at every angle
+    for (let i = 0; i < w * h / (m * m) * 90; i++) { const x = r() * w, y = r() * h, a = r() * Math.PI; g.beginPath(); g.ellipse(x, y, 0.009 * m, 0.0045 * m, a, 0, 7); g.fill(); }
+  } else if (it.pat === 'graves') {   // rows of little headstones and crosses, leaning this way and that
+    const stone = (x, y, s, a, cross) => { g.save(); g.translate(x, y); g.rotate(a); g.beginPath();
+      if (cross) { g.rect(-s * 0.12, -s, s * 0.24, s); g.rect(-s * 0.4, -s * 0.78, s * 0.8, s * 0.2); } else { g.moveTo(-s * 0.35, 0); g.lineTo(-s * 0.35, -s * 0.65); g.arc(0, -s * 0.65, s * 0.35, Math.PI, 0); g.lineTo(s * 0.35, 0); }
+      g.fill(); g.restore(); };
+    for (let y = 0.09 * m; y < h + 0.1 * m; y += 0.16 * m) for (let x = (y / m * 7 % 1) * 0.2 * m; x < w; x += (0.15 + r() * 0.12) * m) stone(x, y + (r() - 0.5) * 0.03 * m, (0.04 + r() * 0.02) * m, (r() - 0.5) * 0.3, r() < 0.3);
+  } else if (it.pat === 'bats') {   // a flock of small bats on the wing
+    const bat = (x, y, s, a) => { g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(-s, 0); g.quadraticCurveTo(-s * 0.6, -s * 0.5, -s * 0.15, -s * 0.12);
+      g.lineTo(0, -s * 0.3); g.lineTo(s * 0.15, -s * 0.12); g.quadraticCurveTo(s * 0.6, -s * 0.5, s, 0); g.quadraticCurveTo(s * 0.7, -s * 0.05, s * 0.55, s * 0.18);
+      g.quadraticCurveTo(s * 0.4, 0, s * 0.25, s * 0.2); g.quadraticCurveTo(s * 0.1, 0.05 * s, 0, s * 0.3); g.quadraticCurveTo(-s * 0.1, 0.05 * s, -s * 0.25, s * 0.2);
+      g.quadraticCurveTo(-s * 0.4, 0, -s * 0.55, s * 0.18); g.quadraticCurveTo(-s * 0.7, -s * 0.05, -s, 0); g.fill(); g.restore(); };
+    for (let i = 0; i < w * h / (m * m) * 14; i++) bat(r() * w, r() * h, (0.022 + r() * 0.014) * m, (r() - 0.5) * 0.8);
+  } else if (it.pat === 'web') {   // cobwebs spun across the corners, and a few hanging loose
+    lw(0.0025);
+    const web = (cx, cy, R, a0, a1) => {
+      const k = 9; for (let i = 0; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; g.moveTo(cx, cy); g.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a)); }
+      for (let ring = 1; ring <= 7; ring++) { const rr = R * ring / 7; for (let i = 0; i <= k; i++) { const a = a0 + (a1 - a0) * i / k, sag = i % 1 ? 1 : 0.93 + 0.07 * Math.cos(Math.PI * (i % 1)), x = cx + rr * sag * Math.cos(a), y = cy + rr * sag * Math.sin(a); if (i) g.lineTo(x, y); else g.moveTo(x, y); } }
+    };
+    const R = Math.min(w, h) * 0.42;
+    web(0, 0, R, 0, Math.PI / 2); web(w, 0, R, Math.PI / 2, Math.PI); web(0, h, R, -Math.PI / 2, 0); web(w, h, R, Math.PI, Math.PI * 1.5);
+    for (let i = 0; i < 3; i++) web(w * (0.3 + 0.2 * i), h * (0.35 + 0.15 * (i % 2)), 0.12 * m, 0, Math.PI * 2);
+    g.stroke();
+  } else if (it.pat === 'bubbles') {   // a brew bubbling: rings of every size, a few catching the light
+    lw(0.003);
+    for (let i = 0; i < w * h / (m * m) * 70; i++) { const x = r() * w, y = r() * h, rr = (0.006 + Math.pow(r(), 2) * 0.03) * m; g.moveTo(x + rr, y); g.arc(x, y, rr, 0, 7); }
+    g.stroke(); g.globalAlpha = 0.7;
+    for (let i = 0; i < w * h / (m * m) * 18; i++) { const x = r() * w, y = r() * h; g.fillRect(x, y, Math.max(1, 0.004 * m), Math.max(1, 0.004 * m)); }
+    g.globalAlpha = 1;
+  } else if (it.pat === 'spider') {   // one great web across the middle of the bed, its spider waiting near the centre
+    const x = w / 2, y = h / 2, R = h * 0.46, k = 14; lw(0.004);
+    for (let i = 0; i < k; i++) { const a = i / k * 2 * Math.PI; g.moveTo(x, y); g.lineTo(x + R * 1.4 * Math.cos(a), y + R * Math.sin(a)); }
+    for (let t = 0.06; t < 1; t += 0.055) for (let i = 0; i <= k; i++) { const a = i / k * 2 * Math.PI, rr = R * t * (0.92 + 0.08 * Math.cos(a * 7)), px = x + rr * 1.4 * Math.cos(a), py = y + rr * Math.sin(a); if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+    g.stroke();
+    const sx = x + R * 0.18, sy = y - R * 0.1, sz = 0.02 * m; g.beginPath(); g.ellipse(sx, sy, sz, sz * 1.3, 0.4, 0, 7); g.fill(); g.beginPath(); g.arc(sx - sz * 0.5, sy - sz * 1.4, sz * 0.6, 0, 7); g.fill();
+    lw(0.003); g.beginPath(); for (let i = 0; i < 4; i++) for (const sd of [-1, 1]) { const yy = sy - sz * 0.6 + i * sz * 0.5; g.moveTo(sx, yy); g.lineTo(sx + sd * sz * 2.2, yy - sz * (0.8 - i * 0.5)); g.lineTo(sx + sd * sz * 2.8, yy + sz * (0.4 + i * 0.3)); } g.stroke();
   } else if (it.pat === 'crown') {   // one large crown in a ring, in the middle of the bed
     const x = w / 2, y = h / 2, s = Math.min(0.22 * m, h / 5); lw(0.012);
     poly([[x - s, y + s * 0.5], [x - s, y - s * 0.45], [x - s * 0.5, y], [x, y - s * 0.65], [x + s * 0.5, y], [x + s, y - s * 0.45], [x + s, y + s * 0.5]]); g.closePath();
@@ -471,6 +513,74 @@ function clothMagma(g, it, w, h, m, mask) {
     let c = mixc(rock0, rock1, Math.min(1, shadeC * (0.6 + 0.6 * grain)));
     c = mixc(c, rim, Math.max(0, 1 - Math.abs(e - 0.012) / 0.005) * 0.6);   // the raised edge of each plate catches the light
     return clampc(heat > 0.02 ? mixc(c, heatCol(heat), Math.min(1, heat * 1.3)) : c);
+  });
+}
+// Haunted mist: banks of fog rolling over dark felt, thinner and thicker, with a few pairs of pale eyes looking out
+function clothMist(g, it, w, h, m) {
+  const n = makeNoise(81), n2 = makeNoise(82), deep = rgb('#07090e'), base = rgb(it.col), fog = rgb(it.col2), pale = rgb('#d8e6f2');
+  paint(g, w, h, (x, y) => {
+    const X = x / m, Y = y / m, wx = fbm(n2, X * 1.2, Y * 1.2, 3) * 1.6, d = fbm(n, X * 1.4 + wx, Y * 2.6, 5), wisp = fbm(n2, X * 5 + wx * 2, Y * 9, 3);
+    let c = mixc(deep, base, 0.5 + 0.5 * fbm(n2, X * 3, Y * 3, 2));
+    c = mixc(c, fog, Math.max(0, d - 0.42) * 1.9 * (0.6 + 0.4 * wisp));
+    return clampc(mixc(c, pale, Math.pow(Math.max(0, d - 0.66), 2) * 5));
+  });
+  const r = K.rng(83);
+  for (let i = 0; i < 4; i++) {   // eyes, small and faint, in the gaps of the fog
+    const x = (0.12 + 0.76 * r()) * w, y = (0.15 + 0.7 * r()) * h, e = 0.007 * m;
+    g.fillStyle = 'rgba(200,255,220,0.45)'; for (const dx of [-1.6, 1.6]) { g.beginPath(); g.ellipse(x + dx * e, y, e, e * 0.6, 0, 0, 7); g.fill(); }
+  }
+}
+// Lantern glow: jack-o'-lanterns carved into near-black felt, each face lit from inside, with a soft orange halo
+function clothLantern(g, it, w, h, m) {
+  const n = makeNoise(91), base = rgb(it.col), warm = rgb('#2a1408');
+  paint(g, w, h, (x, y) => { const X = x / m, Y = y / m; return clampc(mixc(base, warm, fbm(n, X * 4, Y * 4, 4) * 0.8)); });
+  const r = K.rng(92), faces = Math.max(6, Math.round(w * h / (m * m) * 2.2));
+  for (let i = 0; i < faces; i++) {
+    const x = (0.08 + 0.84 * r()) * w, y = (0.12 + 0.76 * r()) * h, s = (0.05 + r() * 0.03) * m;
+    const halo = g.createRadialGradient(x, y, s * 0.3, x, y, s * 2.4); halo.addColorStop(0, 'rgba(255,138,31,0.28)'); halo.addColorStop(1, 'rgba(255,138,31,0)');
+    g.fillStyle = halo; g.fillRect(x - s * 2.4, y - s * 2.4, s * 4.8, s * 4.8);
+    g.fillStyle = 'rgba(70,28,8,0.9)'; g.beginPath(); g.ellipse(x, y, s * 1.15, s * 0.95, 0, 0, 7); g.fill();   // the pumpkin itself, dimly lit
+    g.fillStyle = it.col2; g.beginPath();
+    for (const sd of [-1, 1]) { g.moveTo(x + sd * s * 0.62, y - s * 0.1); g.lineTo(x + sd * s * 0.22, y - s * 0.12); g.lineTo(x + sd * s * 0.42, y - s * 0.5); }   // eyes
+    g.moveTo(x - s * 0.1, y + s * 0.12); g.lineTo(x + s * 0.1, y + s * 0.12); g.lineTo(x, y - s * 0.06);   // nose
+    g.fill(); g.beginPath(); g.moveTo(x - s * 0.7, y + s * 0.25);   // a grin with teeth
+    for (let k = 0; k <= 6; k++) g.lineTo(x - s * 0.7 + k * s * 0.233, y + s * 0.25 + (k % 2 ? s * 0.16 : 0) + Math.sin(k / 6 * Math.PI) * s * 0.28);
+    for (let k = 6; k >= 0; k--) g.lineTo(x - s * 0.7 + k * s * 0.233, y + s * 0.34 + Math.sin(k / 6 * Math.PI) * s * 0.42 - (k % 2 ? s * 0.12 : 0));
+    g.fill();
+  }
+}
+// Blood moon: a huge red moon in the middle of the bed behind drifting cloud, bats crossing it; the glow map (mask) is
+// the moon and its halo, which pulse slowly (clothFx)
+function clothMoon(g, it, w, h, m, mask) {
+  const n = makeNoise(101), n2 = makeNoise(102), cx = w / 2, cy = h / 2, R = h * 0.26, sky0 = rgb('#050203'), sky1 = rgb(it.col), red = rgb('#5a0e0a'), hot = rgb(it.col3), cloudC = rgb('#22090c');   // kept dark, so red balls show on it
+  paint(g, w, h, (x, y) => {
+    const X = x / m, Y = y / m, d = Math.hypot(x - cx, y - cy) / R, cloud = Math.max(0, fbm(n, X * 1.8 + fbm(n2, X, Y, 2), Y * 3.5, 5) - 0.45) * 2.2;
+    const disc = d < 1 ? 1 : 0, halo = Math.exp(-Math.max(0, d - 1) * 3.2) * (1 - disc), crater = fbm(n2, X * 9, Y * 9, 4);
+    if (mask) { const v = Math.min(1, disc * (0.35 + 0.2 * crater) + halo * 0.3 + Math.exp(-Math.abs(d - 1) * 30) * 0.4) * (1 - Math.min(0.85, cloud)) * 255; return [v, v, v]; }   // the rim brightest
+    let c = mixc(sky0, sky1, 0.4 + 0.6 * fbm(n2, X * 2, Y * 2, 2));
+    c = mixc(c, red, halo * 0.45);
+    if (disc) c = mixc(mixc(red, hot, Math.pow(Math.max(0, d - 0.55) / 0.45, 3) * 0.45), rgb('#3a0806'), Math.max(0, crater - 0.45) * 1.4);
+    return clampc(mixc(c, cloudC, Math.min(0.9, cloud)));
+  });
+  if (mask) return;
+  const r = K.rng(103); g.fillStyle = '#080304';
+  for (let i = 0; i < 7; i++) {   // bats against the moon
+    const a = r() * 2 * Math.PI, rr = R * (0.2 + 0.9 * r()), x = cx + Math.cos(a) * rr * 1.5, y = cy + Math.sin(a) * rr, s = (0.018 + r() * 0.012) * m;
+    g.beginPath(); g.moveTo(x - s, y); g.quadraticCurveTo(x - s * 0.5, y - s * 0.55, x, y - s * 0.1); g.quadraticCurveTo(x + s * 0.5, y - s * 0.55, x + s, y);
+    g.quadraticCurveTo(x + s * 0.5, y - s * 0.05, x, y + s * 0.25); g.quadraticCurveTo(x - s * 0.5, y - s * 0.05, x - s, y); g.fill();
+  }
+}
+// Soul fire: green ghost-flames licking along the table over black, pale at their hottest. The noise repeats exactly
+// across the width, so the picture can drift endlessly along the table (clothFx).
+function clothSoul(g, it, w, h, m) {
+  const W = w / m, per = Math.max(2, Math.round(W / 0.3)), cell = W / per, n = makeNoise(111), n2 = makeNoise(112);
+  const black = rgb(it.col), green = rgb(it.col2), pale = rgb(it.col3), teal = rgb('#0b3a30');
+  paint(g, w, h, (x, y) => {
+    const X = x / m / cell, Y = y / m, warp = fbm(n2, X, Y * 3, 3, per, 0) * 1.6, f = fbm(n, X * 2 + warp, Y * 4, 5, per * 2, 0);   // whole multiples of per, so it stays seamless
+    const fire = Math.max(0, Math.min(1, (f - 0.56) / 0.2)), lick = fbm(n2, X * 6 + warp * 3, Y * 14, 3, per * 6, 0);   // patches of flame over mostly black, so the balls stand out
+    const k = Math.pow(fire, 1.6) * (0.55 + 0.45 * lick);
+    let c = mixc(black, teal, Math.min(1, k * 2));
+    c = mixc(c, green, Math.min(0.85, Math.max(0, k - 0.25) * 1.6)); return clampc(mixc(c, pale, Math.max(0, k - 0.75) * 2.4));
   });
 }
 const RAIL_TOP = 0.045, CUSH_TOP = 0.041;
@@ -704,7 +814,7 @@ const cueCols = id => kindOf(id) === 'cue' ? LK.ALL[id].col : CAREER.HOUSE_CUE;
 // between two colours, rainbow runs the forearm and butt through the colours (cueFx, every frame).
 const CUE_TEX = {};
 function cuePattern(it, mask) {
-  if (['holo', 'tubes', 'swirl', 'plasma'].includes(it.pat)) return cuePaint(it, mask);
+  if (['holo', 'tubes', 'swirl', 'plasma', 'brew', 'reaper', 'wisp', 'hell'].includes(it.pat)) return cuePaint(it, mask);
   return canvasTex(32, 128, (g, W, H) => {
     const r = K.rng(3); g.fillStyle = mask ? '#000000' : it.col.fore; g.fillRect(0, 0, W, H); g.fillStyle = mask ? '#ffffff' : it.pc;
     const poly = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); };
@@ -720,6 +830,16 @@ function cuePattern(it, mask) {
     else if (it.pat === 'crystal') for (let y = -W; y < H; y += 22) { poly([[0, y], [W, y + 18], [W, y + 20], [0, y + 2]]); poly([[W, y + 6], [0, y + 20], [0, y + 21], [W, y + 7]]); }
     else if (it.pat === 'stars') for (let i = 0; i < 30; i++) { const x = r() * W, y = r() * H; g.fillRect(x - 2, y, 5, 1); g.fillRect(x, y - 2, 1, 5); }
     else if (it.pat === 'rings') for (let y = 4; y < H; y += 18) g.fillRect(0, y, W, 4);
+    else if (it.pat === 'bones') for (let y = 10, k = 0; y < H; y += 22, k++) {   // crossbones, turned alternately
+      const x = k % 2 ? 24 : 8; g.save(); g.translate(x, y); for (const a of [0.7, -0.7]) { g.rotate(a); g.fillRect(-6, -1, 12, 2); for (const e of [-6, 6]) { g.beginPath(); g.arc(e, -1.5, 1.6, 0, 7); g.arc(e, 1.5, 1.6, 0, 7); g.fill(); } g.rotate(-a); } g.restore();
+    }
+    else if (it.pat === 'vine') { g.lineWidth = 2; g.strokeStyle = g.fillStyle; g.beginPath(); for (let y = 0; y <= H; y += 2) { const x = 16 + Math.sin(y / 128 * 4 * Math.PI) * 11; if (y) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke();   // a pumpkin vine winding up, with leaves and curls
+      for (let y = 8; y < H; y += 16) { const x = 16 + Math.sin(y / 128 * 4 * Math.PI) * 11, sd = y / 16 % 2 ? 1 : -1; g.beginPath(); g.ellipse(x + sd * 4, y, 4, 2.4, sd * 0.5, 0, 7); g.fill(); g.beginPath(); g.arc(x - sd * 3, y + 6, 2.4, 0, 5); g.stroke(); } }
+    else if (it.pat === 'straw') for (let x = 0; x < W; x += 2) { g.globalAlpha = 0.5 + r() * 0.5; g.fillRect(x, 0, 1, H); g.globalAlpha = 1; if (r() < 0.3) g.fillRect(x, r() * H, 1, 6); }   // bristles of straw, bound halfway
+    else if (it.pat === 'corn') for (let y = 0; y < H; y += 24) { g.fillStyle = mask ? '#ffffff' : '#f7ead2'; poly([[0, y], [W, y], [W, y + 6], [0, y + 6]]); g.fillStyle = mask ? '#ffffff' : it.pc; for (let x = 0; x < W; x += 8) poly([[x, y + 6], [x + 8, y + 6], [x + 4, y + 16]]); }   // candy corn: white, the orange forearm, then yellow points
+    else if (it.pat === 'drip') { g.fillRect(0, 0, W, 10); for (let x = 1; x < W; x += 4 + r() * 4) { const len = 14 + r() * 50, wd = 1.5 + r() * 1.5; g.fillRect(x, 0, wd, len); g.beginPath(); g.arc(x + wd / 2, len, wd * 0.9, 0, 7); g.fill(); } }   // blood running down from the joint
+    else if (it.pat === 'widow') { g.globalAlpha = 0.35; g.lineWidth = 1; g.strokeStyle = g.fillStyle; g.beginPath(); for (let y = -W; y < H; y += 12) { g.moveTo(0, y); g.lineTo(W, y + W); g.moveTo(W, y); g.lineTo(0, y + W); } g.stroke(); g.globalAlpha = 1;   // a web, and the widow's red hourglass
+      for (let y = 18; y < H; y += 36) for (const x of [8, 24]) { const yy = y + (x > 16 ? 18 : 0); poly([[x - 4, yy - 6], [x + 4, yy - 6], [x, yy], [x + 4, yy + 6], [x - 4, yy + 6], [x, yy]]); } }
   });
 }
 // The legendary and mythic cues, painted pixel by pixel; u (x) runs round the cue, v (y) along it, and the noise repeats
@@ -746,6 +866,29 @@ function cuePaint(it, mask) {
       if (mask) return [k * 255, k * 255, k * 255];
       return clampc(ramp([rgb('#05030a'), rgb('#4a0d05'), pc, hot, white], Math.min(1, k * 1.15)));
     }
+    if (it.pat === 'brew') {   // Cauldron: green potion churning round the cue, bubbles rising through it, the brightest glowing
+      const swirl = fbm(n, U * 4 + 2 * fbm(n2, U * 4, V * 16, 3, 4, 16), V * 16, 4, 4, 16), cell = 8, bx = U * cell, by = V * cell * 4, ix = Math.floor(bx), iy = Math.floor(by);
+      let bub = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const cx = ((ix + dx) % cell + cell) % cell, cy = ((iy + dy) % (cell * 4) + cell * 4) % (cell * 4), px = ix + dx + 0.5 + 0.35 * (n2(cx * 7.3, cy * 3.1, 0, 0) - 0.5), py = iy + dy + 0.5 + 0.35 * (n2(cx * 2.7 + 40, cy * 5.9, 0, 0) - 0.5), rr = 0.18 + 0.2 * n2(cx * 9.1, cy * 1.7, 0, 0), d = Math.hypot(bx - px, by - py); bub = Math.max(bub, Math.max(0, 1 - Math.abs(d - rr) / 0.06)); }
+      if (mask) { const v = Math.min(1, bub * 0.9 + Math.max(0, swirl - 0.6) * 1.5) * 255; return [v, v, v]; }
+      return clampc(mixc(mixc(fore, pc, Math.min(1, swirl * 1.3)), hot, Math.min(1, bub * 0.9)));
+    }
+    if (it.pat === 'reaper') {   // Reaper: black smoke round the cue, with silver scythe blades curving through it, their edges gleaming
+      const smoke = fbm(n, U * 4, V * 16, 5, 4, 16), b = frac(V * 5 + 0.15 * Math.sin(P * U)), blade = Math.max(0, 1 - Math.abs(b - 0.5 - 0.25 * Math.sin(P * (U * 2 + V * 3))) / 0.06);
+      const edge = Math.pow(blade, 3);
+      if (mask) { const v = Math.min(1, edge * 1.2) * 255; return [v, v, v]; }
+      return clampc(mixc(mixc(fore, rgb('#3a3a48'), smoke * 0.8), mixc(rgb('#9aa3b2'), pc, edge), Math.min(1, blade * 1.1)));
+    }
+    if (it.pat === 'wisp') {   // Will-o'-the-wisp: soft lights drifting along the dark forearm, each trailing a tail of mist
+      let k = 0; for (let i = 0; i < 6; i++) { const cu = n2(i * 13.1, 3.3, 0, 0), cv = i / 6, du = Math.min(Math.abs(U - cu), 1 - Math.abs(U - cu)), dv = frac(V - cv + 1) , tail = dv < 0.5 ? Math.exp(-dv * 18) : Math.exp(-(1 - dv) * 120); k = Math.max(k, Math.exp(-Math.pow(du / 0.08, 2)) * tail); }
+      const mist = fbm(n, U * 4, V * 16, 3, 4, 16) * 0.25;
+      if (mask) { const v = Math.min(1, k * 1.2) * 255; return [v, v, v]; }
+      return clampc(mixc(mixc(fore, rgb('#0d2a30'), mist), mixc(pc, hot, Math.max(0, k - 0.6) * 2.5), Math.min(1, k * 1.3)));
+    }
+    if (it.pat === 'hell') {   // Hellfire: flames climbing the forearm towards the tip, gold where hottest
+      const f = fbm(n, U * 4, V * 8 + 2 * fbm(n2, U * 4, V * 8, 3, 4, 8), 5, 4, 8), lick = Math.pow(Math.max(0, f - 0.35) / 0.65, 1.3);
+      if (mask) { const v = Math.min(1, lick * 1.3) * 255; return [v, v, v]; }
+      return clampc(ramp([fore, rgb('#5a0d05'), pc, hot, white], Math.min(1, lick * 1.1)));
+    }
     // Plasma: violet gas threaded with branching cyan filaments, pink where they gather
     const r = 1 - Math.abs(2 * fbm(n, U * 8, V * 16, 5, 8, 16) - 1), k = Math.pow(r, 7), soft = Math.pow(r, 2.5) * 0.35, pink = Math.max(0, fbm(n2, U * 4, V * 8, 3, 4, 8) - 0.55) * 2.2;
     if (mask) { const v = Math.min(1, k + soft * 0.5) * 255; return [v, v, v]; }
@@ -765,6 +908,11 @@ function cueFx(now) {
   const t = reduceMotion ? 0 : now / 1000, f = CUE_MAT.fore;
   if (it.fx === 'rainbow') { f.color.setHSL(t * 0.12 % 1, 0.85, 0.55); CUE_MAT.butt.color.setHSL((t * 0.12 + 0.5) % 1, 0.85, 0.55); }
   else if (it.fx === 'neon') f.emissive.set(it.pc).lerp(new THREE.Color(it.col.joint), 0.5 + 0.5 * Math.sin(t * 2.2));
+  else if (it.fx === 'wisp' || it.fx === 'hellfire') {   // mythic: wisps drift slowly along the cue; flames climb it, wavering
+    for (const tex of CUE_TEX[cueNow] || []) if (tex) { if (it.fx === 'wisp') tex.offset.set(t * 0.01, -t * 0.06); else tex.offset.y = -t * 0.3; }
+    const k = it.fx === 'wisp' ? 0.7 + 0.3 * Math.sin(t * 1.1) : 0.75 + 0.15 * Math.sin(t * 2.3) * Math.sin(t * 0.9);
+    f.emissive.set(it.pc).multiplyScalar(k); CUE_MAT.joint.emissive.set(it.col.joint).multiplyScalar(k * 0.5);
+  }
   else if (it.fx === 'spin' || it.fx === 'plasma') {   // mythic: the pattern turns round the cue, or flows along it
     for (const tex of CUE_TEX[cueNow] || []) if (tex) { if (it.fx === 'spin') tex.offset.x = t * 0.45; else tex.offset.set(t * 0.06, t * 0.22); }
     f.emissive.set(it.pc).multiplyScalar(0.75 + 0.25 * Math.sin(t * 1.8)); CUE_MAT.joint.emissive.set(it.col.joint).multiplyScalar(0.5 + 0.3 * Math.sin(t * 1.8 + 1));
@@ -1110,7 +1258,7 @@ function gloveBuild(root, it, kind, M) {
 // of where the glove shines, if it does.
 const GLOVE_TEX = {};
 function gloveTex(it) {
-  const kind = { glow: 'leaf', flicker: 'fire', ghost: 'smoke', molten: 'crust', prism: 'holo' }[it.fx]; if (!kind || !['legendary', 'mythic'].includes(it.rarity)) return null;
+  const kind = { glow: 'leaf', flicker: 'fire', ghost: 'smoke', molten: 'crust', prism: 'holo', ecto: 'ecto', lantern: 'pumpkin', ghostfire: 'gfire', banshee: 'wail' }[it.fx]; if (!kind || !['legendary', 'mythic'].includes(it.rarity)) return null;
   if (GLOVE_TEX[it.id]) return GLOVE_TEX[it.id];
   const n = makeNoise(71), n2 = makeNoise(72), W = 64, white = [255, 255, 255];
   const cellular = (X, Y) => {   // distance to the nearest crack between irregular cells, on a 4 × 4 repeating grid
@@ -1131,7 +1279,18 @@ function gloveTex(it) {
     const heat = (u, v) => Math.exp(-cellular(u * 4, v * 4) / (0.03 + 0.02 * n(u * 16, v * 16, 16, 16)));
     map = pic((u, v) => { const h = heat(u, v), rock = mixc(rgb('#1a0806'), rgb('#4a1d10'), fbm(n, u * 16, v * 16, 2, 16, 16)); return clampc(mixc(rock, mixc(rgb('#ff6a1a'), rgb('#ffe27a'), Math.max(0, h - 0.6) * 2.5), Math.min(1, h * 1.3))); });
     glow = pic((u, v) => { const h = Math.pow(heat(u, v), 1.5) * 255; return [h, h, h]; });
-  } else { map = pic((u, v) => { const b = (u * 2 + v * 3 + 0.4 * fbm(n, u * 4, v * 4, 3, 4, 4)) % 1, c = new THREE.Color().setHSL(b, 0.85, 0.62); return clampc(mixc([c.r * 255, c.g * 255, c.b * 255], white, Math.max(0, n2(u * 16, v * 16, 16, 16) - 0.75) * 3)); }); glow = map; }
+  } else if (kind === 'ecto') { map = pic((u, v) => { const w = fbm(n, u * 4 + 1.5 * fbm(n2, u * 4, v * 4, 3, 4, 4), v * 4, 4, 4, 4); return clampc(mixc(rgb('#3d8a70'), rgb('#e8fff4'), Math.pow(w, 1.4) * 1.4)); }); glow = map; }   // Spectre: pale green ectoplasm, swirling
+  else if (kind === 'pumpkin') {   // Jack-o'-lantern: an orange rind with its ribs, and carved holes glowing from inside
+    const carve = (u, v) => { const cu = (u * 2) % 1, cv = (v * 2) % 1; return Math.max(0, 1 - Math.max(Math.abs(cu - 0.5) * 3.2 + (cv - 0.3) * 1.5, (0.3 - cv) * 5)) > 0.45 ? 1 : 0; };   // little triangles, as if carved
+    map = pic((u, v) => { const rib = 0.5 + 0.5 * Math.cos(v * 2 * Math.PI * 8), c = mixc(rgb('#9a3a0a'), rgb('#ff8a2a'), 0.35 + 0.5 * rib + 0.15 * fbm(n, u * 8, v * 8, 2, 8, 8));
+      return clampc(carve(u, v) ? mixc(rgb('#ffd23f'), white, 0.2) : c); });
+    glow = pic((u, v) => { const k = carve(u, v) * 255; return [k, k, k * 0.6]; });
+  } else if (kind === 'gfire') {   // Ghost fire: green flames, pale where hottest
+    const f = (u, v) => { const t = fbm(n, u * 8, v * 8, 4, 8, 8); return Math.max(0, Math.min(1, (t - 0.3) * 1.8)); };
+    map = pic((u, v) => { const t = f(u, v); return clampc(t < 0.5 ? mixc(rgb('#06221a'), rgb('#2fd67a'), t * 2) : mixc(rgb('#2fd67a'), rgb('#e0fff0'), (t - 0.5) * 2)); });
+    glow = pic((u, v) => { const t = Math.pow(f(u, v), 2) * 255; return [t, t, t]; });
+  } else if (kind === 'wail') { map = pic((u, v) => { const w = fbm(n, u * 2 + 2 * fbm(n2, u * 4, v * 4, 3, 4, 4), v * 6, 4, 2, 6), streak = Math.pow(1 - Math.abs(2 * w - 1), 4); return clampc(mixc(rgb('#3a2a7a'), rgb('#f2eeff'), Math.min(1, streak * 1.2 + w * 0.3))); }); glow = map; }   // Banshee: wailing streaks of pale violet light
+  else { map = pic((u, v) => { const b = (u * 2 + v * 3 + 0.4 * fbm(n, u * 4, v * 4, 3, 4, 4)) % 1, c = new THREE.Color().setHSL(b, 0.85, 0.62); return clampc(mixc([c.r * 255, c.g * 255, c.b * 255], white, Math.max(0, n2(u * 16, v * 16, 16, 16) - 0.75) * 3)); }); glow = map; }
   return (GLOVE_TEX[it.id] = { map, glow });
 }
 // On a one-piece hand the trims are toned towards the glove's main colour, so they read as panels rather than blocks.
@@ -1144,7 +1303,7 @@ function gloveColours(M, it) {
     if (k === 'palm' || k === 'nail') col.lerp(new THREE.Color(k === 'palm' ? '#ffffff' : '#fff4ee'), k === 'palm' ? 0.16 : 0.35);   // the palm side a little lighter, nails paler than the skin
     M[k].color.copy(col); M[k].emissive.copy(col).multiplyScalar(0.3);
     if (glow && (k === 'accent' || k === 'tip')) M[k].emissive.set(glow).multiplyScalar(one ? 0.5 : 1);
-    M[k].transparent = it.fx === 'ghost'; M[k].opacity = it.fx === 'ghost' ? 0.6 : 1; M[k].vertexColors = one; M[k].needsUpdate = true;
+    const see = ['ghost', 'ecto', 'banshee'].includes(it.fx); M[k].transparent = see; M[k].opacity = see ? (it.fx === 'ecto' ? 0.75 : 0.6) : 1; M[k].vertexColors = one; M[k].needsUpdate = true;   // see-through
   }
   for (const k of ['base', 'palm', 'panel', 'accent']) {   // a textured glove shows its picture in full colour, all over (the trims lightly tinted)
     const on = tx && (k !== 'accent' || one); M[k].map = on ? tx.map : null; M[k].emissiveMap = on ? tx.glow : null;
@@ -1177,6 +1336,15 @@ function gloveFx(M, it, t) {
   } else if (it.fx === 'ghost') {
     M.base.emissive.set(it.fxc).multiplyScalar(0.4); if (map) map.offset.x = t * 0.03;
     for (const key of GLOVE_KEYS) M[key].opacity = 0.45 + 0.2 * Math.sin(t * 1.8);
+  } else if (it.fx === 'ecto') {   // Spectre: the ectoplasm swirls slowly and its glow breathes
+    M.base.emissive.set(it.fxc).multiplyScalar(0.3 + 0.12 * Math.sin(t * 1.2)); if (map) map.offset.set(t * 0.02, t * 0.01);
+  } else if (it.fx === 'lantern') {   // Jack-o'-lantern: candlelight behind the carving, flickering gently
+    M.base.emissive.set(it.fxc).multiplyScalar(0.75 + 0.2 * Math.sin(t * 2.3) * Math.sin(t * 0.8));
+  } else if (it.fx === 'ghostfire') {   // mythic: green flames rising, their glow wavering
+    const k = 0.6 + 0.25 * Math.sin(t * 4.6) * Math.sin(t * 1.7); M.base.emissive.set(it.fxc).multiplyScalar(0.5 + 0.4 * k); if (map) map.offset.y = -t * 0.18;
+  } else if (it.fx === 'banshee') {   // mythic: fading in and out, its streaks drifting, from violet to pale blue and back
+    M.base.emissive.setHSL(0.68 + 0.06 * Math.sin(t * 0.7), 0.7, 0.55).multiplyScalar(0.55); if (map) map.offset.x = t * 0.05;
+    for (const key of GLOVE_KEYS) M[key].opacity = 0.42 + 0.28 * (0.5 + 0.5 * Math.sin(t * 0.9));
   }
   for (const k of ['palm', 'panel']) if (M[k].map) M[k].emissive.copy(M.base.emissive);
   const c = new THREE.Color(it.fxc), k = (0.75 + 0.25 * Math.sin(t * 2.4)) * (['claw', 'bones'].includes(it.style) ? 1 : 0.5);   // a one-piece glove's trim glows softly
@@ -1436,20 +1604,25 @@ function matchText() {
 }
 // What a finished frame earns (looks.js): against the computer, money and a frame towards a case of the level's grade;
 // in the career, a frame towards the tier's case; online, the day's first win. Practice and same-device games earn
-// nothing. EARN keeps it for the result screen.
+// nothing. In a season (looks.js, SERIES), the first frame that earns each day also brings its daily case (EARN.season).
+// EARN keeps it all for the result screen.
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function frameEarn() {
-  const w = game.winner; EARN = null;
-  if (NET.on) { if (w === NET.seat) EARN = lockerEdit(l => LK.onlineWon(l, localDay())); }
-  else if (M.opp === 'bot' && M.mode !== 'practice' && w === 0)
-    EARN = lockerEdit(l => CAR.on ? LK.careerFrameWon(l, K.EVENTS[CAR.view].tier) : LK.cpuFrameWon(l, M.diff));
+  const w = game.winner, online = NET.on && w === NET.seat, cpu = !NET.on && M.opp === 'bot' && M.mode !== 'practice' && w === 0; EARN = null;
+  if (online) EARN = lockerEdit(l => LK.onlineWon(l, localDay()));
+  else if (cpu) EARN = lockerEdit(l => CAR.on ? LK.careerFrameWon(l, K.EVENTS[CAR.view].tier) : LK.cpuFrameWon(l, M.diff));
   if (EARN && EARN.grade) toast(`${LK.GRADES[EARN.grade].name} earned: open it in the Locker`, 'good');
+  const sw = online || cpu ? lockerEdit(l => LK.seasonWon(l, localDay())) : null;
+  if (sw) { EARN = { ...(EARN || {}), season: sw }; toast(`Halloween: a ${LK.GRADES[sw.grade].name} for your first win today!`, 'good'); }
 }
 function earnText(e) {
   if (!e) return '';
+  const hw = e.season ? `Halloween: a ${LK.GRADES[e.season.grade].name} for your first win today!` : '';
+  if (!('pay' in e)) return hw;
   const pay = e.pay ? `You earn ${money(e.pay)}` : '', got = e.grade ? `${pay ? ' and' : 'You earn'} a ${LK.GRADES[e.grade].name.toLowerCase()}!` : '';
-  if (NET.on) return `Your first online win today: ${money(e.pay)} and ${e.n > 1 ? `${e.n} ${LK.GRADES[e.grade].name.toLowerCase()}s` : `a ${LK.GRADES[e.grade].name.toLowerCase()}`}!`;
-  return got ? pay + got : `${pay}${pay ? '. ' : ''}${LK.GRADES[e.meter.grade].name}: ${e.meter.n} of ${LK.METER} frames.`;
+  const base = NET.on ? `Your first online win today: ${money(e.pay)} and ${e.n > 1 ? `${e.n} ${LK.GRADES[e.grade].name.toLowerCase()}s` : `a ${LK.GRADES[e.grade].name.toLowerCase()}`}!`
+    : got ? pay + got : `${pay}${pay ? '. ' : ''}${LK.GRADES[e.meter.grade].name}: ${e.meter.n} of ${LK.METER} frames.`;
+  return [base, hw].filter(Boolean).join(' ');
 }
 function showOver(res, shooter) {
   const w = game.winner;
@@ -2375,7 +2548,7 @@ function refreshMenus() {
   const foot = document.querySelector('#menuPanel .mFoot'); foot.hidden = ![...foot.children].some(b => !b.hidden);
   lookPicker($('#sCloth'), 'cloth'); $('#rowCue').hidden = lookPicker($('#sCue'), 'cue') < 2; lookPicker($('#sGlove'), 'glove');
   if (menuScreen() === 'locker' && state === 'menu') renderLocker();
-  const waiting = LK.GRADE_IDS.reduce((a, g) => a + LOCK.cases[g], 0);
+  const waiting = LK.CASE_IDS.reduce((a, g) => a + LOCK.cases[g], 0);
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
@@ -2751,9 +2924,14 @@ function pixImg(w, h, parts, scale) {
   const img = new Image(); img.src = c.toDataURL(); img.className = 'portrait'; img.alt = ''; img.width = w * scale; img.height = h * scale;
   return img;
 }
-// a case: a chest in the grade's colour, 18 × 14
+// a case: a chest in the grade's colour, 18 × 14 (the Trick case carved like a jack-o'-lantern, the Treat case tied
+// with a gold ribbon)
 function caseParts(grade) {
   const col = LK.GRADES[grade].col, dk = shade(col, 0.62), lt = shade(col, 1.25);
+  if (grade === 'trick') return [[1, 4, 16, 9, col], [1, 4, 16, 3, dk, 1], [2, 5, 14, 1, lt, 1], [1, 7, 16, 1, '#141018', 1], [3, 1, 12, 3, col], [3, 1, 12, 1, lt, 1], [1, 12, 16, 1, dk, 1],
+    [8, 0, 2, 2, '#2f6a24'], [4, 8, 3, 2, '#ffd23f', 1], [11, 8, 3, 2, '#ffd23f', 1], [5, 11, 8, 1, '#ffd23f', 1], [7, 10, 1, 1, '#ffd23f', 1], [10, 10, 1, 1, '#ffd23f', 1]];
+  if (grade === 'treat') return [[1, 4, 16, 9, col], [1, 4, 16, 3, dk, 1], [2, 5, 14, 1, lt, 1], [1, 7, 16, 1, '#141018', 1], [3, 1, 12, 3, col], [3, 1, 12, 1, lt, 1], [1, 12, 16, 1, dk, 1],
+    [8, 1, 2, 12, '#ffd36b', 1], [1, 9, 16, 1, '#ffd36b', 1], [5, 0, 3, 2, '#ffd36b'], [10, 0, 3, 2, '#ffd36b']];
   return [[1, 4, 16, 9, col], [1, 4, 16, 3, dk, 1], [2, 5, 14, 1, lt, 1], [1, 7, 16, 1, '#141018', 1], [7, 6, 4, 4, '#141018', 1], [8, 7, 2, 2, lt, 1],
     [3, 1, 12, 3, col], [3, 1, 12, 1, lt, 1], [1, 12, 16, 1, dk, 1]];
 }
@@ -2806,7 +2984,7 @@ const lookIcon = (id, size) => { const k = lookKind(id); return k === 'cloth' ? 
 // every look of a kind, in the order shown: the free ones, the shop's (cheapest first), then the cases' (commonest first)
 function looksOf(kind) {
   const free = kind === 'cloth' ? Object.keys(CLOTHS).filter(id => !K.has(LK.ALL, id)) : kind === 'cue' ? ['house'] : ['none', LK.FREE_GLOVE.id];
-  return [...free, ...K.SHOP.filter(it => it.kind === kind).map(it => it.id), ...LK.CASE_ITEMS.filter(it => it.kind === kind).map(it => it.id)];
+  return [...free, ...K.SHOP.filter(it => it.kind === kind).map(it => it.id), ...[...LK.CASE_ITEMS, ...LK.SEASON_ITEMS].filter(it => it.kind === kind).map(it => it.id)];
 }
 function useLook(id) { S[lookKind(id)] = id; saveS(); applyLook(); sendLook(); }
 const gradeList = ids => ids.map(g => LK.GRADES[g].name.replace(' case', '')).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]*)$/, ' or $1');
@@ -2817,11 +2995,17 @@ const KINDS = ['cloth', 'cue', 'glove'], KIND_NAME = { cloth: 'cloth', cue: 'cue
 const lookSort = (a, b) => lookRank(b) - lookRank(a) || KINDS.indexOf(lookKind(a)) - KINDS.indexOf(lookKind(b)) || lookName(a).localeCompare(lookName(b));
 const rankName = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].name : r === -1 ? 'From the shop' : 'Free';
 const rankCol = r => r >= 0 ? LK.RARITY[LK.RARITIES[r]].col : '#8f86a8';
-const casesTxt = c => Object.entries(c).map(([g, n]) => `${n === 1 ? 'a' : n} ${g} case${n === 1 ? '' : 's'}`).join(' and ');
+const casesTxt = c => Object.entries(c).map(([g, n]) => `${n === 1 ? 'a' : n} ${LK.GRADES[g].series ? LK.GRADES[g].name.replace(' case', '') : g} case${n === 1 ? '' : 's'}`).join(' and ');
 // what completing collections brought, for the reel and the toasts
 const KIND_COL = { cloth: 'cloth', cue: 'cue', glove: 'glove' }, KIND_HEAD = { cloth: 'Cloths', cue: 'Cues', glove: 'Gloves' };
 const rewardTxt = c => [c.money ? money(c.money) : '', Object.keys(c.cases).length ? casesTxt(c.cases) : ''].filter(Boolean).join(' and ');
+const seriesOf = id => K.has(LK.ALL, id) ? LK.ALL[id].series : null;
 const doneTxt = done => done.map(k => {
+  const [sid, sr] = k.split(':');
+  if (K.has(LK.SERIES, sid)) {   // a season's rarity, or all of its looks
+    const Sx = LK.SERIES[sid];
+    return sr === 'all' ? `All ${LK.seriesItems(sid).length} ${Sx.name} looks: ${rewardTxt(Sx.grand)} and the ${LK.EFFECTS[Sx.grand.fx].name}!` : `Every ${LK.RARITY[sr].name.toLowerCase()} ${Sx.name} look: ${rewardTxt(Sx.reward[sr])}!`;
+  }
   if (k === 'all') return `All fifteen collections complete: ${money(LK.GRAND.money)} and the ${LK.EFFECTS[LK.GRAND.fx].name}!`;
   if (K.has(LK.SETS, k)) return `Every ${LK.RARITY[k].name.toLowerCase()} collection complete: ${money(LK.SETS[k].money)}, ${casesTxt(LK.SETS[k].cases)} and ${LK.EFFECTS[LK.SETS[k].fx].name}!`;
   const c = LK.COLLECTIONS[k]; return `${LK.RARITY[c.rarity].name} ${KIND_COL[c.kind]} collection complete: ${rewardTxt(c)}!`;
@@ -2837,7 +3021,7 @@ function lookTap(id) {
   const it = K.has(LK.ALL, id) ? LK.ALL[id] : null, kind = lookKind(id), shop = K.has(K.ITEMS, id);
   if (owns(id)) { delete LOCKV.try[kind]; useLook(id); sfx('ui'); lockNote(''); refreshMenus(); return; }
   LOCKV.try[kind] = id; sfx('ui'); refreshMenus();
-  if (!shop) { lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()} ${KIND_NAME[kind]}. In ${gradeList(LK.GRADE_IDS.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases. Preview tries it on.`); return; }
+  if (!shop) { const gs = it.series ? LK.SERIES[it.series].grades : LK.GRADE_IDS; lockNote(`${it.name}: ${LK.RARITY[it.rarity].name.toLowerCase()} ${KIND_NAME[kind]}. In ${gradeList(gs.filter(g => LK.GRADES[g].odds[LK.RARITIES.indexOf(it.rarity)]))} cases${it.series ? ` (${LK.SERIES[it.series].name})` : ''}. Preview tries it on.`); return; }
   if (LOCK.money < it.price) { lockNote(`You need ${money(it.price - LOCK.money)} more for ${it.name}. Preview tries it on.`); return; }
   if (!confirm(`Buy ${it.name} for ${money(it.price)}?`)) { lockNote(`Preview tries ${it.name} on.`); return; }
   delete LOCKV.try[kind];
@@ -2848,8 +3032,8 @@ function lookTap(id) {
 function invRow(id) {
   const kind = lookKind(id), using = S[kind] === id, b = mk('button', 'invRow'); b.type = 'button'; b.dataset.id = id;
   b.style.setProperty('--rc', rankCol(lookRank(id))); b.setAttribute('aria-pressed', String(using));
-  const r = lookRank(id), sub = r >= 0 ? rankName(r) : r === -1 ? 'Shop' : 'Free';
-  b.append(lookIcon(id, 30), mk('span', 'invName', lookName(id)), mk('span', 'invState', using ? 'In use' : ''), mk('span', 'invSub', `${sub} ${KIND_NAME[kind]}`));
+  const r = lookRank(id), sub = r >= 0 ? rankName(r) : r === -1 ? 'Shop' : 'Free', sid = seriesOf(id);
+  b.append(lookIcon(id, 30), mk('span', 'invName', lookName(id)), mk('span', 'invState', using ? 'In use' : ''), mk('span', 'invSub', `${sub} ${KIND_NAME[kind]}${sid ? ' · ' + LK.SERIES[sid].name : ''}`));
   b.addEventListener('click', () => lookTap(id));
   return b;
 }
@@ -2864,43 +3048,74 @@ function colTile(id) {
   b.addEventListener('click', () => lookTap(id));
   return b;
 }
+// a case's card: its picture, how many are waiting, its odds, and Open and Buy (a season's cases sell only in season)
+function caseCard(g) {
+  const l = LOCK, G = LK.GRADES[g], n = l.cases[g], card = mk('div', 'caseCard'), btns = mk('div', 'caseBtns'), sid = G.series, day = localDay();
+  const odds = (G.fresh ? 'Always a look you don\'t have yet: ' : '') + G.odds.map((o, i) => o ? `${o}% ${LK.RARITY[LK.RARITIES[i]].name.toLowerCase()}` : '').filter(Boolean).join(', ');
+  const open = mk('button', 'btn', G.open ? `Open ${money(G.open)}` : 'Open'), buy = mk('button', 'btn', `Buy ${money(G.price)}`); open.type = buy.type = 'button';
+  open.classList.toggle('dim', !n); open.dataset.grade = buy.dataset.grade = g;   // still tappable: it says how to get one
+  buy.classList.toggle('dim', !!sid && !LK.inSeason(sid, day));
+  open.addEventListener('click', () => openCaseUI(g));
+  buy.addEventListener('click', () => {
+    if (sid && !LK.inSeason(sid, day)) { lockNote(`${G.name}s are on sale in the ${LK.SERIES[sid].name} season: ${seasonDates(sid)}.`); return; }
+    if (LOCK.money < G.price) { lockNote(`A ${sid ? G.name : G.name.toLowerCase()} costs ${money(G.price)}: you need ${money(G.price - LOCK.money)} more.`); return; }
+    if (!confirm(`Buy a ${sid ? G.name : G.name.toLowerCase()} for ${money(G.price)}?${G.open ? ` Opening it costs ${money(G.open)} more.` : ''}`)) return;
+    const r = lockerEdit(lk => LK.buyCase(lk, g, day));
+    if (r === 'ok') { sfx('ui'); lockNote(`A ${sid ? G.name : G.name.toLowerCase()} is yours. Open it when you like.`); }
+    else if (r === 'complete') lockNote(`You have every ${LK.SERIES[sid].name} look already, so a ${G.name} has nothing new to give.`);
+    refreshMenus();
+  });
+  btns.append(open, buy);
+  card.append(caseImg(g, 3), mk('div', 'caseName', G.name), mk('div', 'caseN', n ? `${n} to open` : 'None yet'), mk('div', 'caseOdds', odds), btns);
+  return card;
+}
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const seasonDates = sid => [LK.SERIES[sid].from, LK.SERIES[sid].to].map(md => `${+md.slice(3)} ${MONTHS[+md.slice(0, 2) - 1]}`).join(' to ');
+// the Halloween tab shows in the season, and whenever there's a Halloween case to open or look owned (and in dev mode)
+const seriesShown = sid => DEV || LK.inSeason(sid, localDay()) || LK.SERIES[sid].grades.some(g => LOCK.cases[g]) || LK.seriesItems(sid).some(id => LOCK.owned.includes(id));
 function renderLocker() {
-  const l = LOCK, waiting = LK.GRADE_IDS.reduce((a, g) => a + l.cases[g], 0);
+  const l = LOCK, waiting = LK.CASE_IDS.reduce((a, g) => a + l.cases[g], 0), hw = seriesShown('halloween');
+  if (LOCKV.tab === 'hw' && !hw) LOCKV.tab = 'cases';
   $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
-  segControl($('#lockTabs'), [['cases', 'Cases'], ['inv', 'Inventory'], ['shop', 'Shop']], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.top = true; lockNote(''); });
+  segControl($('#lockTabs'), [['cases', 'Cases'], ['inv', 'Inventory'], ['shop', 'Shop'], ...(hw ? [['hw', 'Halloween']] : [])], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.top = true; lockNote(''); });
   const body = $('#lockBody'), pager = $('#lockPages'), keep = LOCKV.top ? 0 : body.scrollTop; LOCKV.top = false;
   body.innerHTML = ''; pager.innerHTML = '';
   body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'lockList';
   if (LOCKV.tab === 'cases') {
-    for (const g of LK.GRADE_IDS) {
-      const G = LK.GRADES[g], n = l.cases[g], card = mk('div', 'caseCard'), btns = mk('div', 'caseBtns');
-      const odds = G.odds.map((o, i) => o ? `${o}% ${LK.RARITY[LK.RARITIES[i]].name.toLowerCase()}` : '').filter(Boolean).join(', ');
-      const open = mk('button', 'btn', `Open ${money(G.open)}`), buy = mk('button', 'btn', `Buy ${money(G.price)}`); open.type = buy.type = 'button';
-      open.classList.toggle('dim', !n); open.dataset.grade = buy.dataset.grade = g;   // still tappable: it says how to get one
-      open.addEventListener('click', () => openCaseUI(g));
-      buy.addEventListener('click', () => {
-        if (LOCK.money < G.price) { lockNote(`A ${G.name.toLowerCase()} costs ${money(G.price)}: you need ${money(G.price - LOCK.money)} more.`); return; }
-        if (!confirm(`Buy a ${G.name.toLowerCase()} for ${money(G.price)}? Opening it costs ${money(G.open)} more.`)) return;
-        if (lockerEdit(lk => LK.buyCase(lk, g)) === 'ok') { sfx('ui'); lockNote(`A ${G.name.toLowerCase()} is yours. Open it when you like.`); }
-        refreshMenus();
-      });
-      btns.append(open, buy);
-      card.append(caseImg(g, 3), mk('div', 'caseName', G.name), mk('div', 'caseN', n ? `${n} to open` : 'None yet'), mk('div', 'caseOdds', odds), btns);
-      body.append(card);
-    }
+    for (const g of LK.GRADE_IDS) body.append(caseCard(g));
     pager.textContent = `Every frame you win against the computer, or in the career, earns a case. Epic or better within ${LK.PITY - l.pity} ${LK.PITY - l.pity === 1 ? 'case' : 'cases'}.`;
     return;
   }
   const pv = mk('button', 'btn', 'Preview'); pv.type = 'button'; pv.id = 'bPreview';
   pv.title = 'See your cloth, cue and gloves at the table, with any look you tapped to try';
   pv.addEventListener('click', () => { sfx('ui'); startPreview(); });
+  if (LOCKV.tab === 'hw') {   // the season: its two cases, then each rarity's six looks and reward, then the room for all of them
+    const sid = 'halloween', Sx = LK.SERIES[sid], day = localDay(), on = LK.inSeason(sid, day), items = LK.seriesItems(sid), have = items.filter(id => l.owned.includes(id)).length;
+    const top = mk('div', 'colHead hwHead'), name = mk('b', '', Sx.name); name.style.color = LK.GRADES.trick.col;
+    top.append(name, mk('span', 'colN', on ? `Until ${seasonDates(sid).split(' to ')[1]}` : 'Season over'),
+      mk('span', 'colRw', on ? `Your first frame won each day earns a ${LK.GRADES[Sx.daily].name}${l.sdaily === day ? ' (today\'s is yours)' : ''}. Treat cases are bought, and always give a look you don't have yet.` : `Back ${seasonDates(sid).split(' to ')[0]}. The cases you have still open, and the looks are yours for good.`));
+    const cards = mk('div', 'caseGrid hwCases'); for (const g of Sx.grades) cards.append(caseCard(g));
+    body.append(top, cards);
+    for (const r of [...LK.RARITIES].reverse()) {
+      const ids = LK.SERIES_POOL[sid][r], n = ids.filter(id => l.owned.includes(id)).length, got = l.claimed.includes(`${sid}:${r}`), h = mk('div', 'colSub'), row = mk('div', 'colRow');
+      const rn = mk('span', 'colKind', LK.RARITY[r].name); rn.style.color = LK.RARITY[r].col; h.dataset.c = `${sid}:${r}`;
+      h.append(rn, mk('span', 'colN' + (got ? ' done' : ''), got ? `${n}/${ids.length} ✓` : `${n}/${ids.length}`), mk('span', 'colRw', got ? 'Collected' : rewardTxt(Sx.reward[r])));
+      for (const id of [...ids].sort(lookSort)) row.append(colTile(id));
+      body.append(h, row);
+    }
+    const all = l.claimed.includes(`${sid}:all`), gh = mk('div', 'colHead'), E = LK.EFFECTS[Sx.grand.fx]; gh.dataset.r = `${sid}:all`;
+    gh.append(mk('b', '', `All ${items.length}`), mk('span', 'colN' + (all ? ' done' : ''), all ? '✓' : `${have}/${items.length}`), mk('span', 'colRw', `${all ? 'Complete' : 'Reward'}: ${rewardTxt(Sx.grand)} and the ${E.name}. ${E.txt}`));
+    body.append(gh);
+    pager.append(mk('span', '', `${have} of ${items.length} ${Sx.name} looks`), pv);
+    body.scrollTop = keep; return;
+  }
   if (LOCKV.tab === 'inv') {
     const fx = LK.effects(l);
     if (fx.length) {   // the effects collections have earned, each with its switch
       body.append(mk('div', 'invHead', 'Collection rewards'));
       for (const k of fx) {
         const r = k === LK.GRAND.fx ? 4 : LK.RARITIES.findIndex(x => LK.SETS[x].fx === k), row = mk('div', 'invRow fxRow'), on = fxOn(k), sw = mk('button', 'btn', on ? 'On' : 'Off');
-        row.style.setProperty('--rc', rankCol(r)); row.dataset.fx = k; sw.type = 'button'; sw.setAttribute('aria-pressed', String(on));
+        row.style.setProperty('--rc', k === 'haunted' ? LK.GRADES.trick.col : rankCol(r)); row.dataset.fx = k; sw.type = 'button'; sw.setAttribute('aria-pressed', String(on));
         sw.addEventListener('click', () => { S.fxOff = (S.fxOff || []).filter(x => x !== k); if (on) S.fxOff.push(k); saveS(); applyFx(); sfx('ui'); refreshMenus(); });
         row.append(mk('span', 'fxIco', '✦'), mk('span', 'invName', LK.EFFECTS[k].name), sw, mk('span', 'invSub', LK.EFFECTS[k].txt));
         body.append(row);
@@ -2971,7 +3186,7 @@ $('#preview').addEventListener('click', () => { sfx('ui'); endPreview(); });
 const REEL = { anim: 0, res: null, grade: null, at: 40 };
 function openCaseUI(g) {
   const G = LK.GRADES[g];
-  if (!LOCK.cases[g]) { lockNote(`No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
+  if (!LOCK.cases[g]) { lockNote(G.series ? `No ${G.name}s yet. ${G.fresh ? 'Buy one' : 'Win a frame today, or buy one'} in the ${LK.SERIES[G.series].name} season (${seasonDates(G.series)}).` : `No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
   if (LOCK.money < G.open) { lockNote(`Opening a ${G.name.toLowerCase()} costs ${money(G.open)}: you need ${money(G.open - LOCK.money)} more.`); return; }
   const force = DEV && DEV_MYTHIC ? 'mythic' : null, r = lockerEdit(l => LK.openCase(l, g, Math.random, force));
   if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first

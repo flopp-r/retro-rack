@@ -22,8 +22,13 @@ const GRADES = {
   silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 11.5, 2, 0.5], open: 20, price: 110 },
   gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 23, 6, 1], open: 45, price: 260 },
   diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 34, 13, 3], open: 100, price: 600 },
+  // a season's cases (series: see SERIES), holding only its own looks. trick: earned and bought, any of its looks, a
+  // duplicate sold as usual. treat (fresh): bought only, and always a look you don't have yet, until you have them all.
+  trick: { name: 'Trick case', col: '#ff8a1f', odds: [45, 33, 15, 5.5, 1.5], open: 20, price: 120, series: 'halloween' },
+  treat: { name: 'Treat case', col: '#9b4dff', odds: [28, 28, 22, 14, 8], open: 0, price: 400, series: 'halloween', fresh: true },
 };
-const GRADE_IDS = Object.keys(GRADES);
+const GRADE_IDS = ['bronze', 'silver', 'gold', 'diamond'];   // the everyday cases, earned by playing
+const CASE_IDS = Object.keys(GRADES);   // every case, the seasons' too
 const PITY = 8;   // at least one epic or better in every 8 cases opened
 // Collections: the case looks of one rarity and one kind (the common cloths, the mythic gloves and so on), 15 in all.
 // Each pays its reward once, when complete: money and cases, more for the rarer ones. All three of a rarity make its
@@ -41,6 +46,19 @@ const SETS = {
   mythic: { money: 30000, cases: { diamond: 12 }, fx: 'cosmic' },
 };
 const GRAND = { money: 50000, cases: {}, fx: 'stars' };
+// Seasons: looks that come only in their own cases, which can be bought and earned only between from and to (month-day)
+// each year; cases already held open at any time, and what they gave is kept for good. daily: the case your first frame
+// won each day earns in the season. Each rarity's looks (two of each kind) pay their reward once, when all six are
+// yours (claimed as 'series:rarity'); all of them, the grand reward ('series:all'), with an effect.
+const SERIES = {
+  halloween: { name: 'Halloween', from: '10-01', to: '11-10', grades: ['trick', 'treat'], daily: 'trick',
+    reward: { common: { money: 150, cases: { trick: 2 } }, rare: { money: 300, cases: { trick: 2 } }, epic: { money: 600, cases: { treat: 1 } },
+      legendary: { money: 1200, cases: { treat: 1 } }, mythic: { money: 2500, cases: {} } },
+    grand: { money: 5000, cases: {}, fx: 'haunted' } },
+};
+const SERIES_IDS = Object.keys(SERIES);
+// day: the local date, YYYY-MM-DD
+const inSeason = (sid, day) => { const S = SERIES[sid], md = String(day).slice(5); return S.from <= S.to ? md >= S.from && md <= S.to : md >= S.from || md <= S.to; };
 const EFFECTS = {
   trail: { name: 'Chalk trail', txt: 'The cue ball leaves a trail of chalk dust as it rolls.' },
   rails: { name: 'Gold rails', txt: 'The table\'s rails are trimmed in polished gold.' },
@@ -48,6 +66,7 @@ const EFFECTS = {
   neon: { name: 'Your name in neon', txt: 'Your name lights up the neon sign at home.' },
   cosmic: { name: 'Cosmic cue ball', txt: 'A cue ball swirled with a far-off nebula.' },
   stars: { name: 'Starfield room', txt: 'The room at home opens onto the night sky.' },
+  haunted: { name: 'Haunted Hall', txt: 'The room at home becomes a haunted hall: jack-o\'-lanterns, bats, cobwebs, a moonlit window and fog.' },
 };
 
 // What playing earns. A frame won against the computer pays money and moves that level's case meter on; METER frames
@@ -134,25 +153,66 @@ const CASE_ITEMS = [
   { id: 'g-molten', kind: 'glove', name: 'Molten', rarity: 'mythic', base: '#ff5a1f', accent: '#ffd23f', cuff: '#3a0d05', style: 'tactical', fx: 'molten', fxc: '#ff8a1f' },
   { id: 'g-prism', kind: 'glove', name: 'Prism', rarity: 'mythic', base: '#ff4d4d', accent: '#ffffff', cuff: '#1d1a22', style: 'sport', fx: 'prism', fxc: '#ffffff' },
 ];
+// The Halloween looks (series: 'halloween'), two of each kind at each rarity, only in Trick and Treat cases. The
+// legendary cloths and cues are painted (game.js), and the mythics move like the others.
+const h = it => ({ series: 'halloween', ...it });
+const SEASON_ITEMS = [
+  h({ id: 'c-h-pumpkin', kind: 'cloth', name: 'Pumpkin patch', rarity: 'common', col: '#40200d', pat: 'seeds', col2: '#532a12' }),
+  h({ id: 'c-h-moss', kind: 'cloth', name: 'Graveyard moss', rarity: 'common', col: '#22351f', pat: 'graves', col2: '#2b4127' }),
+  h({ id: 'c-h-bats', kind: 'cloth', name: 'Bat flock', rarity: 'rare', col: '#1c1a24', pat: 'bats', col2: '#312d3d' }),
+  h({ id: 'c-h-web', kind: 'cloth', name: 'Cobweb', rarity: 'rare', col: '#26262d', pat: 'web', col2: '#3a3a44' }),
+  h({ id: 'c-h-brew', kind: 'cloth', name: 'Witch\'s brew', rarity: 'epic', col: '#26123c', pat: 'bubbles', col2: '#3d2160' }),
+  h({ id: 'c-h-spider', kind: 'cloth', name: 'Spider\'s lair', rarity: 'epic', col: '#150f13', pat: 'spider', col2: '#47220f' }),
+  h({ id: 'c-h-mist', kind: 'cloth', name: 'Haunted mist', rarity: 'legendary', col: '#141a24', pat: 'mist', col2: '#7d8fa8' }),
+  h({ id: 'c-h-lantern', kind: 'cloth', name: 'Lantern glow', rarity: 'legendary', col: '#160c08', pat: 'lantern', col2: '#ff8a1f' }),
+  h({ id: 'c-h-moon', kind: 'cloth', name: 'Blood moon', rarity: 'mythic', col: '#14070a', pat: 'moon', col2: '#a8180f', col3: '#e0704a', anim: 'pulse' }),
+  h({ id: 'c-h-soul', kind: 'cloth', name: 'Soul fire', rarity: 'mythic', col: '#040c0a', pat: 'soul', col2: '#3dff9a', col3: '#c8fff0', anim: 'flow' }),
+  h({ id: 'q-h-bone', kind: 'cue', name: 'Bone', rarity: 'common', col: cue('#efe6cf', '#2a2238', '#e6dabd', '#2a2238', '#d9ccad', '#2a2238'), pat: 'bones', pc: '#3a3048' }),
+  h({ id: 'q-h-jack', kind: 'cue', name: 'Jack', rarity: 'common', col: cue('#e3c68f', '#2f5a1f', '#e2701c', '#2f5a1f', '#c45a12', '#2f5a1f'), pat: 'vine', pc: '#2f6a24' }),
+  h({ id: 'q-h-broom', kind: 'cue', name: 'Broomstick', rarity: 'rare', col: cue('#c9a46a', '#3b2416', '#6b4a2a', '#d9b25a', '#4a3020', '#d9b25a'), pat: 'straw', pc: '#e8c66a' }),
+  h({ id: 'q-h-corn', kind: 'cue', name: 'Candy corn', rarity: 'rare', col: cue('#f1e4c4', '#f7ead2', '#ff8a1f', '#f7ead2', '#ffd23f', '#f7ead2'), pat: 'corn', pc: '#ffd23f' }),
+  h({ id: 'q-h-vampire', kind: 'cue', name: 'Vampire', rarity: 'epic', col: cue('#e3c68f', '#b0101e', '#141018', '#141018', '#141018', '#b0101e'), pat: 'drip', pc: '#c0101e', fx: 'glow' }),
+  h({ id: 'q-h-widow', kind: 'cue', name: 'Black widow', rarity: 'epic', col: cue('#d8d2c4', '#d6303b', '#141018', '#141018', '#141018', '#d6303b'), pat: 'widow', pc: '#d6303b', fx: 'glow' }),
+  h({ id: 'q-h-cauldron', kind: 'cue', name: 'Cauldron', rarity: 'legendary', col: cue('#2a2238', '#7dff5a', '#0d1a0d', '#141018', '#0d1a0d', '#d8ff7a'), pat: 'brew', pc: '#7dff5a', fx: 'glow' }),
+  h({ id: 'q-h-reaper', kind: 'cue', name: 'Reaper', rarity: 'legendary', col: cue('#cfd0dc', '#9aa3b2', '#141018', '#141018', '#1d1a22', '#e8f4ff'), pat: 'reaper', pc: '#cfe8ff', fx: 'glow' }),
+  h({ id: 'q-h-wisp', kind: 'cue', name: 'Will-o\'-the-wisp', rarity: 'mythic', col: cue('#2a2238', '#7fe8ff', '#05080f', '#05080f', '#05080f', '#d8fff8'), pat: 'wisp', pc: '#7fffd8', fx: 'wisp' }),
+  h({ id: 'q-h-hellfire', kind: 'cue', name: 'Hellfire', rarity: 'mythic', col: cue('#2a2238', '#ff5a1f', '#0a0302', '#0a0302', '#0a0302', '#ffd23f'), pat: 'hell', pc: '#ff6a1a', fx: 'hellfire' }),
+  h({ id: 'g-h-mummy', kind: 'glove', name: 'Mummy', rarity: 'common', base: '#d9cfb4', accent: '#a89f86', cuff: '#cfc4a6', style: 'wraps', skin: '#d2c7aa' }),
+  h({ id: 'g-h-pumpkin', kind: 'glove', name: 'Pumpkin', rarity: 'common', base: '#e2701c', accent: '#2f5a1f', cuff: '#3a2a1a', style: 'sport' }),
+  h({ id: 'g-h-witch', kind: 'glove', name: 'Witch', rarity: 'rare', base: '#3b1f5c', accent: '#5fbf3a', cuff: '#1d1a22', style: 'fingerless', skin: '#8fbf6a' }),
+  h({ id: 'g-h-zombie', kind: 'glove', name: 'Zombie', rarity: 'rare', base: '#4a4d3a', accent: '#7a2a2a', cuff: '#3a3a2a', style: 'fingerless', skin: '#7a9a5a' }),
+  h({ id: 'g-h-vampire', kind: 'glove', name: 'Vampire', rarity: 'epic', base: '#141018', accent: '#b0101e', cuff: '#5a0a14', style: 'driver', fx: 'glow', fxc: '#ff2a3a' }),
+  h({ id: 'g-h-wolf', kind: 'glove', name: 'Werewolf', rarity: 'epic', base: '#5a4030', accent: '#2a1d14', cuff: '#3a2a1f', style: 'fingerless', skin: '#3a3540' }),
+  h({ id: 'g-h-spectre', kind: 'glove', name: 'Spectre', rarity: 'legendary', base: '#bfe8d8', accent: '#ffffff', cuff: '#5fa890', style: 'sport', fx: 'ecto', fxc: '#9bffd0' }),
+  h({ id: 'g-h-lantern', kind: 'glove', name: 'Jack-o\'-lantern', rarity: 'legendary', base: '#e2701c', accent: '#ffd23f', cuff: '#2f5a1f', style: 'tactical', fx: 'lantern', fxc: '#ffb03a' }),
+  h({ id: 'g-h-ghostfire', kind: 'glove', name: 'Ghost fire', rarity: 'mythic', base: '#1f6a4a', accent: '#9bffb0', cuff: '#0d2a1f', style: 'tactical', fx: 'ghostfire', fxc: '#7dffb0' }),
+  h({ id: 'g-h-banshee', kind: 'glove', name: 'Banshee', rarity: 'mythic', base: '#d8d0ff', accent: '#ffffff', cuff: '#4a3a8a', style: 'sport', fx: 'banshee', fxc: '#c9b8ff' }),
+];
 // the free glove everyone starts with ('none' shows no gloves at all)
 const FREE_GLOVE = { id: 'g-white', kind: 'glove', name: 'Classic white', rarity: 'common', base: '#f4f1ea', accent: '#1a1433', cuff: '#ffffff', style: 'sport' };
 // every look by id: the shop's (career.js), the cases', and the free glove
-const ALL = Object.fromEntries([...K.SHOP, ...CASE_ITEMS, FREE_GLOVE].map(it => [it.id, it]));
+const ALL = Object.fromEntries([...K.SHOP, ...CASE_ITEMS, ...SEASON_ITEMS, FREE_GLOVE].map(it => [it.id, it]));
 const POOL = Object.fromEntries(RARITIES.map(r => [r, CASE_ITEMS.filter(it => it.rarity === r).map(it => it.id)]));
+// a season's looks by rarity, and the looks a case can hold
+const SERIES_POOL = Object.fromEntries(SERIES_IDS.map(sid => [sid, Object.fromEntries(RARITIES.map(r => [r, SEASON_ITEMS.filter(it => it.series === sid && it.rarity === r).map(it => it.id)]))]));
+const poolOf = (grade, r) => GRADES[grade].series ? SERIES_POOL[GRADES[grade].series][r] : POOL[r];
+const seriesItems = sid => RARITIES.flatMap(r => SERIES_POOL[sid][r]);
 const FREE = ['house', 'none', FREE_GLOVE.id];   // looks everyone owns (with the five original cloths, in game.js)
 
 // Picks what a case gives. The rarity comes from the grade's odds, except that after PITY - 1 cases in a row without
 // an epic or better, only epic or better can come up (in the grade's proportions). The item is then any of that rarity,
 // all equally likely. rnd: a function giving numbers from 0 up to 1. force: a rarity to give instead, if the grade holds
 // it (dev mode's "next case mythic").
-function roll(grade, pity, rnd, force) {
-  const odds = [...GRADES[grade].odds], fi = RARITIES.indexOf(force);
+// owned: a fresh case's looks owned already, which it then leaves out (while any of its looks are missing).
+function roll(grade, pity, rnd, force, owned) {
+  const odds = [...GRADES[grade].odds], fi = RARITIES.indexOf(force), left = r => poolOf(grade, r).filter(id => !owned || !owned.includes(id));
+  if (owned && RARITIES.some(r => left(r).length)) RARITIES.forEach((r, i) => { if (!left(r).length) odds[i] = 0; }); else owned = null;
   if (fi >= 0 && odds[fi]) { odds.fill(0); odds[fi] = 1; }
-  if (pity >= PITY - 1) odds[0] = odds[1] = 0;
+  if (pity >= PITY - 1 && odds.slice(2).some(o => o)) odds[0] = odds[1] = 0;
   let r = rnd() * odds.reduce((a, b) => a + b, 0), ri = 0;
   while (ri < odds.length - 1 && (r >= odds[ri] || !odds[ri])) { r -= odds[ri]; ri++; }
   while (!odds[ri]) ri--;   // rounding at the very top end
-  const pool = POOL[RARITIES[ri]];
+  const pool = owned ? left(RARITIES[ri]) : poolOf(grade, RARITIES[ri]);
   return pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
 }
 // the items shown passing on the reel: drawn by the case's own odds, without the guarantee, so they show what the
@@ -163,20 +223,25 @@ const reelItems = (grade, n, rnd) => Array.from({ length: n }, () => roll(grade,
 // meter: frames towards the next case of each grade. pity: cases opened since the last epic or better. daily: the day
 // (YYYY-MM-DD) of the last online win that paid. opened: cases opened in all. claimed: the rewards paid: collections
 // ('rarity:kind'), sets (a rarity) and 'all'.
+// sdaily: the day a season's daily case was last earned.
 function newLocker() {
-  const l = { v: 1, money: START.money, owned: [], cases: {}, meter: {}, pity: 0, daily: '', opened: 0, claimed: [] };
-  for (const g of GRADE_IDS) { l.cases[g] = START.cases[g] || 0; l.meter[g] = 0; }
+  const l = { v: 1, money: START.money, owned: [], cases: {}, meter: {}, pity: 0, daily: '', sdaily: '', opened: 0, claimed: [] };
+  for (const g of CASE_IDS) l.cases[g] = START.cases[g] || 0;
+  for (const g of GRADE_IDS) l.meter[g] = 0;
   return l;
 }
+const isDay = d => typeof d === 'string' && /^\d{4}-\d\d-\d\d$/.test(d);
+const rewardKey = k => k === 'all' || has(COLLECTIONS, k) || has(SETS, k) || SERIES_IDS.some(sid => k === sid + ':all' || RARITIES.some(r => k === sid + ':' + r));
 // checks a saved locker and returns a clean copy (a new one if there isn't one)
 function validateLocker(o) {
   const l = newLocker(); if (!o || typeof o !== 'object' || o.v !== 1) return l;
   const n = (v, max = 1e9) => Number.isFinite(v) ? Math.max(0, Math.min(max, Math.round(v))) : 0;
   l.money = n(o.money);
   l.owned = Array.isArray(o.owned) ? [...new Set(o.owned.filter(id => has(ALL, id) && !FREE.includes(id)))] : [];
-  for (const g of GRADE_IDS) { l.cases[g] = n(o.cases && o.cases[g], 999); l.meter[g] = n(o.meter && o.meter[g], METER - 1); }
-  l.pity = n(o.pity, PITY - 1); l.daily = typeof o.daily === 'string' && /^\d{4}-\d\d-\d\d$/.test(o.daily) ? o.daily : ''; l.opened = n(o.opened);
-  l.claimed = Array.isArray(o.claimed) ? [...new Set(o.claimed.filter(r => r === 'all' || has(COLLECTIONS, r) || has(SETS, r)))] : [];
+  for (const g of CASE_IDS) l.cases[g] = n(o.cases && o.cases[g], 999);
+  for (const g of GRADE_IDS) l.meter[g] = n(o.meter && o.meter[g], METER - 1);
+  l.pity = n(o.pity, PITY - 1); l.daily = isDay(o.daily) ? o.daily : ''; l.sdaily = isDay(o.sdaily) ? o.sdaily : ''; l.opened = n(o.opened);
+  l.claimed = Array.isArray(o.claimed) ? [...new Set(o.claimed.filter(rewardKey))] : [];
   return l;
 }
 // brings another locker (from a career file) into this one without taking anything away: the looks of both, and the
@@ -185,8 +250,9 @@ function mergeLocker(l, o) {
   const m = validateLocker(o);
   for (const id of m.owned) if (!l.owned.includes(id)) l.owned.push(id);
   l.money = Math.max(l.money, m.money);
-  for (const g of GRADE_IDS) { l.cases[g] = Math.max(l.cases[g], m.cases[g]); l.meter[g] = Math.max(l.meter[g], m.meter[g]); }
-  l.opened = Math.max(l.opened, m.opened);
+  for (const g of CASE_IDS) l.cases[g] = Math.max(l.cases[g], m.cases[g]);
+  for (const g of GRADE_IDS) l.meter[g] = Math.max(l.meter[g], m.meter[g]);
+  l.opened = Math.max(l.opened, m.opened); if (m.sdaily > l.sdaily) l.sdaily = m.sdaily;
   for (const r of m.claimed) if (!l.claimed.includes(r)) l.claimed.push(r);   // a reward paid in the other locker isn't paid again
   return l;
 }
@@ -194,14 +260,15 @@ const owns = (l, id) => FREE.includes(id) || l.owned.includes(id);
 
 // opens one of the locker's cases and pays for it: { id, rarity, dup, sold, done } or why not ('unknown', 'none',
 // 'money'). A duplicate is sold at once for its rarity's price, except that a mythic is always one not owned yet until
-// all are. done: the collections it completed (see claimCollections). force: see roll().
+// all the case's are, and a fresh case (treat) always gives one not owned until all its looks are. done: the
+// collections and season rewards it completed (see claimCollections). force: see roll().
 function openCase(l, grade, rnd, force) {
   if (!has(GRADES, grade)) return 'unknown';
   if (!(l.cases[grade] > 0)) return 'none';
   if (l.money < GRADES[grade].open) return 'money';
   l.cases[grade]--; l.money -= GRADES[grade].open; l.opened++;
-  let id = roll(grade, l.pity, rnd, force); const rarity = ALL[id].rarity;
-  if (rarity === 'mythic' && l.owned.includes(id)) { const left = POOL.mythic.filter(x => !l.owned.includes(x)); if (left.length) id = left[Math.min(left.length - 1, Math.floor(rnd() * left.length))]; }
+  let id = roll(grade, l.pity, rnd, force, GRADES[grade].fresh ? l.owned : null); const rarity = ALL[id].rarity;
+  if (rarity === 'mythic' && l.owned.includes(id)) { const left = poolOf(grade, 'mythic').filter(x => !l.owned.includes(x)); if (left.length) id = left[Math.min(left.length - 1, Math.floor(rnd() * left.length))]; }
   const dup = l.owned.includes(id);
   l.pity = RARITIES.indexOf(rarity) >= 2 ? 0 : l.pity + 1;
   if (dup) l.money += RARITY[rarity].sell; else l.owned.push(id);
@@ -218,13 +285,22 @@ function claimCollections(l) {
   for (const key in COLLECTIONS) if (!l.claimed.includes(key) && collected(l, key)) { l.claimed.push(key); payOut(l, COLLECTIONS[key]); out.push(key); }
   for (const r of RARITIES) if (!l.claimed.includes(r) && KINDS.every(k => l.claimed.includes(r + ':' + k))) { l.claimed.push(r); payOut(l, SETS[r]); out.push(r); }
   if (!l.claimed.includes('all') && RARITIES.every(r => l.claimed.includes(r))) { l.claimed.push('all'); payOut(l, GRAND); out.push('all'); }
+  for (const sid of SERIES_IDS) {   // a season: each rarity's six looks, then all of them
+    for (const r of RARITIES) { const k = sid + ':' + r; if (!l.claimed.includes(k) && SERIES_POOL[sid][r].every(id => l.owned.includes(id))) { l.claimed.push(k); payOut(l, SERIES[sid].reward[r]); out.push(k); } }
+    const k = sid + ':all'; if (!l.claimed.includes(k) && seriesItems(sid).every(id => l.owned.includes(id))) { l.claimed.push(k); payOut(l, SERIES[sid].grand); out.push(k); }
+  }
   return out;
 }
-// the effects a locker has earned, in set order
-const effects = l => [...RARITIES.filter(r => l.claimed.includes(r)).map(r => SETS[r].fx), ...(l.claimed.includes('all') ? [GRAND.fx] : [])];
-// buys a case: 'ok' or why not
-function buyCase(l, grade) {
+// the effects a locker has earned, in set order, then the seasons'
+const effects = l => [...RARITIES.filter(r => l.claimed.includes(r)).map(r => SETS[r].fx), ...(l.claimed.includes('all') ? [GRAND.fx] : []),
+  ...SERIES_IDS.filter(sid => l.claimed.includes(sid + ':all')).map(sid => SERIES[sid].grand.fx)];
+// buys a case: 'ok' or why not ('unknown', 'season': a season's case out of its season, 'complete': a fresh case when
+// every one of its looks is owned, 'money'). day: the local date, YYYY-MM-DD
+function buyCase(l, grade, day) {
   if (!has(GRADES, grade)) return 'unknown';
+  const sid = GRADES[grade].series;
+  if (sid && !inSeason(sid, day)) return 'season';
+  if (sid && GRADES[grade].fresh && seriesItems(sid).every(id => l.owned.includes(id))) return 'complete';
   if (l.money < GRADES[grade].price) return 'money';
   l.money -= GRADES[grade].price; l.cases[grade]++;
   return 'ok';
@@ -263,7 +339,15 @@ function onlineWon(l, day) {
   return { pay: ONLINE.pay, grade: ONLINE.grade, n: ONLINE.n };
 }
 
-return { RARITY, RARITIES, GRADES, GRADE_IDS, PITY, KINDS, COLLECTIONS, SETS, GRAND, EFFECTS, colItems, collected, claimCollections, effects, EVENT_CASES, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
+// a frame won (one that earns: against the computer, in the career or online) in a season: its daily case, the first
+// time each day. Returns { grade, n } or null
+function seasonWon(l, day) {
+  const sid = SERIES_IDS.find(s => inSeason(s, day)); if (!sid || l.sdaily === day) return null;
+  const g = SERIES[sid].daily; l.sdaily = day; l.cases[g] = Math.min(999, l.cases[g] + 1);
+  return { grade: g, n: 1 };
+}
+
+return { RARITY, RARITIES, GRADES, GRADE_IDS, CASE_IDS, SERIES, SERIES_IDS, SERIES_POOL, SEASON_ITEMS, inSeason, seriesItems, poolOf, seasonWon, PITY, KINDS, COLLECTIONS, SETS, GRAND, EFFECTS, colItems, collected, claimCollections, effects, EVENT_CASES, CPU_PAY, LEVEL_GRADE, TIER_GRADE, METER, ONLINE, START, CASE_ITEMS, FREE_GLOVE, ALL, POOL, FREE,
   roll, reelItems, newLocker, validateLocker, mergeLocker, owns, openCase, buyCase, buyLook, cpuFrameWon, careerFrameWon, eventWon, onlineWon };
 })(typeof CAREER !== 'undefined' ? CAREER : require('./career.js'));
 if (typeof module !== 'undefined') module.exports = LOOKS;
