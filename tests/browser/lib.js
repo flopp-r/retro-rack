@@ -25,10 +25,17 @@ const shot = name => { const d = path.join(WORK, 'shots'); fs.mkdirSync(d, { rec
 function quick() {
   try { if (!/realdefaults/.test(location.search) && !localStorage.getItem('retroRack.settings')) localStorage.setItem('retroRack.settings', JSON.stringify({ pixel: 3, levels: 8, gfx: 2 })); } catch (e) {}
 }
+// The date test pages see: a fixed day outside every season (so what a frame earns doesn't change with the calendar),
+// unless a context asks for its own with { testDate: 'YYYY-MM-DD' }. The clock still runs on from there.
+function fixDate(day) {
+  const D = Date, off = new D(day + 'T12:00:00').getTime() - D.now();
+  class TestDate extends D { constructor(...a) { if (a.length) super(...a); else super(D.now() + off); } static now() { return D.now() + off; } }
+  window.Date = TestDate;
+}
 const chromium = Object.create(pw.chromium);
 chromium.launch = async (...args) => {
   const b = await pw.chromium.launch(...args), newContext = b.newContext.bind(b);
-  b.newContext = async (...o) => { const c = await newContext(...o); await c.addInitScript(quick); return c; };
+  b.newContext = async (o = {}, ...more) => { const { testDate, ...rest } = o, c = await newContext(rest, ...more); await c.addInitScript(quick); await c.addInitScript(fixDate, testDate || '2026-06-15'); return c; };
   b.newPage = async (...o) => { const c = await b.newContext(...o), p = await c.newPage(); p.on('close', () => c.close().catch(() => {})); return p; };
   return b;
 };

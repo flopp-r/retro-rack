@@ -102,6 +102,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .colTick{position:absolute;right:3px;bottom:0;font-size:17px;color:#8dffa0;text-shadow:1px 1px 0 var(--ink)}
 .colPrice{font-size:14px;line-height:1;padding:0 3px;background:rgba(13,10,28,.78)}.colTile.sale>img.portrait{max-height:28px}.colTile.sale>.shopSw{width:26px;height:26px}
 .caseGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.caseGrid.hwCases{grid-template-columns:repeat(2,minmax(0,1fr));margin:6px 0 10px}.hwHead .colRw{flex-basis:100%}
 .caseCard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;text-align:center;background:var(--plum);border:3px solid var(--ink);box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.1),3px 3px 0 var(--ink)}
 .caseName{font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.3}.caseN{font-size:18px;color:var(--lamp)}.caseOdds{font-size:15px;line-height:1;opacity:.8}
 .caseBtns{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:auto}.caseBtns .btn{font-size:8px;padding:6px 7px}.caseBtns .btn.dim{opacity:.5}
@@ -157,6 +158,8 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cOppTxt{grid-column:1 / -1;opacity:.9}
 @media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
+@media (max-width:760px),(max-height:500px){#lockTabs{flex-wrap:nowrap;flex:none}#menu #lockTabs .btn{padding-left:5px;padding-right:5px}#menu #lockTabs .ib{width:32px;height:auto;align-self:stretch}#lockTabs .ib svg{width:16px;height:16px}}   /* phones: the locker's tabs keep to one row */
+@media (max-height:500px){.lockTop{flex-wrap:nowrap}.lockTop .cInfo{min-width:0;line-height:1}}   /* on its side, with the words beside them wrapping */
 @media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}   .caseGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
