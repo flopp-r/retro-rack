@@ -3244,6 +3244,8 @@ function renderLocker() {
   if (LOCKV.tab === 'hw' && !hw) LOCKV.tab = 'cases';
   $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
   segControl($('#lockTabs'), [['cases', 'Cases'], ['inv', 'Inventory'], ['shop', 'Shop'], ...(hw ? [['hw', 'Halloween']] : [])], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.top = true; lockNote(''); });
+  const hb = [...$('#lockTabs').children].find(x => x.textContent === 'Halloween');   // on a phone, a pumpkin rather than the word
+  if (hb) { hb.textContent = ''; hb.classList.add('ib'); hb.insertAdjacentHTML('beforeend', '<span class="lab">Halloween</span>'); hb.setAttribute('aria-label', 'Halloween'); setIcon(hb, 'pumpkin'); }
   const body = $('#lockBody'), pager = $('#lockPages'), keep = LOCKV.top ? 0 : body.scrollTop; LOCKV.top = false;
   body.innerHTML = ''; pager.innerHTML = '';
   body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'lockList';
@@ -3930,6 +3932,7 @@ const ICONS = {
   slow: ['xxxxxxxx', '.x....x.', '..x..x..', '...xx...', '..x..x..', '.x.xx.x.', 'xxxxxxxx'],
   play: ['x.....', 'xxx...', 'xxxxx.', 'xxxxxx', 'xxxxx.', 'xxx...', 'x.....'],
   skip: ['x....x', 'xx...x', 'xxx..x', 'xxxx.x', 'xxx..x', 'xx...x', 'x....x'],
+  pumpkin: ['....xx....', '..xxxxxx..', '.xxxxxxxx.', 'xx..xx..xx', 'xxxxxxxxxx', 'xx.x..x.xx', 'xxx....xxx', '.xxxxxxxx.', '..xxxxxx..'],
   gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
   full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
   unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],

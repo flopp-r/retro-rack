@@ -158,6 +158,8 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .cOppTxt{grid-column:1 / -1;opacity:.9}
 @media (max-width:640px){.cEv{grid-template-columns:1fr}}
 #sc-setup .row{grid-template-columns:96px 1fr;margin-bottom:10px}#sc-setup .note{grid-column:2;font-size:18px;opacity:.72}
+@media (max-width:760px),(max-height:500px){#lockTabs{flex-wrap:nowrap;flex:none}#menu #lockTabs .btn{padding-left:5px;padding-right:5px}#menu #lockTabs .ib{width:32px;height:auto;align-self:stretch}#lockTabs .ib svg{width:16px;height:16px}}   /* phones: the locker's tabs keep to one row */
+@media (max-height:500px){.lockTop{flex-wrap:nowrap}.lockTop .cInfo{min-width:0;line-height:1}}   /* on its side, with the words beside them wrapping */
 @media (max-width:500px){#sc-setup .row{grid-template-columns:1fr;gap:4px}#sc-setup .note{grid-column:1}   .caseGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}   /* narrow upright phones: labels above, so the buttons wrap less */
 /* short screens (a phone on its side): everything on one screen, no scrolling */
 @media (max-height:500px){
@@ -2039,7 +2041,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = '6a94d3be';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = '31c62c4b';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
@@ -5275,6 +5277,8 @@ function renderLocker() {
   if (LOCKV.tab === 'hw' && !hw) LOCKV.tab = 'cases';
   $('#lockMoney').textContent = `${DEV ? 'Test locker: ' : ''}${money(l.money)} to spend · ${waiting} ${waiting === 1 ? 'case' : 'cases'} to open${DEV && DEV_MYTHIC ? ' · next one mythic' : ''}`;
   segControl($('#lockTabs'), [['cases', 'Cases'], ['inv', 'Inventory'], ['shop', 'Shop'], ...(hw ? [['hw', 'Halloween']] : [])], () => LOCKV.tab, v => { LOCKV.tab = v; LOCKV.top = true; lockNote(''); });
+  const hb = [...$('#lockTabs').children].find(x => x.textContent === 'Halloween');   // on a phone, a pumpkin rather than the word
+  if (hb) { hb.textContent = ''; hb.classList.add('ib'); hb.insertAdjacentHTML('beforeend', '<span class="lab">Halloween</span>'); hb.setAttribute('aria-label', 'Halloween'); setIcon(hb, 'pumpkin'); }
   const body = $('#lockBody'), pager = $('#lockPages'), keep = LOCKV.top ? 0 : body.scrollTop; LOCKV.top = false;
   body.innerHTML = ''; pager.innerHTML = '';
   body.className = LOCKV.tab === 'cases' ? 'caseGrid' : 'lockList';
@@ -5961,6 +5965,7 @@ const ICONS = {
   slow: ['xxxxxxxx', '.x....x.', '..x..x..', '...xx...', '..x..x..', '.x.xx.x.', 'xxxxxxxx'],
   play: ['x.....', 'xxx...', 'xxxxx.', 'xxxxxx', 'xxxxx.', 'xxx...', 'x.....'],
   skip: ['x....x', 'xx...x', 'xxx..x', 'xxxx.x', 'xxx..x', 'xx...x', 'x....x'],
+  pumpkin: ['....xx....', '..xxxxxx..', '.xxxxxxxx.', 'xx..xx..xx', 'xxxxxxxxxx', 'xx.x..x.xx', 'xxx....xxx', '.xxxxxxxx.', '..xxxxxx..'],
   gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
   full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
   unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],
