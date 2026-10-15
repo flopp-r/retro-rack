@@ -804,7 +804,7 @@ function applyNoise(shot, cfg, rnd) {
 }
 
 return { P, TABLE, SPECS, setTable, groupName, newBall, cloneBalls, makeWorld, cloneWorld, step, simulate, allStopped, moving,
-  strike, launchAngle, powerToCueSpeed, strikeImpulse, rayCast, rack8, rack9, rackScatter,
+  strike, launchAngle, powerToCueSpeed, cueSpeedToPower, strikeImpulse, rayCast, rack8, rack9, rackScatter,
   validSpot, spotBall, placeCueHead, newGame, legalTargets, judge, nextGame, groupOf, isSolid, isStripe,
   planBot, DIFF, shotCandidates, newRec };
 })();

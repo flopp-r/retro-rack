@@ -233,7 +233,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 #spinTxt{font-size:17px;line-height:1.05;height:2.1em;overflow:hidden;white-space:pre-line;text-align:center;width:110px}
 #pow{position:relative;width:24px;height:122px;background:var(--ink);border:3px solid var(--plum2);cursor:ns-resize;touch-action:none}
 #powFill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--chalk) 0 33%,var(--lamp) 33% 70%,var(--rose) 70% 100%);background-size:100% 116px;background-position:bottom}
-#powTxt{font-size:17px;white-space:nowrap;min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
+#powTxt{font-size:17px;white-space:nowrap;min-width:64px;text-align:center;font-variant-numeric:tabular-nums;padding:1px 4px;cursor:ew-resize;touch-action:none;background:var(--ink) repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,transparent 1px 6px);border:2px solid var(--plum2)}   /* slide along it to set the power finely, like the aim readout */
 #aimTxt{flex:1;text-align:center;font-size:17px;font-variant-numeric:tabular-nums;padding:2px 4px;cursor:ew-resize;touch-action:none;background:var(--ink) repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,transparent 1px 6px);border:2px solid var(--plum2)}   /* slide along it to turn finely; its marks move with the aim */
 #bShoot{grid-column:1 / -1;font-size:10px;padding:10px;background:var(--lamp);color:var(--ink)}
 #bShoot:hover{background:#ffd48e}
@@ -377,7 +377,7 @@ input:focus{border-color:var(--chalk)}
   </div>
   <div id="shot" class="panel">
     <div class="spinWrap"><canvas id="spin" width="32" height="32" aria-label="Cue tip position: drag to add spin"></canvas><div id="spinTxt">Centre ball</div></div>
-    <div class="powWrap"><button class="btn" id="bSpin" aria-pressed="true" title="Show or hide the spin diagram"><canvas id="spinMini" width="16" height="16"></canvas><span class="vh">Spin diagram</span></button><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt">0 m/s</div></div>
+    <div class="powWrap"><button class="btn" id="bSpin" aria-pressed="true" title="Show or hide the spin diagram"><canvas id="spinMini" width="16" height="16"></canvas><span class="vh">Spin diagram</span></button><div id="pow" aria-label="Power: drag to set"><div id="powFill"></div></div><div id="powTxt" title="Slide along here to set the power very finely">0.00 m/s</div></div>
     <div id="aimRow"><button class="btn" id="bAimL" aria-label="Turn aim left">&lt;</button><div id="aimTxt" title="Slide along here to turn very finely">Aim 0.00°</div><button class="btn" id="bAimR" aria-label="Turn aim right">&gt;</button></div>
     <button class="btn" id="bShoot">Shoot</button>
   </div>
@@ -387,8 +387,9 @@ input:focus{border-color:var(--chalk)}
     <p class="tapNote">Tap a key to use it.</p>
     <dl>
       <dt>Aim</dt><dd>Drag across the table and the cue points at your cursor. Double-click to aim at a spot.</dd>
-      <dt>Fine aim</dt><dd><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> turn 0.05° per press (holding does nothing more); with <kbd>Ctrl</kbd>, <kbd>←</kbd><kbd>→</kbd> turn 0.01°. Hold <kbd>Shift</kbd> with them to turn freely. On a touch screen, slide along the aim readout to turn very finely.</dd>
-      <dt>Power</dt><dd><kbd>↑</kbd><kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd>, or drag the bar.</dd>
+      <dt>Fine aim</dt><dd><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> turn 0.05° per press (holding does nothing more); <span data-ctrl>with <kbd>Ctrl</kbd>, <kbd>←</kbd><kbd>→</kbd></span> turn 0.01°. Hold <kbd>Shift</kbd> with them to turn freely. On a touch screen, slide along the aim readout to turn very finely.</dd>
+      <dt>Power</dt><dd>Hold <kbd>↑</kbd><kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd>, or drag the bar. Add <kbd>Shift</kbd> to go slowly.</dd>
+      <dt>Fine power</dt><dd><span data-ctrl><kbd>Ctrl</kbd> + <kbd>↑</kbd><kbd>↓</kbd></span> changes the speed by 0.01 m/s per press (holding does nothing more). On a touch screen, slide along the speed readout under the power bar.</dd>
       <dt>Spin</dt><dd>Drag on the cue ball, or <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>. <kbd>O</kbd> resets. The small ball by the power bar shows or hides the diagram.</dd>
       <dt>Shoot</dt><dd><kbd>Space</kbd> or the Shoot button.</dd>
       <dt>Camera</dt><dd>Right-drag (or <kbd>Alt</kbd>-drag) to orbit, wheel to zoom, middle-drag to pan, <kbd>Q</kbd><kbd>E</kbd> to turn.</dd>
