@@ -12,7 +12,7 @@ const BUILD = '__BUILD__';   // version: tools/build.js fills in a fingerprint o
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
-const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, shotCam: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
+const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, shotCam: true, follow: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
 const S = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
@@ -1637,13 +1637,13 @@ function syncBallMeshes() {
   for (let id = 0; id <= 15; id++) { BM[id].visible = false; SH[id].visible = false; BM[id].scale.setScalar(R / R_US); }
   for (const b of world.balls) if (!b.potted) { BM[b.id].visible = true; SH[b.id].visible = true; }
 }
-function aimAtNearest() {
+function nearestTarget() {
   const cue = world.balls[0];
   const t = C.legalTargets(game, world.balls, game.turn).map(ballById).filter(Boolean);
-  if (!t.length) return aim.phi;
   t.sort((a, b) => Math.hypot(a.x - cue.x, a.z - cue.z) - Math.hypot(b.x - cue.x, b.z - cue.z));
-  return Math.atan2(t[0].z - cue.z, t[0].x - cue.x);
+  return t[0] || null;
 }
+function aimAtNearest() { const cue = world.balls[0], t = nearestTarget(); return t ? Math.atan2(t.z - cue.z, t.x - cue.x) : aim.phi; }
 
 function trickRack() {
   const list = trickList(); M.trick = (((M.trick | 0) % list.length) + list.length) % list.length;
@@ -1751,7 +1751,7 @@ function endShot() {
   } else if (game.turn !== pl) {
     toast(game.ballInHand ? `${pname(game.turn)}: ball in hand` : (isYou(game.turn) ? 'Your shot' : `${pname(game.turn)} to shoot`), game.ballInHand ? 'foul' : 'info');
   } else if (wasBreak && res.keepTurn) toast(`Good break, ${pname(pl) === 'You' ? 'keep going' : pname(pl) + ' continues'}`, 'good');
-  beginTurn();
+  beginTurn(); if (state === 'aim') followShot();
   if (NET.on) netAfterShot(pl);
   if (CAR.on) careerSave();
 }
@@ -2100,7 +2100,7 @@ const cam = {
     const c = this.cur, k = 1 - Math.exp(-dt * 7), s = this.shot;
     if (this.mode === 'shot' && !s.up && state === 'moving' && !paused && (s.hit = (s.hit || 0) + dt) >= RISE_WAIT)   // the cue has struck: a beat, then up
       Object.assign(s, { up: true, side: camera.position.z < 0 ? -Math.PI / 2 : Math.PI / 2, from: { ...c }, t: 0, dur: RISE_T });   // to the long side you're nearer
-    const up = this.mode === 'shot' && s.up; if (up !== !!this.away) { this.away = up; for (const q of ['#shot', '#tools', '#practice']) $(q).classList.toggle('away', up); }   // the buttons fade while the camera's up, so the whole table shows (they still work)
+    const up = this.mode === 'shot' && !!s.up; if (up !== !!this.away) { this.away = up; for (const q of ['#shot', '#tools', '#practice']) $(q).classList.toggle('away', up); }   // the buttons fade while the camera's up, so the whole table shows (they still work)
     const g = this.goal();
     if (this.mode === 'shot' && s.from && s.t < s.dur) {   // the swing in for a shot, and the rise after it: eased all the way there, not a snap
       s.t += dt; const e = ease(Math.min(1, s.t / s.dur)), f = s.from;
@@ -2148,6 +2148,20 @@ const cam = {
   // played from the overhead view rises back to it
   shotOver() { this.mode = this.shot ? this.shot.prev : 'free'; this.shot = null; updateCamButtons(); },
 };
+// After a shot, when it's your turn (a local human's) and you're in the free view, the camera glides to just behind the
+// cue ball, looking along the line to the ball the cue points at (the nearest one you're on), far enough back for both to
+// show below the scoreboard, at your own tilt (S.follow). Cue view follows anyway; the overhead view shows everything.
+// Not for the computer's or an online opponent's turn, nor the break. Display only.
+function followShot() {
+  const via = cam.mode === 'shot' ? cam.shot.prev : cam.mode, cue = world.balls[0], t = nearestTarget();
+  if (!S.follow || via !== 'free' || !t) return;
+  const L = Math.hypot(t.x - cue.x, t.z - cue.z), p = clamp(cam.free.pitch, 0.3, 1.2), half = 22.5 * DEG;
+  const fits = d => { const D = d * Math.cos(p), H = d * Math.sin(p); return Math.atan2(H, D - L / 2) - p <= half * 0.7 && p - Math.atan2(H, D + L / 2) <= half * 0.55; };
+  let d = 0.9; while (d < 7 && !fits(d)) d *= 1.04;
+  const narrow = camera.aspect < 1.25 ? Math.pow(1.25 / camera.aspect, 0.85) : 1;
+  cam.free = { yaw: Math.atan2(t.z - cue.z, t.x - cue.x) + Math.PI, pitch: p, dist: Math.min(d, 7) / narrow, tx: (cue.x + t.x) / 2, tz: (cue.z + t.z) / 2 };
+  if (reduceMotion && cam.mode === 'free') Object.assign(cam.cur, cam.goal());   // there, without the glide
+}
 function toggleAimCam() { if (cam.mode === 'aim') cam.toFree(); else { cam.mode = 'aim'; } updateCamButtons(); }
 function toggleTop() { if (cam.mode === 'top') { cam.mode = cam.prev || 'free'; } else { cam.prev = cam.mode === 'attract' ? 'free' : cam.mode === 'shot' ? cam.shot.prev : cam.mode; cam.mode = 'top'; } updateCamButtons(); }
 function updateCamButtons() { $('#bCam').setAttribute('aria-pressed', cam.mode === 'aim'); $('#bTop').setAttribute('aria-pressed', cam.mode === 'top'); }
@@ -2716,7 +2730,7 @@ function refreshMenus() {
   segControl($('#sVolume'), [[0, 'Off'], [0.25, '25%'], [0.5, '50%'], [0.75, '75%'], [1, '100%']], () => S.volume, v => { S.volume = v; saveS(); ensureAudio(); });
   segControl($('#sPixel'), [[0, 'Max'], [1, '1×'], [2, '2×'], [3, '3×'], [4, '4×'], [5, '5×']], () => S.pixel, v => { S.pixel = v; saveS(); resize(); });
   pixNote();
-  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sVibrate', 'vibrate']]) {
+  for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sFollow', 'follow'], ['#sVibrate', 'vibrate']]) {
     const b = $(id); b.setAttribute('aria-pressed', String(!!S[key])); b.textContent = S[key] ? 'On' : 'Off';
   }
   const foot = document.querySelector('#menuPanel .mFoot'); foot.hidden = ![...foot.children].some(b => !b.hidden);
@@ -2729,7 +2743,7 @@ function refreshMenus() {
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
-for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sVibrate', 'vibrate']]) {
+for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sFollow', 'follow'], ['#sVibrate', 'vibrate']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
 function togglePause(force) {
@@ -4058,7 +4072,7 @@ requestAnimationFrame(frame);
 }
 // collection effects (see "collection effects"): their first drawing, and any reward a saved locker is owed
 applyFx(); setTimeout(claimDue, 600);
-window.__rr = { get state() { return state; }, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
+window.__rr = { get state() { return state; }, syncBallMeshes, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
   get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.emissive.getHexString(), show: FX.raf }; },
   get effects() { return { on: LK.effects(LOCK).filter(fxOn), rails: railMat.map !== woodTex, cosmic: BM[0].material.map === cosmicTex.t, stars: wallMat.map === starTex.t, hall: HALL.on, sign: signText(), trail: trailMesh.visible, sparks: SPK.parts.length }; }, lookRank, sparkAt,
