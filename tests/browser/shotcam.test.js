@@ -25,7 +25,8 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   await start('practice', 'friend'); await settle(); await aimAt(0.3);
   const before = await cam();
   await ev(() => __rr.shoot()); await sleep(150);
-  const held = await cam();
+  const held = await cam(), fades = [held.away]; for (let i = 0; i < 4; i++) { await sleep(80); fades.push((await cam()).away); }
+  ok(!fades.some(Boolean), `the buttons don't fade, or flicker, while the view swings in (${fades})`);
   ok(held.mode === 'shot' && held.state === 'set' && await p.isDisabled('#bShoot'), `pressing Shoot holds the aim while the view swings in (${held.state})`);
   ok(await until(() => ev(() => __rr.state === 'stroke' || __rr.state === 'moving'), 3000), 'then the stroke plays');
   const mid = await cam();
@@ -53,6 +54,7 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   ok((await cam()).mode === 'shot', 'from the overhead view too');
   await ev(() => __rr.cam.orbit(40, 0)); await settle(); await sleep(200);
   ok((await cam()).mode === 'free', 'dragging the view mid-shot keeps it where you put it, rather than going back to overhead');
+  ok((await cam()).back, 'and the buttons are back once the balls stop');
 
   console.log('--- the Settings switch');
   await p.click('#bPause'); await sleep(250);
