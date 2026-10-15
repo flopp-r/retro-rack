@@ -2239,8 +2239,9 @@ addEventListener('keydown', e => {
   }
   if (k === 'KeyV' && !e.repeat && state !== 'menu' && state !== 'lobby') { if (replay) endReplay(); else startReplay(); return; }
   if (state === 'menu' || state === 'lobby' || paused || state === 'over') return;
-  if (e.repeat && !['KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(k)) { keys.add(k); return; }
-  keys.add(k); keyAct(k, e.shiftKey, e.ctrlKey);
+  const fine = e.ctrlKey && (k === 'ArrowUp' || k === 'ArrowDown');   // Ctrl + ↑/↓: one step a press, not the held change
+  if (e.repeat && !['KeyI', 'KeyJ', 'KeyK', 'KeyL'].includes(k)) { if (!fine) keys.add(k); return; }
+  if (!fine) keys.add(k); keyAct(k, e.shiftKey, e.ctrlKey);
 });
 // what a single press of a key does (the Controls panel's keys call it too)
 function keyAct(k, shift, ctrl) {
@@ -2249,6 +2250,7 @@ function keyAct(k, shift, ctrl) {
   if (humanAim && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'KeyA' || k === 'KeyD')) {
     if (!shift && !(ctrl && k.startsWith('Key'))) { aim.phi = wrapA(aim.phi + ((k === 'ArrowRight' || k === 'KeyD') ? 1 : -1) * (ctrl ? AIM_FINE : AIM_STEP)); aimDirty = true; }   // Ctrl + A or D is the browser's
   }
+  else if (humanAim && ctrl && (k === 'ArrowUp' || k === 'ArrowDown')) stepSpeed(k === 'ArrowUp' ? 1 : -1);   // Ctrl + W or S is the browser's
   else if ((k === 'Space' || k === 'Enter') && humanAim) shoot();
   else if (k === 'KeyC') toggleAimCam();
   else if (k === 'KeyT') toggleTop();
@@ -2335,12 +2337,18 @@ function updateAimTxt() {
   if (t !== lastAimTxt) { $('#aimTxt').textContent = t; lastAimTxt = t; }
   $('#aimTxt').style.backgroundPositionX = (aim.phi / JOG % 6).toFixed(1) + 'px';
 }
+// power as the readout shows it, the cue ball's speed off the tip (the spin takes a little of it)
+const POW_FINE = 0.01, POW_JOG = 0.0025;   // m/s: a Ctrl + ↑/↓ press, and each screen pixel of a slide along the power readout
+const ballSpeed = () => C.strikeImpulse(C.powerToCueSpeed(aim.power), aim.sx, aim.sy);
+function setBallSpeed(v) { aim.power = clamp(C.cueSpeedToPower(v / C.strikeImpulse(1, aim.sx, aim.sy)), 0.02, 1); aimDirty = true; updateShotPanel(); }
+function stepSpeed(dir) { setBallSpeed(+ballSpeed().toFixed(2) + dir * POW_FINE); }   // from what the readout shows, so it moves exactly 0.01
 function updateShotPanel() {
   drawSpin(); drawMini();
   $('#spinTxt').textContent = spinText();
   $('#powFill').style.height = (aim.power * 100).toFixed(1) + '%';
-  const v = C.strikeImpulse(C.powerToCueSpeed(aim.power), aim.sx, aim.sy);
-  $('#powTxt').textContent = `${v.toFixed(1)} m/s`;
+  const v = ballSpeed();
+  $('#powTxt').textContent = `${v.toFixed(2)} m/s`;
+  $('#powTxt').style.backgroundPositionX = (v / POW_JOG % 6).toFixed(1) + 'px';
   updateAimTxt();
   const off = state !== 'aim' || !humanTurn();
   $('#shot').classList.toggle('dim', off);
@@ -2781,6 +2789,18 @@ $('#aimTxt').addEventListener('pointermove', e => {
   aim.phi = wrapA(aim.phi + (e.clientX - jog.x) * JOG); jog.x = e.clientX; aimDirty = true;
 });
 for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) $('#aimTxt').addEventListener(ev, () => { jog = null; });
+// and sliding along the power readout sets the speed very finely: right for more, POW_JOG per screen pixel
+let pjog = null;
+$('#powTxt').addEventListener('pointerdown', e => {
+  if (state !== 'aim' || !humanTurn()) return;
+  e.preventDefault(); ensureAudio(); pjog = { x: e.clientX, id: e.pointerId };
+  try { $('#powTxt').setPointerCapture(e.pointerId); } catch (err) {}
+});
+$('#powTxt').addEventListener('pointermove', e => {
+  if (!pjog || e.pointerId !== pjog.id || state !== 'aim') return;
+  const d = e.clientX - pjog.x; pjog.x = e.clientX; if (d) setBallSpeed(ballSpeed() + d * POW_JOG);
+});
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) $('#powTxt').addEventListener(ev, () => { pjog = null; });
 $('#bReplay').addEventListener('click', () => { if (replay) endReplay(); else startReplay(); });
 $('#bOverReplay').addEventListener('click', startReplay);
 $('#bSlow').addEventListener('click', () => { if (!replay) return; replay.speed = replay.speed < 1 ? 1 : 0.3; setLab($('#bSlow'), replay.speed < 1 ? 'Normal speed' : 'Slow motion', replay.speed < 1 ? 'play' : 'slow'); });
@@ -3736,7 +3756,7 @@ function netTick(now, dt) {
   if (!NET.on || !NET.started) return;
   if (state === 'aim' && humanTurn() && now - NET.lastAim > 80) {
     const cue = world.balls[0];
-    const sig = `${aim.phi.toFixed(5)}|${aim.power.toFixed(3)}|${aim.sx.toFixed(3)}|${aim.sy.toFixed(3)}|${game.ballInHand ? cue.x.toFixed(4) + ',' + cue.z.toFixed(4) : ''}`;
+    const sig = `${aim.phi.toFixed(5)}|${aim.power.toFixed(4)}|${aim.sx.toFixed(3)}|${aim.sy.toFixed(3)}|${game.ballInHand ? cue.x.toFixed(4) + ',' + cue.z.toFixed(4) : ''}`;
     if (sig !== NET.aimSig) {
       NET.aimSig = sig; NET.lastAim = now;
       netSend({ t: 'aim', phi: aim.phi, power: aim.power, sx: aim.sx, sy: aim.sy, cue: game.ballInHand ? [cue.x, cue.z] : null });
@@ -3971,18 +3991,19 @@ addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest(
 const KEY_OF = { '←': 'ArrowLeft', '→': 'ArrowRight', '↑': 'ArrowUp', '↓': 'ArrowDown', Space: 'Space' }, KEY_STAY = /^(Arrow|Key[ADWSIJKLO]$)/;
 for (const kb of document.querySelectorAll('#help kbd')) {
   const t = kb.textContent.trim(), k = KEY_OF[t] || (/^[A-Z]$/.test(t) ? 'Key' + t : null); if (!k) continue;   // Shift, Ctrl and Alt only go with other keys
-  kb.classList.add('tap'); kb.setAttribute('role', 'button'); kb.tabIndex = 0; kb.dataset.k = k;
-  kb.addEventListener('click', () => tapKey(k));
-  kb.addEventListener('keydown', e => { if (e.code === 'Enter') { e.preventDefault(); e.stopPropagation(); tapKey(k); } });
+  const ctrl = !!kb.closest('[data-ctrl]');   // the arrows written with Ctrl do the fine step
+  kb.classList.add('tap'); kb.setAttribute('role', 'button'); kb.tabIndex = 0; kb.dataset.k = k; if (ctrl) kb.dataset.ctrl = '';
+  kb.addEventListener('click', () => tapKey(k, ctrl));
+  kb.addEventListener('keydown', e => { if (e.code === 'Enter') { e.preventDefault(); e.stopPropagation(); tapKey(k, ctrl); } });
 }
-function tapKey(k) {
+function tapKey(k, ctrl) {
   ensureAudio(); if (!KEY_STAY.test(k)) $('#help').hidden = true;
   if (state === 'menu' || state === 'lobby' || paused) return;
   if (k === 'KeyV') { if (replay) endReplay(); else startReplay(); return; }
   if (state === 'over') return;
   if (k === 'KeyQ' || k === 'KeyE') { cam.orbit(k === 'KeyE' ? 70 : -70, 0); return; }   // a turn of about 25°
-  if (/^(Arrow(Up|Down)|Key[WS])$/.test(k)) { if (state === 'aim' && humanTurn()) { aim.power = clamp(aim.power + (k === 'ArrowUp' || k === 'KeyW' ? 0.025 : -0.025), 0.02, 1); aimDirty = true; updateShotPanel(); } return; }
-  keyAct(k, false, false);
+  if (/^(Arrow(Up|Down)|Key[WS])$/.test(k) && !ctrl) { if (state === 'aim' && humanTurn()) { aim.power = clamp(aim.power + (k === 'ArrowUp' || k === 'KeyW' ? 0.025 : -0.025), 0.02, 1); aimDirty = true; updateShotPanel(); } return; }
+  keyAct(k, false, ctrl);
 }
 function updateFullBtns() {
   const on = !!document.fullscreenElement, word = on ? 'Exit fullscreen' : 'Fullscreen';
