@@ -21,8 +21,22 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
       const r = await p.evaluate(() => { const s = document.querySelector('#mStage'), pn = document.querySelector('#menuPanel').getBoundingClientRect(), f = document.querySelector('.mFoot').getBoundingClientRect();
         return { over: s.scrollHeight - s.clientHeight, panelFits: pn.top >= -1 && pn.bottom <= innerHeight + 1, footInView: f.bottom <= innerHeight + 1 }; });
       if (r.over > 1 || !r.panelFits || !r.footInView) bad.push(`${name} (needs ${r.over}px of scrolling${r.panelFits ? '' : ', panel off screen'})`);
+      // the money counter and the icons in the corner cover none of the screen's buttons, cards or words
+      const hit = await p.evaluate(() => {
+        const corner = [...document.querySelectorAll('#menuIcons > button')].filter(e => !e.hidden).map(e => [e.id, e.getBoundingClientRect()]), boxes = [];
+        const scope = [document.querySelector('#mTop'), document.querySelector('#menuPanel .mScreen:not([hidden])')].filter(e => e && !e.hidden);
+        for (const sc of scope) {
+          for (const e of sc.querySelectorAll('button, input, .card, .caseCard')) { const r = e.getBoundingClientRect(); if (r.width && r.height) boxes.push([e.id || e.className || e.tagName, r]); }
+          const tw = document.createTreeWalker(sc, NodeFilter.SHOW_TEXT); let n;
+          while ((n = tw.nextNode())) { if (!n.textContent.trim()) continue; const rg = document.createRange(); rg.selectNodeContents(n); for (const r of rg.getClientRects()) if (r.width && r.height) boxes.push(['"' + n.textContent.trim().slice(0, 20) + '"', r]); }
+        }
+        const out = [];
+        for (const [id, c] of corner) for (const [what, r] of boxes) if (c.left < r.right - 1 && r.left < c.right - 1 && c.top < r.bottom - 1 && r.top < c.bottom - 1) out.push(`#${id} covers ${what}`);
+        return [...new Set(out)];
+      });
+      if (hit.length) bad.push(`${name}: ${hit.join(', ')}`);
     }
-    ok(!bad.length, `${w}x${h}: every menu screen fits without scrolling${bad.length ? ': ' + bad.join(', ') : ''}`);
+    ok(!bad.length, `${w}x${h}: every menu screen fits without scrolling, with nothing under the corner buttons${bad.length ? ': ' + bad.join(', ') : ''}`);
     await ctx.close();
   }
   // the panel styles that the earlier menu change lost by mistake

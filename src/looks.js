@@ -15,13 +15,13 @@ const RARITY = {
 };
 const RARITIES = Object.keys(RARITY);
 // Case grades, from playing the easier levels up to the hardest. odds: percent chance of each rarity, in RARITIES
-// order (legendaries in silver and better, mythics in all of them, very rarely). open: what opening one costs. price:
-// what buying one costs.
+// order (legendaries in silver and better, mythics in all of them, very rarely; diamond only epic or better, and dearer
+// to open for it). open: what opening one costs. price: what buying one costs.
 const GRADES = {
   bronze: { name: 'Bronze case', col: '#c98a4b', odds: [72, 24, 3.8, 0, 0.2], open: 8, price: 45 },
   silver: { name: 'Silver case', col: '#c9d1dc', odds: [50, 36, 11.5, 2, 0.5], open: 20, price: 110 },
   gold: { name: 'Gold case', col: '#ffd36b', odds: [25, 45, 23, 6, 1], open: 45, price: 260 },
-  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 50, 34, 13, 3], open: 100, price: 600 },
+  diamond: { name: 'Diamond case', col: '#7fe8ff', odds: [0, 0, 70, 24, 6], open: 250, price: 900 },
   // a season's cases (series: see SERIES), holding only its own looks. trick: earned and bought, any of its looks, a
   // duplicate sold as usual. treat (fresh): bought only, and always a look you don't have yet, until you have them all.
   trick: { name: 'Trick case', col: '#ff8a1f', odds: [45, 33, 15, 5.5, 1.5], open: 20, price: 120, series: 'halloween' },

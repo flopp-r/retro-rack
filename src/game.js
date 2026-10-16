@@ -2738,6 +2738,7 @@ function refreshMenus() {
   if (menuScreen() === 'locker' && state === 'menu') renderLocker();
   const waiting = LK.CASE_IDS.reduce((a, g) => a + LOCK.cases[g], 0);
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
+  purse();
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
@@ -3251,7 +3252,7 @@ function colTile(id) {
 // a case's card: its picture, how many are waiting, its odds, and Open and Buy (a season's cases sell only in season)
 function caseCard(g) {
   const l = LOCK, G = LK.GRADES[g], n = l.cases[g], card = mk('div', 'caseCard'), btns = mk('div', 'caseBtns'), sid = G.series, day = localDay();
-  const odds = (G.fresh ? 'Always a look you don\'t have yet: ' : '') + G.odds.map((o, i) => o ? `${o}% ${LK.RARITY[LK.RARITIES[i]].name.toLowerCase()}` : '').filter(Boolean).join(', ');
+  const low = G.odds.findIndex(o => o), odds = (G.fresh ? 'Always a look you don\'t have yet: ' : low >= 2 ? `Always ${LK.RARITY[LK.RARITIES[low]].name.toLowerCase()} or better: ` : '') + G.odds.map((o, i) => o ? `${o}% ${LK.RARITY[LK.RARITIES[i]].name.toLowerCase()}` : '').filter(Boolean).join(', ');
   const open = mk('button', 'btn', G.open ? `Open ${money(G.open)}` : 'Open'), buy = mk('button', 'btn', `Buy ${money(G.price)}`); open.type = buy.type = 'button';
   open.classList.toggle('dim', !n); open.dataset.grade = buy.dataset.grade = g;   // still tappable: it says how to get one
   buy.classList.toggle('dim', !!sid && !LK.inSeason(sid, day));
@@ -3379,6 +3380,7 @@ function endPreview() {
   if (!PREV.on) return;
   PREV.on = false; cam.mode = PREV.cam; Object.assign(aim, PREV.aim); setCloth();
   $('#preview').hidden = true; $('#menu').hidden = false; const b = $('#bPreview'); if (b) b.focus({ preventScroll: true });
+  purse();
 }
 $('#preview').addEventListener('click', () => { sfx('ui'); endPreview(); });
 
@@ -3390,9 +3392,10 @@ function openCaseUI(g) {
   const G = LK.GRADES[g];
   if (!LOCK.cases[g]) { lockNote(G.series ? `No ${G.name}s yet. ${G.fresh ? 'Buy one' : 'Win a frame today, or buy one'} in the ${LK.SERIES[G.series].name} season (${seasonDates(G.series)}).` : `No ${G.name.toLowerCase()}s yet. ${g === 'diamond' ? 'Beat the Expert computer, win events on the national tour, or buy one.' : 'Win frames against the computer or career events, or buy one.'}`); return; }
   if (LOCK.money < G.open) { lockNote(`Opening a ${G.name.toLowerCase()} costs ${money(G.open)}: you need ${money(G.open - LOCK.money)} more.`); return; }
-  const force = DEV && DEV_MYTHIC ? 'mythic' : null, r = lockerEdit(l => LK.openCase(l, g, Math.random, force));
+  const force = DEV && DEV_MYTHIC ? 'mythic' : null, r = lockerEdit(l => { const m = l.money, res = LK.openCase(l, g, Math.random, force); if (typeof res === 'object') res.left = m - G.open; return res; });
   if (typeof r === 'string') { refreshMenus(); return; }   // another open page got there first
   if (force) DEV_MYTHIC = false;   // once only
+  PURSE.hold = r.left; purse();   // the counter shows the cost now, and any sale or reward once the reel stops
   ensureAudio(); showReel(g, r);
 }
 function reelTile(id) {   // in its rarity's colour, from a dark shade at the top to the full colour at the bottom
@@ -3439,9 +3442,35 @@ function reelDone() {
   const g = REEL.grade; $('#bReelUse').hidden = r.dup || S[it.kind] === r.id;
   $('#bReelAgain').hidden = !(LOCK.cases[g] > 0 && LOCK.money >= LK.GRADES[g].open); $('#bReelAgain').textContent = `Open another (${money(LK.GRADES[g].open)})`;
   $('#reelBtns').hidden = false; $(r.dup ? '#bReelDone' : '#bReelUse').focus();
-  refreshMenus();
+  PURSE.hold = null; refreshMenus();
 }
-function closeReel() { if (REEL.anim) reelDone(); $('#reel').hidden = true; REEL.res = null; fxStop(); refreshMenus(); }
+function closeReel() { if (REEL.anim) reelDone(); $('#reel').hidden = true; REEL.res = null; PURSE.hold = null; fxStop(); refreshMenus(); }
+
+// The money counter in the menus' top-right corner (#bMoney): the locker's money, counting up or down to each new
+// amount, with the change drifting in under it (money in) or falling away (money out). Money earned in a game is
+// counted in on the way back to the menu. While a case's reel spins, it holds at what's left after paying to open the
+// case (PURSE.hold), so it never gives away a duplicate's sale early. Tapping it opens the locker.
+const PURSE = { shown: null, to: null, hold: null, raf: 0 };
+function purse() {
+  const b = $('#bMoney'), amt = $('#moneyAmt'), to = PURSE.hold !== null ? PURSE.hold : LOCK.money;
+  b.classList.toggle('dev', DEV); b.title = DEV ? 'Test locker' : 'Locker';
+  b.setAttribute('aria-label', `${money(to)}${DEV ? ' in the test locker' : ''}. Open the locker`);
+  if ($('#menu').hidden || to === PURSE.to) return;   // out of sight: counted in when the menu comes back
+  const from = PURSE.shown, ch = to - PURSE.to, d = to - from; PURSE.to = to;   // ch: the change itself; d: what's left to count (less, mid-count)
+  cancelAnimationFrame(PURSE.raf); PURSE.raf = 0; for (const e of b.querySelectorAll('.moneyDelta')) e.remove();
+  if (from === null || !d || reduceMotion) { PURSE.shown = to; amt.textContent = money(to); b.classList.remove('gain', 'spend'); return; }
+  b.classList.toggle('gain', ch > 0); b.classList.toggle('spend', ch < 0);
+  const f = mk('span', 'moneyDelta ' + (ch > 0 ? 'up' : 'down'), (ch > 0 ? '+' : '-') + money(Math.abs(ch))); b.append(f);   // a hyphen: the pixel font has no minus sign
+  f.animate(ch > 0 ? [{ transform: 'translateY(14px)', opacity: 0 }, { transform: 'translateY(6px)', opacity: 1, offset: 0.3 }, { transform: 'translateY(0)', opacity: 0 }]
+    : [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(6px)', opacity: 1, offset: 0.3 }, { transform: 'translateY(18px)', opacity: 0 }], { duration: 1600, easing: 'ease-out' }).onfinish = () => f.remove();
+  const T = Math.min(1400, 500 + 160 * Math.log10(Math.abs(d))), t0 = performance.now();   // bigger sums take a little longer
+  const step = now => {
+    const u = Math.min(1, (now - t0) / T); PURSE.shown = Math.round(from + d * (1 - Math.pow(1 - u, 3))); amt.textContent = money(PURSE.shown);
+    if (u < 1) PURSE.raf = requestAnimationFrame(step); else { PURSE.raf = 0; b.classList.remove('gain', 'spend'); }
+  };
+  PURSE.raf = requestAnimationFrame(step);
+}
+$('#bMoney').addEventListener('click', () => { if (state !== 'menu' || !$('#reel').hidden || menuScreen() === 'locker') return; ensureAudio(); sfx('ui'); lockNote(''); menuGo('locker'); });
 
 // The show behind the reel, drawn small and scaled up like the game. While the reel spins, a few faint stripes drift
 // in the dark. When it stops, stripes in the prize's colours bounce round the screen, more of them and livelier the
@@ -3967,6 +3996,7 @@ const ICONS = {
   play: ['x.....', 'xxx...', 'xxxxx.', 'xxxxxx', 'xxxxx.', 'xxx...', 'x.....'],
   skip: ['x....x', 'xx...x', 'xxx..x', 'xxxx.x', 'xxx..x', 'xx...x', 'x....x'],
   pumpkin: ['....xx....', '..xxxxxx..', '.xxxxxxxx.', 'xx..xx..xx', 'xxxxxxxxxx', 'xx.x..x.xx', 'xxx....xxx', '.xxxxxxxx.', '..xxxxxx..'],
+  coin: ['...xxxx...', '.xxxxxxxx.', '.xxxx..xx.', 'xxxx.xxxxx', 'xxx...xxxx', 'xxxx.xxxxx', 'xxxx.xxxxx', '.xx....xx.', '.xxxxxxxx.', '...xxxx...'],   // a pound coin
   gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
   full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
   unfull: ['..x....x..', '..x....x..', 'xxx....xxx', '..........', '..........', '..........', '..........', 'xxx....xxx', '..x....x..', '..x....x..'],
@@ -3977,7 +4007,7 @@ function setIcon(btn, name) {
   const old = btn.querySelector('svg'); if (old) old.remove();
   btn.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" fill="currentColor" aria-hidden="true">${cells.join('')}</svg>`);
 }
-setIcon($('#bMenuSettings'), 'gear');
+setIcon($('#bMenuSettings'), 'gear'); setIcon($('#bMoney'), 'coin');
 // On phones the game's buttons are small squares with an icon; their names show on a computer, and on a phone a long
 // press shows one. A button's name (label) can change: setLab keeps its words, icon and aria-label together.
 function setLab(b, label, icon) { const l = b.querySelector('.lab'); if (l) l.textContent = label; else b.textContent = label; b.setAttribute('aria-label', label); if (icon) setIcon(b, icon); }
