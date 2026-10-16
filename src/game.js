@@ -55,13 +55,18 @@ if (CAR.data && (CAR.data.money || CAR.data.bought)) {
 // switches it on or off (see the online section), leaving your name as it was. Only a fingerprint of the word is kept
 // here, because the repository is public. While it's on, the locker is a separate test locker with everything owned,
 // £100,000 and 50 of each case; the real locker is left alone and comes back when it's switched off. A test locker kept
-// from before is topped up at start-up with any looks, cases and rewards added since.
+// from before is topped up at start-up with any looks, cases and rewards added since. Settings can empty it instead
+// (devEmpty(), retroRack.devEmpty, until it's filled again or dev mode goes off): no looks and no rewards, so cases
+// behave as they do for a new player (a Treat case always new, mythics never repeated, collections paying out).
 const DEVW = { print: 'f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc48e6ee5' };
+const devEmpty = () => { try { return localStorage.getItem('retroRack.devEmpty') === '1'; } catch (e) { return false; } };
 function devLocker(l) {
   if (!l) { l = LK.newLocker(); l.money = 100000; for (const g of LK.CASE_IDS) l.cases[g] = 50; }
-  l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
   for (const g of LK.CASE_IDS) if (LK.GRADES[g].series && !l.cases[g]) l.cases[g] = 50;
-  l.claimed = [...Object.keys(LK.COLLECTIONS), ...LK.RARITIES, 'all', ...LK.SERIES_IDS.flatMap(sid => [...LK.RARITIES.map(r => `${sid}:${r}`), `${sid}:all`])];   // every effect, without the money
+  if (!devEmpty()) {
+    l.owned = Object.keys(LK.ALL).filter(id => !LK.FREE.includes(id));
+    l.claimed = [...Object.keys(LK.COLLECTIONS), ...LK.RARITIES, 'all', ...LK.SERIES_IDS.flatMap(sid => [...LK.RARITIES.map(r => `${sid}:${r}`), `${sid}:all`])];   // every effect, without the money
+  }
   try { localStorage.setItem('retroRack.lockerDev', JSON.stringify(l)); } catch (e) {}
   return l;
 }
@@ -2744,6 +2749,7 @@ function refreshMenus() {
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
+  $('#sDevEmpty').textContent = devEmpty() ? 'Fill test locker' : 'Empty test locker';
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
 }
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sFollow', 'follow'], ['#sVibrate', 'vibrate']]) {
@@ -3937,7 +3943,7 @@ async function isDevWord(v) {
   catch (e) { return false; }
 }
 function setDev(on, word) {
-  DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
+  DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); localStorage.removeItem('retroRack.devEmpty'); } catch (e) {}
   keepDevWord(on ? word : ''); if (!on) IDEAS.list = [];   // the word unlocks the players' ideas (see "ideas")
   LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
   checkLooks(); saveS(); applyLook(); applyFx(); sendLook(); refreshMenus();
@@ -3951,6 +3957,14 @@ $('#netName').addEventListener('input', async () => {
 });
 $('#sDev').addEventListener('click', () => { sfx('ui'); setDev(false); });
 $('#sDevMythic').addEventListener('click', () => { DEV_MYTHIC = DEV && !DEV_MYTHIC; sfx('ui'); refreshMenus(); });
+// empty the test locker (a fresh one with no looks and no rewards, £100,000 and 50 of each case), or fill it again
+$('#sDevEmpty').addEventListener('click', () => {
+  if (!DEV) return; const empty = !devEmpty();
+  if (empty && !confirm('Empty the test locker? It starts again with no looks and no rewards, £100,000 and 50 of each case, so cases behave as they do for a new player. Your own locker isn\'t touched.')) return;
+  sfx('ui'); try { if (empty) localStorage.setItem('retroRack.devEmpty', '1'); else localStorage.removeItem('retroRack.devEmpty'); } catch (e) {}
+  LOCK = devLocker(empty ? null : lockerRead());
+  checkLooks(); saveS(); applyLook(); applyFx(); sendLook(); refreshMenus();
+});
 
 // ------------------------------------------------------------------ ideas
 // Players send ideas to the game's maker: up to IDEA_MAX characters, with their online name and the game's version,
