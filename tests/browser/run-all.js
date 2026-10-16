@@ -29,7 +29,8 @@ function serve(dir, port) {
 }
 function copySite(dir, html) {
   fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
-  for (const f of ['config.js', 'sw.js', 'manifest.webmanifest', 'README.md']) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+  for (const f of ['sw.js', 'manifest.webmanifest', 'README.md']) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+  fs.writeFileSync(path.join(dir, 'config.js'), `window.RETRO_RACK_RELAY = "ws://127.0.0.1:${PORTS.relay}";\n`);   // the local relay, never the real one
   fs.cpSync(path.join(ROOT, 'icons'), path.join(dir, 'icons'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), html);
 }
@@ -45,6 +46,10 @@ async function startRelay() {
     say('Installing the relay\'s packages (first run only)…');
     execFileSync('npm', ['ci', '--no-audit', '--no-fund'], { cwd: dir, stdio: 'inherit' });
   }
+  // a fresh start each run (rooms, ideas and their daily limits), and the stand-in dev word's fingerprint, so the
+  // tests can read the ideas without the real word ('testword', as in the locker test)
+  fs.rmSync(path.join(dir, '.wrangler', 'state'), { recursive: true, force: true });
+  fs.writeFileSync(path.join(dir, '.dev.vars'), `DEV_PRINT=${require('crypto').createHash('sha256').update('retroRack:testword').digest('hex')}\n`);
   say('Starting the relay locally…');
   const log = fs.openSync(path.join(WORK, 'relay.log'), 'w');
   const p = spawn('npx', ['wrangler', 'dev', '--port', String(PORTS.relay), '--ip', '127.0.0.1'], { cwd: dir, stdio: ['ignore', log, log], env: { ...process.env, WRANGLER_SEND_METRICS: 'false' }, detached: true });

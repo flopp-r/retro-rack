@@ -2238,13 +2238,14 @@ const keys = new Set(); let holdT = 0;
 const AIM_STEP = 0.05 * DEG, AIM_FINE = 0.01 * DEG;   // one press = one step (with Ctrl, a fifth of one); auto-repeat is ignored. Shift + key turns freely while held.
 addEventListener('blur', () => keys.clear());
 addEventListener('keydown', e => {
-  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
   ensureAudio();
   const k = e.code;
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(k)) e.preventDefault();
   if (k === 'Escape') {
     if (!$('#help').hidden) { $('#help').hidden = true; return; }
     if (!$('#reel').hidden) { closeReel(); return; }
+    if (!$('#idea').hidden || !$('#ideas').hidden) { closeIdeaBox(); return; }
     if (PREV.on) { endPreview(); return; }
     if (paused) { togglePause(false); return; }
     if (state === 'menu') { menuBack(); return; }
@@ -2547,6 +2548,7 @@ addEventListener('popstate', () => {
   NAV.armed = false;
   if (!$('#help').hidden) $('#help').hidden = true;
   else if (!$('#reel').hidden) closeReel();
+  else if (!$('#idea').hidden || !$('#ideas').hidden) closeIdeaBox();
   else if (PREV.on) endPreview();
   else if (paused) togglePause(false);
   else if (state === 'menu') menuBack(true);
@@ -2738,7 +2740,7 @@ function refreshMenus() {
   if (menuScreen() === 'locker' && state === 'menu') renderLocker();
   const waiting = LK.CASE_IDS.reduce((a, g) => a + LOCK.cases[g], 0);
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
-  purse();
+  purse(); ideaBadge();
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
   $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
@@ -3934,19 +3936,144 @@ async function isDevWord(v) {
   try { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('retroRack:' + v.trim().toLowerCase())); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('') === DEVW.print; }
   catch (e) { return false; }
 }
-function setDev(on) {
+function setDev(on, word) {
   DEV = on; DEV_MYTHIC = false; try { if (on) localStorage.setItem('retroRack.dev', '1'); else localStorage.removeItem('retroRack.dev'); } catch (e) {}
+  keepDevWord(on ? word : ''); if (!on) IDEAS.list = [];   // the word unlocks the players' ideas (see "ideas")
   LOCK = on ? devLocker() : lockerRead() || LK.newLocker();
   checkLooks(); saveS(); applyLook(); applyFx(); sendLook(); refreshMenus();
   toast(on ? 'Dev mode on: every look, £100,000 and 50 of each case, in a test locker' : 'Dev mode off: your own locker is back', 'good');
+  if (on) loadIdeas().then(ok => { if (ok) showPop(); });
 }
 $('#netName').addEventListener('input', async () => {
   const v = $('#netName').value; if (!(await isDevWord(v)) || $('#netName').value !== v) return;
   try { $('#netName').value = localStorage.getItem('retroRack.name') || ''; } catch (e) { $('#netName').value = ''; }
-  setDev(!DEV);
+  setDev(!DEV, v.trim());
 });
 $('#sDev').addEventListener('click', () => { sfx('ui'); setDev(false); });
 $('#sDevMythic').addEventListener('click', () => { DEV_MYTHIC = DEV && !DEV_MYTHIC; sfx('ui'); refreshMenus(); });
+
+// ------------------------------------------------------------------ ideas
+// Players send ideas to the game's maker: up to IDEA_MAX characters, with their online name and the game's version,
+// kept by the relay (Ideas in relay/src/index.js, which also sets the limits). The lightbulb beside the money counter
+// opens the box. In dev mode it opens the owner's inbox instead: the relay only hands the ideas over for the dev word,
+// which this page keeps on this device (retroRack.devWord) from when it switched dev mode on, or from the inbox's own
+// box. In dev mode the page asks for them once at start-up (nothing is polled), and a note under the corner icons and
+// a number on the lightbulb say how many are new since the newest one read (retroRack.ideasSeen).
+const IDEA_MAX = 100, IDEAS = { list: [], seen: 0, shown: 0, busy: false, pop: 0 };
+try { IDEAS.seen = +localStorage.getItem('retroRack.ideasSeen') || 0; } catch (e) {}
+const ideaUrl = () => { const b = relayBase(); return b ? b.replace(/^ws/, 'http') + '/ideas' : ''; };
+const devWord = () => { try { return localStorage.getItem('retroRack.devWord') || ''; } catch (e) { return ''; } };
+function keepDevWord(w) { try { if (w) localStorage.setItem('retroRack.devWord', w); else localStorage.removeItem('retroRack.devWord'); } catch (e) {} }
+async function ideaPost(body) {   // refusals come back as { ok: false, why }, so nothing reaches the console
+  try { const r = await fetch(ideaUrl(), { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) }); return (await r.json()) || { ok: false, why: 'net' }; }
+  catch (e) { return { ok: false, why: 'net' }; }
+}
+const IDEA_WHY = { busy: 'The idea box is full for today. Try again tomorrow.', long: `That's too long: ${IDEA_MAX} characters at most.`, empty: 'Write your idea first.',
+  net: "Couldn't reach the game's server. Try again later.", key: "The server didn't take the dev word. Type it again." };
+const ideaName = () => cleanName($('#netName').value, '');
+const freshIdeas = () => IDEAS.list.filter(i => i.t > IDEAS.seen).length;
+function ideaBadge() {
+  const b = $('#bIdea'), n = DEV ? freshIdeas() : 0, lab = DEV ? 'Players\' ideas' : 'Send an idea';
+  b.hidden = !ideaUrl(); b.title = lab; b.querySelector('.vh').textContent = lab + (n ? `: ${n} new` : '');
+  $('#ideaN').hidden = !n; $('#ideaN').textContent = n > 99 ? '99+' : String(n);
+  if (!n || !DEV) hidePop();
+}
+function showPop() {
+  const n = freshIdeas(), p = $('#ideaPop'); if (!n || !DEV) return;
+  p.textContent = `${n} new ${n === 1 ? 'idea' : 'ideas'} from players`; p.hidden = false;
+  clearTimeout(IDEAS.pop); IDEAS.pop = setTimeout(hidePop, 12000);
+}
+function hidePop() { clearTimeout(IDEAS.pop); $('#ideaPop').hidden = true; }
+function ideaLeft() {
+  const t = $('#ideaIn').value; $('#ideaLeft').textContent = `${IDEA_MAX - t.length} left`;
+  $('#bIdeaSend').disabled = !t.trim() || IDEAS.busy;
+}
+function openIdea() {
+  if (DEV) { openIdeas(); return; }
+  const name = ideaName();
+  $('#ideaFrom').textContent = name ? `Sent with your online name, ${name}.` : 'Sent without a name: set one on the Online screen.';
+  $('#ideaNote').textContent = ''; $('#bIdeaClose').textContent = 'Cancel'; ideaLeft();
+  $('#idea').hidden = false; $('#ideaIn').focus({ preventScroll: true }); armBack();
+}
+function closeIdeaBox() {
+  const was = !$('#idea').hidden || !$('#ideas').hidden; $('#idea').hidden = $('#ideas').hidden = true;
+  if (was && state === 'menu' && NAV.stack.length < 2 && !paused) disarm();
+}
+async function sendIdea() {
+  const text = $('#ideaIn').value.replace(/\s+/g, ' ').trim(); if (!text || IDEAS.busy) return;
+  IDEAS.busy = true; ideaLeft(); $('#ideaNote').textContent = 'Sending…';
+  const r = await ideaPost({ op: 'send', text, name: ideaName(), v: BUILD });
+  IDEAS.busy = false;
+  if (r.ok) { $('#ideaIn').value = ''; $('#bIdeaClose').textContent = 'Close'; sfx('ui'); }
+  $('#ideaNote').textContent = r.ok ? `Thanks! Your idea is on its way.${r.left === 0 ? ' That was your last one for today.' : ''}`
+    : r.why === 'limit' ? `You've sent ${r.max || 5} today, the most for one day. Try again tomorrow.` : IDEA_WHY[r.why] || IDEA_WHY.net;
+  ideaLeft();
+}
+const ideaDate = t => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+// the inbox: fetches the ideas (with the dev word), newest first; the ones new since last time are marked
+async function loadIdeas() {
+  if (!DEV || !devWord() || !ideaUrl()) return false;
+  const r = await ideaPost({ op: 'list', key: devWord() });
+  if (r.ok) IDEAS.list = Array.isArray(r.ideas) ? r.ideas : [];
+  else if (r.why === 'key') { keepDevWord(''); IDEAS.list = []; }
+  ideaBadge(); if (!$('#ideas').hidden) renderIdeas(r.ok ? '' : IDEA_WHY[r.why] || IDEA_WHY.net);
+  return r.ok;
+}
+function markRead() {
+  IDEAS.seen = Math.max(IDEAS.seen, ...IDEAS.list.map(i => +i.t || 0));
+  try { localStorage.setItem('retroRack.ideasSeen', String(IDEAS.seen)); } catch (e) {}
+  ideaBadge();
+}
+function renderIdeas(note) {
+  const key = devWord(), list = $('#ideasList'), n = IDEAS.list.length, fresh = IDEAS.list.filter(i => i.t > IDEAS.shown).length;
+  $('#ideasUnlock').hidden = !!key; list.innerHTML = '';
+  $('#ideasHead').textContent = !key ? 'Type your dev word to read them. It stays on this device.' : n ? `${n} ${n === 1 ? 'idea' : 'ideas'}${fresh ? `, ${fresh} new` : ''}, newest first.` : 'No ideas yet.';
+  for (const it of IDEAS.list) {
+    const row = mk('div', 'ideaRow' + (it.t > IDEAS.shown ? ' new' : '')), del = mk('button', 'btn', 'Delete'); del.type = 'button';
+    del.addEventListener('click', async () => {
+      sfx('ui'); const r = await ideaPost({ op: 'delete', key: devWord(), id: it.id });
+      if (r.ok) IDEAS.list = IDEAS.list.filter(i => i.id !== it.id);
+      renderIdeas(r.ok ? '' : IDEA_WHY[r.why] || IDEA_WHY.net); ideaBadge();
+    });
+    row.append(mk('div', 'ideaText', it.text), mk('div', 'ideaSub', `${it.name || 'No name'} · ${ideaDate(it.t)}${it.v ? ` · version ${it.v}` : ''}`), del);
+    list.append(row);
+  }
+  $('#bIdeasClear').disabled = !n; $('#bIdeasRefresh').disabled = !key;
+  $('#ideasNote').textContent = note || '';
+}
+async function openIdeas() {
+  IDEAS.shown = IDEAS.seen; hidePop();
+  $('#ideas').hidden = false; armBack();
+  renderIdeas(devWord() ? 'Fetching the ideas…' : '');
+  if (devWord()) { if (await loadIdeas()) markRead(); } else $('#ideasKey').focus({ preventScroll: true });
+}
+$('#bIdea').addEventListener('click', () => { if (state !== 'menu' || !$('#reel').hidden) return; ensureAudio(); sfx('ui'); openIdea(); });
+$('#ideaPop').addEventListener('click', () => { ensureAudio(); sfx('ui'); openIdeas(); });
+addEventListener('pointerdown', e => { if (!$('#ideaPop').hidden && !e.target.closest('#ideaPop')) hidePop(); }, true);   // a tap anywhere else puts the note away
+$('#ideaIn').addEventListener('input', ideaLeft);
+$('#ideaIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendIdea(); } });   // one line: Enter sends
+$('#bIdeaSend').addEventListener('click', () => { sfx('ui'); sendIdea(); });
+for (const id of ['#bIdeaClose', '#bIdeasClose']) $(id).addEventListener('click', () => { sfx('ui'); closeIdeaBox(); });
+for (const id of ['#idea', '#ideas']) {
+  $(id).addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeIdeaBox(); } });
+  let out = false;   // a tap outside the panel closes it, if the press started outside too
+  $(id).addEventListener('pointerdown', e => { out = e.target === $(id); });
+  $(id).addEventListener('click', e => { if (out && e.target === $(id)) closeIdeaBox(); });
+}
+$('#bIdeasRefresh').addEventListener('click', async () => { sfx('ui'); $('#ideasNote').textContent = 'Fetching the ideas…'; IDEAS.shown = IDEAS.seen; if (await loadIdeas()) markRead(); });
+$('#bIdeasClear').addEventListener('click', async () => {
+  if (!IDEAS.list.length || !confirm(`Delete all ${IDEAS.list.length} ideas? This can't be undone.`)) return;
+  const r = await ideaPost({ op: 'clear', key: devWord() }); if (r.ok) IDEAS.list = [];
+  renderIdeas(r.ok ? 'All deleted.' : IDEA_WHY[r.why] || IDEA_WHY.net); ideaBadge();
+});
+async function unlockIdeas() {
+  const w = $('#ideasKey').value.trim(); if (!w) return;
+  if (!(await isDevWord(w))) { $('#ideasNote').textContent = "That's not the dev word."; return; }
+  keepDevWord(w); $('#ideasKey').value = ''; IDEAS.shown = IDEAS.seen; renderIdeas('Fetching the ideas…');
+  if (await loadIdeas()) markRead();
+}
+$('#bIdeasKey').addEventListener('click', () => { sfx('ui'); unlockIdeas(); });
+$('#ideasKey').addEventListener('keydown', e => { if (e.key === 'Enter') unlockIdeas(); });
 
 // ------------------------------------------------------------------ installable app
 // Only on a real web address: a downloaded copy opened from disk can't install or use a service worker.
@@ -3996,6 +4123,7 @@ const ICONS = {
   play: ['x.....', 'xxx...', 'xxxxx.', 'xxxxxx', 'xxxxx.', 'xxx...', 'x.....'],
   skip: ['x....x', 'xx...x', 'xxx..x', 'xxxx.x', 'xxx..x', 'xx...x', 'x....x'],
   pumpkin: ['....xx....', '..xxxxxx..', '.xxxxxxxx.', 'xx..xx..xx', 'xxxxxxxxxx', 'xx.x..x.xx', 'xxx....xxx', '.xxxxxxxx.', '..xxxxxx..'],
+  bulb: ['...xxxx...', '..x....x..', '.x..xx..x.', '.x.x..x.x.', '.x......x.', '..x....x..', '...x..x...', '...xxxx...', '...xxxx...', '....xx....'],   // ideas
   coin: ['...xxxx...', '.xxxxxxxx.', '.xxxx..xx.', 'xxxx.xxxxx', 'xxx...xxxx', 'xxxx.xxxxx', 'xxxx.xxxxx', '.xx....xx.', '.xxxxxxxx.', '...xxxx...'],   // a pound coin
   gear: ['...xxxx...', '.x.xxxx.x.', '..xxxxxx..', 'xxxx..xxxx', 'xxx....xxx', 'xxx....xxx', 'xxxx..xxxx', '..xxxxxx..', '.x.xxxx.x.', '...xxxx...'],
   full: ['xxx....xxx', 'x........x', 'x........x', '..........', '..........', '..........', '..........', 'x........x', 'x........x', 'xxx....xxx'],
@@ -4007,7 +4135,7 @@ function setIcon(btn, name) {
   const old = btn.querySelector('svg'); if (old) old.remove();
   btn.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" fill="currentColor" aria-hidden="true">${cells.join('')}</svg>`);
 }
-setIcon($('#bMenuSettings'), 'gear'); setIcon($('#bMoney'), 'coin');
+setIcon($('#bMenuSettings'), 'gear'); setIcon($('#bMoney'), 'coin'); setIcon($('#bIdea'), 'bulb');
 // On phones the game's buttons are small squares with an icon; their names show on a computer, and on a phone a long
 // press shows one. A button's name (label) can change: setLab keeps its words, icon and aria-label together.
 function setLab(b, label, icon) { const l = b.querySelector('.lab'); if (l) l.textContent = label; else b.textContent = label; b.setAttribute('aria-label', label); if (icon) setIcon(b, icon); }
@@ -4102,6 +4230,7 @@ requestAnimationFrame(frame);
 }
 // collection effects (see "collection effects"): their first drawing, and any reward a saved locker is owed
 applyFx(); setTimeout(claimDue, 600);
+ideaBadge(); if (DEV) loadIdeas().then(ok => { if (ok && state === 'menu') showPop(); });   // the players' ideas: once, at start-up
 window.__rr = { get state() { return state; }, syncBallMeshes, get world() { return world; }, get game() { return game; }, NET, get replay() { return replay; },
   get matchWins() { return matchWins; }, CAR, LK, DEVW, get dev() { return DEV; }, concedeFrame, cheer, applyLook, get cheering() { return cheerGlove.visible ? CHEER.kind : ''; }, get lock() { return LOCK; }, get earn() { return EARN; }, get reel() { return REEL; },
   get fx() { return { cloth: clothTex ? clothTex.offset.x : 0, glow: clothMat.emissive.getHexString(), glove: GLM.base.emissive.getHexString(), show: FX.raf }; },

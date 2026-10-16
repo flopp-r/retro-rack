@@ -1,15 +1,24 @@
 // Retro Rack relay: a tiny Cloudflare Worker that passes messages between the two players in a room,
-// and keeps a live list of open rooms. It never runs the game itself; each browser checks every shot.
+// keeps a live list of open rooms, and holds the ideas players send in. It never runs the game itself;
+// each browser checks every shot.
 import { DurableObject } from "cloudflare:workers";
 
 const MODES = ["8ball", "9ball", "uk8"];
 const cleanName = s => String(s || "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 14) || "Player";
 const lobbyStub = env => env.LOBBY.get(env.LOBBY.idFromName("lobby"));
+const ideasStub = env => env.IDEAS.get(env.IDEAS.idFromName("ideas"));
+// ideas are posted as plain text (a JSON body), so browsers send them straight from the game's page with no preflight
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const isWs = request.headers.get("Upgrade") === "websocket";
+    if (url.pathname === "/ideas") {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (request.method !== "POST") return new Response("Send ideas from the game.", { status: 405, headers: CORS });
+      return ideasStub(env).fetch(request);
+    }
     if (url.pathname === "/lobby") {
       if (!isWs) return new Response("This address expects a WebSocket connection.", { status: 426 });
       return lobbyStub(env).fetch(request);
@@ -176,4 +185,56 @@ export class Lobby extends DurableObject {
   async webSocketClose(ws, code) {
     try { ws.close(code === 1005 || code === 1006 ? 1000 : code, "closing"); } catch (e) {}
   }
+}
+
+// A single Durable Object holding the ideas players send from the game: up to 100 characters each, with the
+// sender's online name and the game's version. Reading or deleting them needs the dev word, checked against the
+// same fingerprint as the game's (DEVW.print in src/game.js; keep the two the same). Anyone can post here
+// without the game, so the limits are kept here: IDEA_DAY ideas a day from one address (stored only as a
+// fingerprint, and forgotten the next day), IDEAS_DAY from everyone, and the newest IDEAS_KEEP kept.
+// Refusals still answer 200 with a reason, so the game's console stays clean.
+const DEV_PRINT = "f5fbd99c8a9a458d2267847deb9aab64fd2f699c0746cea014e74f8cc48e6ee5";
+const IDEA_LEN = 100, IDEA_DAY = 5, IDEAS_DAY = 300, IDEAS_KEEP = 500;
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const reply = o => new Response(JSON.stringify(o), { headers: { "content-type": "application/json", ...CORS } });
+const unseen = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g;   // control and invisible characters
+
+export class Ideas extends DurableObject {
+  async fetch(request) {
+    const raw = await request.text();
+    if (raw.length > 2000) return reply({ ok: false, why: "long" });
+    let b; try { b = JSON.parse(raw); } catch (e) { return reply({ ok: false, why: "bad" }); }
+    if (!b || typeof b !== "object") return reply({ ok: false, why: "bad" });
+    if (b.op === "send") return this.send(b, request.headers.get("CF-Connecting-IP") || "");
+    const print = this.env.DEV_PRINT || DEV_PRINT;   // DEV_PRINT in the environment: a stand-in word for the tests
+    if (typeof b.key !== "string" || await sha("retroRack:" + b.key.trim().toLowerCase()) !== print) return reply({ ok: false, why: "key" });
+    if (b.op === "list") {
+      const all = await this.ctx.storage.list({ prefix: "i:", reverse: true });
+      return reply({ ok: true, ideas: [...all].map(([k, v]) => ({ id: k.slice(2), ...v })) });
+    }
+    if (b.op === "delete" && typeof b.id === "string") { await this.ctx.storage.delete("i:" + b.id.slice(0, 40)); return reply({ ok: true }); }
+    if (b.op === "clear") { await this.drop([...(await this.ctx.storage.list({ prefix: "i:" })).keys()]); return reply({ ok: true }); }
+    return reply({ ok: false, why: "bad" });
+  }
+
+  async send(b, ip) {
+    const text = String(b.text || "").replace(/\s/g, " ").replace(unseen, "").replace(/ +/g, " ").trim();   // line breaks and tabs become spaces
+    if (!text) return reply({ ok: false, why: "empty" });
+    if (text.length > IDEA_LEN) return reply({ ok: false, why: "long" });
+    const name = String(b.name || "").replace(unseen, "").replace(/[<>]/g, "").trim().slice(0, 14);
+    const v = /^[0-9a-f]{8}$/.test(b.v) ? b.v : "";
+    const day = new Date().toISOString().slice(0, 10), who = (await sha("retroRack-ideas:" + ip)).slice(0, 16);
+    let rate = await this.ctx.storage.get("rate");
+    if (!rate || rate.day !== day) rate = { day, all: 0, by: {} };
+    if ((rate.by[who] || 0) >= IDEA_DAY) return reply({ ok: false, why: "limit", max: IDEA_DAY });
+    if (rate.all >= IDEAS_DAY) return reply({ ok: false, why: "busy" });
+    rate.by[who] = (rate.by[who] || 0) + 1; rate.all++;
+    const t = Date.now();
+    await this.ctx.storage.put({ rate, ["i:" + String(t).padStart(15, "0") + "-" + crypto.randomUUID().slice(0, 8)]: { t, text, name, v } });
+    const all = await this.ctx.storage.list({ prefix: "i:" });
+    if (all.size > IDEAS_KEEP) await this.drop([...all.keys()].slice(0, all.size - IDEAS_KEEP));   // the oldest
+    return reply({ ok: true, left: IDEA_DAY - rate.by[who] });
+  }
+
+  async drop(keys) { for (let i = 0; i < keys.length; i += 128) await this.ctx.storage.delete(keys.slice(i, i + 128)); }   // 128 at a time is the most allowed
 }

@@ -31,8 +31,9 @@ const gbp = n => '£' + n.toLocaleString('en-GB');
 
   console.log('--- on every menu screen, in the corner');
   ok(await amt() === '£1,000' && await p.isVisible('#bMoney'), `the home screen shows the money (${await amt()})`);
-  const where = await p.evaluate(() => { const m = document.querySelector('#bMoney').getBoundingClientRect(), g = document.querySelector('#bMenuSettings').getBoundingClientRect(); return { top: m.top, right: innerWidth - m.right, beside: m.right <= g.left && Math.abs(m.top - g.top) < 1, h: [m.height, g.height] }; });
-  ok(where.beside && where.top < 30 && where.right < 120 && where.h[0] === where.h[1], `top right, just left of the Settings cog and the same height (${JSON.stringify(where)})`);
+  const where = await p.evaluate(() => { const m = document.querySelector('#bMoney').getBoundingClientRect(), g = [...document.querySelectorAll('#menuIcons > .iconBtn')].find(e => !e.hidden).getBoundingClientRect();
+    return { top: m.top, right: innerWidth - m.right, beside: m.right <= g.left && g.left - m.right < 10 && Math.abs(m.top - g.top) < 1, h: [m.height, g.height] }; });
+  ok(where.beside && where.top < 30 && where.right < 200 && where.h[0] === where.h[1], `top right, just left of the corner icons and the same height (${JSON.stringify(where)})`);
   for (const [sel, name] of [['[data-go="single"]', 'Single player'], ['[data-go="game"][data-opp="bot"]', 'Vs computer'], ['[data-mode="8ball"]', 'the game setup']]) {
     await p.click(sel); await sleep(650); ok(await p.isVisible('#bMoney') && await amt() === '£1,000', `${name}: still there`);
   }
