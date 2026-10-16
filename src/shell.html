@@ -66,11 +66,24 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
    phones). They hide with the menu. While a case's reel is open the counter stays in view above it (the icons don't) */
 #menuIcons{position:fixed;top:14px;right:16px;display:flex;gap:8px;pointer-events:auto;z-index:2}
 #menu[hidden]~#menuIcons{display:none}
-#reel:not([hidden])~#menuIcons{z-index:21;pointer-events:none}#reel:not([hidden])~#menuIcons .iconBtn{visibility:hidden}
+#reel:not([hidden])~#menuIcons{z-index:21;pointer-events:none}#reel:not([hidden])~#menuIcons :is(.iconBtn,#ideaPop){visibility:hidden}
 .iconBtn{padding:7px;line-height:0}.iconBtn svg{width:22px;height:22px;shape-rendering:crispEdges}
 #bMoney{position:relative;display:flex;align-items:center;gap:7px;padding:7px 10px;line-height:0;font-size:12px;color:var(--lamp)}#bMoney svg{width:22px;height:22px;flex:none;shape-rendering:crispEdges}
 #moneyAmt{line-height:1;white-space:nowrap;transition:color .3s}#bMoney.gain #moneyAmt{color:#8dffa0}#bMoney.spend #moneyAmt{color:var(--rose)}
 #bMoney.dev{border-style:dashed;border-color:var(--chalk)}
+/* ideas: the lightbulb (in dev mode with the number of new ones), the note under the icons, the box and the inbox */
+#bIdea{position:relative}#ideaN{position:absolute;top:-7px;right:-7px;min-width:17px;padding:2px 3px;font-size:8px;line-height:1;text-align:center;background:var(--rose);color:var(--ink);border:2px solid var(--ink)}
+#ideaPop{position:absolute;top:100%;right:0;margin-top:8px;font-size:9px;white-space:nowrap;background:var(--rose);color:var(--ink)}
+#idea,#ideas{align-items:flex-start}   /* near the top, clear of a phone's keyboard */
+.ideaPanel{width:min(460px,92vw);padding:16px 18px 14px}.ideaPanel h2{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;color:var(--lamp);margin:0 0 10px}
+#ideaIn{display:block;width:100%;resize:none;line-height:1.1}
+.ideaMeta{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:18px;opacity:.85}#ideaLeft{white-space:nowrap;color:var(--lamp)}
+.ideaPanel .note{grid-column:auto;margin:6px 0 0;max-width:none}.ideaPanel .note:empty{display:none}.ideaPanel .actions{margin-top:10px}
+.ideasPanel{width:min(620px,94vw)}#ideasHead{margin:0 0 6px;font-size:19px}#ideasUnlock{margin-bottom:6px}#ideasKey{width:180px}
+#ideasList{max-height:calc(92vh - 190px);overflow-y:auto;padding-right:6px;scrollbar-color:var(--plum2) transparent}
+.ideaRow{display:grid;grid-template-columns:1fr auto;gap:1px 10px;align-items:center;padding:5px 9px;margin:0 0 5px;background:var(--plum);border:3px solid var(--ink);border-left:8px solid var(--plum2)}
+.ideaRow.new{border-left-color:var(--rose)}.ideaText{font-size:20px;line-height:1.05;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}.ideaSub{grid-column:1;font-size:15px;opacity:.75}
+.ideaRow .btn{grid-row:1 / span 2;grid-column:2;font-size:8px;padding:5px 7px}.ideaNone{margin:4px 0;opacity:.75}
 .moneyDelta{position:absolute;top:100%;right:0;margin-top:4px;padding:3px 6px;line-height:1;white-space:nowrap;background:var(--ink);pointer-events:none}.moneyDelta.up{color:#8dffa0}.moneyDelta.down{color:var(--rose)}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
@@ -194,6 +207,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   .mFoot .btn{font-size:8px;padding:7px 9px}
   #menuIcons{top:calc(2vh + 7px);right:calc(3vw + 9px);gap:6px}.iconBtn{padding:5px}.iconBtn svg{width:16px;height:16px}
   #bMoney{padding:5px 8px;gap:5px;font-size:9px}#bMoney svg{width:16px;height:16px}.moneyDelta{font-size:8px}
+  .ideaPanel{padding:10px 14px 10px}.ideaPanel h2{font-size:10px;margin-bottom:6px}.ideaPanel .actions{margin-top:6px}#ideasList{max-height:calc(92vh - 150px)}.ideaText{font-size:18px}#ideaPop{font-size:8px;margin-top:6px}
 }
 
 
@@ -261,7 +275,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 /* overlays */
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(13,10,28,.35);padding:4vh 4vw}
 /* Settings: a big panel in four sections, two columns side by side where there's room; click outside it to close */
-#pause,#help{z-index:7}   /* above the game's messages */
+#pause,#help,#idea,#ideas{z-index:7}   /* above the game's messages and the menus' corner icons */
 #pausePanel{width:min(1060px,94vw);max-height:92vh;overflow:auto;padding:22px 30px}
 #pause h2{font-size:15px;margin-bottom:12px}
 .sGrid{columns:2;column-gap:44px}.sSec{break-inside:avoid;padding-bottom:4px}
@@ -300,8 +314,8 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 }
 @media (prefers-reduced-motion:reduce){.toast,#shot,.card{transition:none}.card:hover{transform:none}#thinking::after{animation:none;width:1.4em}}
 #hud #tools .btn,#hud #practice .btn{font-size:8px;padding:7px 9px}
-input{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
-input:focus{border-color:var(--chalk)}
+input,textarea{font-family:'VT323',monospace;font-size:21px;color:var(--paper);background:var(--ink);border:3px solid var(--plum2);border-radius:0;padding:5px 8px;-webkit-user-select:text;user-select:text;outline:none}
+input:focus,textarea:focus{border-color:var(--chalk)}
 .onl{display:flex;flex-direction:column;gap:8px}
 .onl .note{grid-column:auto}
 .field{display:flex;align-items:center;gap:10px;font-size:20px}
@@ -514,7 +528,7 @@ input:focus{border-color:var(--chalk)}
         <div class="row"><div class="lbl">Cloth</div><div class="seg picker" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
         <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg picker" id="sCue"></div></div>
         <div class="row"><div class="lbl">Gloves</div><div class="seg picker" id="sGlove"></div></div>
-        <div class="row" id="rowDev" hidden><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button><button class="btn" id="sDevMythic" type="button" aria-pressed="false">Next case mythic: Off</button></div><div class="note">A test locker with every look; your own locker comes back when dev mode is off. "Next case mythic" makes the next case you open give a mythic, then switches itself off.</div></div>
+        <div class="row" id="rowDev" hidden><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button><button class="btn" id="sDevMythic" type="button" aria-pressed="false">Next case mythic: Off</button></div><div class="note">A test locker with every look; your own locker comes back when dev mode is off. "Next case mythic" makes the next case you open give a mythic, then switches itself off. The lightbulb in the menus' corner shows players' ideas.</div></div>
       </section>
       <section class="sSec"><h3>Display</h3>
         <div class="row"><div class="lbl">Pixel size</div><div class="seg" id="sPixel"></div><div class="note" id="sPixelNote"></div></div>
@@ -534,6 +548,25 @@ input:focus{border-color:var(--chalk)}
 
 <div id="preview" hidden><p id="prevTxt" role="status"></p><button class="btn" id="bPrevBack" type="button">Back</button></div>
 
+<div id="idea" class="overlay" hidden>
+  <div class="panel ideaPanel" role="dialog" aria-labelledby="ideaTitle">
+    <h2 id="ideaTitle">Send an idea</h2>
+    <textarea id="ideaIn" maxlength="100" rows="2" placeholder="Your idea for Retro Rack" aria-label="Your idea"></textarea>
+    <div class="ideaMeta"><span id="ideaFrom"></span><span id="ideaLeft"></span></div>
+    <p class="note" id="ideaNote" role="status"></p>
+    <div class="actions"><button class="btn" id="bIdeaSend" type="button">Send</button><button class="btn" id="bIdeaClose" type="button">Cancel</button></div>
+  </div>
+</div>
+<div id="ideas" class="overlay" hidden>
+  <div class="panel ideaPanel ideasPanel" role="dialog" aria-labelledby="ideasTitle">
+    <h2 id="ideasTitle">Players' ideas</h2>
+    <p id="ideasHead"></p>
+    <div class="seg" id="ideasUnlock" hidden><input id="ideasKey" type="password" placeholder="Dev word" autocomplete="off" aria-label="Dev word"><button class="btn" id="bIdeasKey" type="button">Unlock</button></div>
+    <div id="ideasList"></div>
+    <p class="note" id="ideasNote" role="status"></p>
+    <div class="actions"><button class="btn" id="bIdeasRefresh" type="button">Refresh</button><button class="btn" id="bIdeasClear" type="button">Delete all</button><button class="btn" id="bIdeasClose" type="button">Close</button></div>
+  </div>
+</div>
 <div id="reel" class="overlay" hidden>
   <canvas id="reelFx"></canvas>
   <div class="reelPanel" role="dialog" aria-labelledby="reelTitle">
@@ -544,7 +577,7 @@ input:focus{border-color:var(--chalk)}
   </div>
 </div>
 
-<div id="menuIcons"><button class="btn" id="bMoney" type="button"><span id="moneyAmt"></span></button><button class="btn iconBtn" id="bMenuSettings" type="button" title="Settings"><span class="vh">Settings</span></button><button class="btn iconBtn" id="bMenuFull" type="button" aria-pressed="false" title="Fullscreen" hidden><span class="vh">Fullscreen</span></button></div>
+<div id="menuIcons"><button class="btn" id="bMoney" type="button"><span id="moneyAmt"></span></button><button class="btn iconBtn" id="bIdea" type="button" title="Send an idea" hidden><span class="vh">Send an idea</span><span id="ideaN" hidden></span></button><button class="btn iconBtn" id="bMenuSettings" type="button" title="Settings"><span class="vh">Settings</span></button><button class="btn iconBtn" id="bMenuFull" type="button" aria-pressed="false" title="Fullscreen" hidden><span class="vh">Fullscreen</span></button><button class="btn" id="ideaPop" type="button" hidden></button></div>
 <div id="rotate" class="panel" role="status" hidden><p>Turn your phone sideways for a bigger table.</p><button class="btn" id="bRotateOk">OK</button></div>
 
 <div id="ballPick" class="panel" hidden>

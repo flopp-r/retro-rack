@@ -9,7 +9,7 @@
 | `index.html` | The game. It works on its own for offline play. |
 | `config.js` | One setting: your relay address, so online play knows where to connect. |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Let people install the game as an app and play it offline. |
-| `relay/` | A tiny Cloudflare Worker that passes messages between the two players. |
+| `relay/` | A tiny Cloudflare Worker that passes messages between the two players, and keeps the ideas players send. |
 | `src/`, `vendor/`, `tools/`, `tests/` | The source code, the 3D engine and fonts, the build tool and the tests. `index.html` is built from these. |
 | `AGENTS.md`, `CLAUDE.md`, `HANDOVER.md` | Notes for AI assistants and developers: how the project fits together and how to change it (`CLAUDE.md` points Claude Code to `AGENTS.md`), and its history and decisions. |
 | `CONTEXT.md`, `CONTEXT-SHORT.md` | The whole project in one file, for an AI that can't open this repository (see "Asking another AI about the project" below). Made by the build; don't edit them. |
@@ -90,6 +90,7 @@ Updates arrive by themselves: whenever there's a connection, the app fetches the
 - **Matches:** on a game's setup screen, under **Match**, choose first to 3, 5 or 7 racks, for CPU, same-device and online games.
 - **Concede or re-rack:** both are in the **Pause** menu. Online, a re-rack is offered to your opponent, who can accept or decline.
 - **Quick chat:** in online games, the **Chat** button sends a short preset message.
+- **Ideas:** the lightbulb beside the cog in the menus sends the game's maker an idea of up to 100 characters, with your online name if you've set one. Up to five a day.
 - **Trick shots:** in **Practice**, choose the **Trick shots** rack. **Show me** plays a demo. **Edit table** lets you drag balls into your own layout and shows **Add balls**, which puts more on the table (or takes them off). **Save layout** adds it to the list.
 - **Reds & yellows, "On black":** on the setup screen, choose whether a player on the black gets two visits after a foul or only one (a common pub rule). Online, the host's choice applies to both players.
 - **Shot camera:** when you press Shoot, your aim is held for a moment while the view glides in to stand over the cue; then the cue strikes, and a moment later the view rises high above the side of the table so you can watch every ball, with the buttons faded out of the way (if you shot from the Overhead view, it rises back to that). It goes back to your view once the balls stop. Turn it off under **Pause**, **Shot camera**.
