@@ -232,11 +232,38 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   ok(await p.evaluate(() => __rr.S.cue) === 'champion', 'the dearest shop cue can be used without buying it');
   await p.reload(); await sleep(1200);
   ok(await p.evaluate(() => __rr.dev && __rr.lock.cases.diamond === 49 && __rr.S.cue === 'champion'), 'dev mode stays on after a reload, test locker and all');
+
+  console.log('--- dev mode: an empty test locker, so cases behave as they do for a new player');
+  const reelGet = async () => { await sleep(300); await p.click('#reelWin'); await sleep(300); const r = await p.evaluate(() => ({ ...__rr.reel.res, txt: document.querySelector('#reelTxt').textContent })); await p.click('#bReelDone'); await sleep(200); return r; };
+  await p.click('#bMenuSettings'); await sleep(300);
+  ok(await p.textContent('#sDevEmpty') === 'Empty test locker', 'Settings offers to empty the test locker');
+  await p.click('#sDevEmpty'); await sleep(300);   // the confirm is accepted
+  D = await p.evaluate(() => __rr.lock);
+  ok(!D.owned.length && !D.claimed.length && D.money === 100000 && D.cases.treat === 50 && D.cases.diamond === 50 && await p.textContent('#sDevEmpty') === 'Fill test locker' && JSON.stringify(await lock()) === real,
+    'emptied: no looks and no rewards, £100,000 and 50 of each case, and the button now fills it; the real locker is untouched');
+  ok(await p.evaluate(() => __rr.S.cue) === 'house' && !(await p.evaluate(() => __rr.effects.on.length)), 'the cue it no longer owns is put away, and no effects are on');
+  await p.click('#bResume'); await sleep(200); await p.click('[data-go="locker"]'); await sleep(500);
+  await p.click('#lockTabs .btn:nth-child(4)'); await sleep(300);   // Halloween
+  const treats = []; for (let i = 0; i < 3; i++) { await p.click('.hwCases .caseCard:nth-child(2) .btn:nth-child(1)'); treats.push(await reelGet()); }
+  ok(treats.every(r => !r.dup && /New!/.test(r.txt)) && new Set(treats.map(r => r.id)).size === 3, `Treat cases: three different looks, each one new (${treats.map(r => r.id).join(', ')})`);
+  await p.click('#lockTabs .btn:nth-child(1)'); await sleep(300);
+  const myths = []; for (let i = 0; i < 2; i++) {
+    await p.click('#bMenuSettings'); await sleep(250); await p.click('#sDevMythic'); await sleep(100); await p.click('#bResume'); await sleep(200);
+    await p.click('.caseCard:nth-child(4) .btn:nth-child(1)'); myths.push(await reelGet());
+  }
+  ok(myths.every(r => r.rarity === 'mythic' && !r.dup) && myths[0].id !== myths[1].id, `"Next case mythic" twice: two different mythics, both new (${myths.map(r => r.id).join(', ')})`);
+  await p.reload(); await sleep(1200);
+  ok(await p.evaluate(() => __rr.dev && __rr.lock.owned.length === 5), 'it stays empty after a reload, with what it won since');
+  await p.click('#bMenuSettings'); await sleep(300); await p.click('#sDevEmpty'); await sleep(300);
+  D = await p.evaluate(() => __rr.lock);
+  ok(await p.evaluate(() => Object.keys(__rr.LK.ALL).every(id => __rr.LK.owns(__rr.lock, id))) && D.claimed.includes('all') && D.cases.treat === 47 && await p.textContent('#sDevEmpty') === 'Empty test locker', 'Fill test locker: everything again, keeping its money and cases');
+  await p.click('#sDevEmpty'); await sleep(300); await p.click('#bResume'); await sleep(200);   // empty again: switching dev mode off forgets it (below)
   await p.click('#bMenuSettings'); await sleep(300);
   ok(await p.isVisible('#rowDev'), 'Settings shows a Dev mode row');
   await p.click('#sDev'); await sleep(300);
   ok(!(await p.evaluate(() => __rr.dev)) && JSON.stringify(await lock()) === real && (await p.evaluate(() => __rr.lock.money)) === JSON.parse(real).money && await p.isHidden('#rowDev'), 'Switch off: your own locker is back');
   ok(await p.evaluate(() => __rr.S.cue) === 'house', 'and the cue you don\'t own goes back to the house cue');
+  ok(await p.evaluate(() => localStorage.getItem('retroRack.devEmpty')) === null, 'and an emptied test locker is forgotten: next time dev mode starts full');
   await p.click('#bResume'); await sleep(200);
   ok(!/DEV/.test(await p.textContent('#ver')), 'and the version line is back to normal');
 
