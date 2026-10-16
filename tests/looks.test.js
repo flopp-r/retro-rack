@@ -53,6 +53,13 @@ test('every grade\'s odds add up to 100, legendaries only in the two best, and t
     assert.ok(b.open > a.open && b.price > a.price);
   }
 });
+test('a diamond case is epic or better every time, reel included, and dearer to open than any other', () => {
+  assert.deepStrictEqual(L.GRADES.diamond.odds.slice(0, 2), [0, 0]);
+  const l = L.newLocker(), rnd = seeded(11); l.money = 1e7; l.cases.diamond = 2000;
+  while (l.cases.diamond) { const r = L.openCase(l, 'diamond', rnd); assert.ok(L.RARITIES.indexOf(r.rarity) >= 2, r.rarity); }
+  assert.ok(L.reelItems('diamond', 500, rnd).every(id => L.RARITIES.indexOf(L.ALL[id].rarity) >= 2), 'the reel shows only what the case holds');
+  assert.ok(L.CASE_IDS.every(g => g === 'diamond' || L.GRADES[g].open < L.GRADES.diamond.open));
+});
 
 test('career opponents\' gloves are real gloves', () => {
   const with_ = Object.entries(K.OPPONENTS).filter(([, o]) => o.glove);

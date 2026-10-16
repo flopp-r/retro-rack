@@ -62,9 +62,16 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 .quickRow{display:flex;flex-wrap:wrap;gap:8px}.quickRow>.btn{margin-bottom:12px;text-align:left}
 #bRejoin{font-size:12px;padding:12px 16px;background:var(--lamp);color:var(--ink)}#bRejoin:hover{background:#ffd48e}
 .mFoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;padding:10px 20px 14px;border-top:3px solid var(--plum2)}
-/* Settings and Fullscreen: small icons in the top-right corner while in the menus (inside the panel's corner on phones) */
+/* the money counter, Settings and Fullscreen: in the top-right corner while in the menus (inside the panel's corner on
+   phones). They hide with the menu. While a case's reel is open the counter stays in view above it (the icons don't) */
 #menuIcons{position:fixed;top:14px;right:16px;display:flex;gap:8px;pointer-events:auto;z-index:2}
+#menu[hidden]~#menuIcons{display:none}
+#reel:not([hidden])~#menuIcons{z-index:21;pointer-events:none}#reel:not([hidden])~#menuIcons .iconBtn{visibility:hidden}
 .iconBtn{padding:7px;line-height:0}.iconBtn svg{width:22px;height:22px;shape-rendering:crispEdges}
+#bMoney{position:relative;display:flex;align-items:center;gap:7px;padding:7px 10px;line-height:0;font-size:12px;color:var(--lamp)}#bMoney svg{width:22px;height:22px;flex:none;shape-rendering:crispEdges}
+#moneyAmt{line-height:1;white-space:nowrap;transition:color .3s}#bMoney.gain #moneyAmt{color:#8dffa0}#bMoney.spend #moneyAmt{color:var(--rose)}
+#bMoney.dev{border-style:dashed;border-color:var(--chalk)}
+.moneyDelta{position:absolute;top:100%;right:0;margin-top:4px;padding:3px 6px;line-height:1;white-space:nowrap;background:var(--ink);pointer-events:none}.moneyDelta.up{color:#8dffa0}.moneyDelta.down{color:var(--rose)}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #ver{margin:12px 0 0;font-size:16px;opacity:.5}
 /* career: the new-career form, the hub (you and your events) and an event (the draw and your next opponent) */
@@ -186,6 +193,7 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
   #sc-online .onl{gap:5px}#roomList{max-height:78px}#netName,#netCode{font-size:18px;padding:2px 6px}
   .mFoot .btn{font-size:8px;padding:7px 9px}
   #menuIcons{top:calc(2vh + 7px);right:calc(3vw + 9px);gap:6px}.iconBtn{padding:5px}.iconBtn svg{width:16px;height:16px}
+  #bMoney{padding:5px 8px;gap:5px;font-size:9px}#bMoney svg{width:16px;height:16px}.moneyDelta{font-size:8px}
 }
 
 
@@ -490,7 +498,6 @@ input:focus{border-color:var(--chalk)}
     </div>
     <div class="mFoot"><button class="btn" id="bStart" type="button" hidden>Rack 'em up</button><button class="btn" id="bCreate" type="button" hidden>Create a room</button><button class="btn" id="bCareer" type="button" hidden></button><button class="btn" id="bWithdraw" type="button" hidden>Withdraw</button></div>
   </div>
-  <div id="menuIcons"><button class="btn iconBtn" id="bMenuSettings" type="button" title="Settings"><span class="vh">Settings</span></button><button class="btn iconBtn" id="bMenuFull" type="button" aria-pressed="false" title="Fullscreen" hidden><span class="vh">Fullscreen</span></button></div>
 </div>
 
 <div id="pause" class="overlay" hidden>
@@ -537,6 +544,7 @@ input:focus{border-color:var(--chalk)}
   </div>
 </div>
 
+<div id="menuIcons"><button class="btn" id="bMoney" type="button"><span id="moneyAmt"></span></button><button class="btn iconBtn" id="bMenuSettings" type="button" title="Settings"><span class="vh">Settings</span></button><button class="btn iconBtn" id="bMenuFull" type="button" aria-pressed="false" title="Fullscreen" hidden><span class="vh">Fullscreen</span></button></div>
 <div id="rotate" class="panel" role="status" hidden><p>Turn your phone sideways for a bigger table.</p><button class="btn" id="bRotateOk">OK</button></div>
 
 <div id="ballPick" class="panel" hidden>
