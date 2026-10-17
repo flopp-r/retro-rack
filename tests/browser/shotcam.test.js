@@ -2,7 +2,7 @@
 // the strike the view rises to a high one of the whole table (the overhead view, if that's where you shot from), and it
 // goes back once the balls stop; not for the computer's shots, not with the Settings switch off or with reduced motion
 // (the stroke then starts at once), and moving the camera yourself keeps it.
-const { chromium, FILE } = require('./lib');
+const { chromium, FILE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 (async () => {
@@ -57,7 +57,7 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   ok((await cam()).back, 'and the buttons are back once the balls stop');
 
   console.log('--- the Settings switch');
-  await p.click('#bPause'); await sleep(250);
+  await p.click('#bPause'); await sleep(250); await pauseTab(p, 'play');
   ok(await p.textContent('#sShotCam') === 'On', 'Settings has a Shot camera switch, on by default');
   await p.click('#sShotCam'); await sleep(150);
   ok(await p.textContent('#sShotCam') === 'Off' && await ev(() => JSON.parse(localStorage.getItem('retroRack.settings')).shotCam === false), 'switching it off is saved');
