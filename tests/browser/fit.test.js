@@ -1,5 +1,5 @@
 // Every menu screen fits without scrolling, at phone, tablet and computer sizes; and the panels keep their styles.
-const { chromium, FILE } = require('./lib');
+const { chromium, FILE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -41,11 +41,11 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   }
   // the panel styles that the earlier menu change lost by mistake
   const p = await b.newPage({ viewport: { width: 1000, height: 640 } }); await p.goto(FILE); await p.waitForTimeout(800);
-  await p.click('#bMenuSettings'); await p.waitForTimeout(200);
-  const st = await p.evaluate(() => { const sw = document.querySelector('#sCloth .pickCur .shopSw').getBoundingClientRect(), row = getComputedStyle(document.querySelector('#pausePanel .row:not([hidden])')), seg = getComputedStyle(document.querySelector('#sPixel')), act = getComputedStyle(document.querySelector('#pausePanel .actions'));
-    return { swatch: [Math.round(sw.width), Math.round(sw.height)], row: row.display + ' ' + row.gridTemplateColumns, seg: seg.display + ' ' + seg.gap, actions: act.display + ' ' + act.gap }; });
+  await p.click('#bMenuSettings'); await p.waitForTimeout(200); await pauseTab(p, 'looks');
+  const st = await p.evaluate(() => { const sw = document.querySelector('#sCloth .pickCur .shopSw').getBoundingClientRect(), row = getComputedStyle(document.querySelector('#pgLooks .row')), seg = getComputedStyle(document.querySelector('#sCloth')), act = getComputedStyle(document.querySelector('#pTabs'));
+    return { swatch: [Math.round(sw.width), Math.round(sw.height)], row: row.display + ' ' + row.gridTemplateColumns, seg: seg.display + ' ' + seg.gap, actions: act.display }; });
   ok(st.swatch[0] === 22 && st.swatch[1] === 22, `Settings: the cloth picker shows a 22x22 px swatch (${st.swatch})`);
-  ok(st.row.startsWith('grid 118px') && st.seg === 'flex 7px' && st.actions === 'flex 10px', `Settings: rows, button groups and the button row keep their layout (${JSON.stringify(st)})`);
+  ok(st.row.startsWith('grid 190px') && st.seg === 'flex 7px' && st.actions === 'flex', `Settings: rows, button groups and the tab row keep their layout (${JSON.stringify(st)})`);
   const ov = await p.evaluate(() => { const o = document.querySelector('#over'); o.hidden = false; const a = getComputedStyle(o.querySelector('.actions')); o.hidden = true; return a.display + ' ' + a.gap; });
   ok(ov === 'flex 10px', `game-over panel buttons keep their spacing (${ov})`);
   await b.close();

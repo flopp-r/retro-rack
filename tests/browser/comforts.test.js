@@ -1,6 +1,6 @@
 // Volume, fullscreen button, sideways hint and vibration, on a desktop window and an emulated Android phone; the
 // Settings panel (two columns, closed by clicking outside it), the sharpest-graphics default and pixel size Max.
-const { chromium, devices, SITE, shot } = require('./lib');
+const { chromium, devices, SITE, shot, pauseTab } = require('./lib');
 const URL = SITE.new;   // over http, like the real site: a page opened from disk may not keep its storage across a reload
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const logs = [];
@@ -14,7 +14,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   await d.goto(URL + '?realdefaults'); await d.waitForTimeout(1200);   // the game's own defaults, not the tests' quicker picture
   ok(await d.isHidden('#rotate'), 'no sideways hint on a computer');
   ok(await d.isVisible('#bMenuFull'), 'menu has a Fullscreen button');
-  await d.click('#bMenuSettings'); await d.waitForTimeout(200);
+  await d.click('#bMenuSettings'); await d.waitForTimeout(200); await pauseTab(d, 'sound');
   const vol = await d.$$eval('#sVolume .btn', bs => bs.map(x => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : '')));
   ok(vol.join(',') === 'Off,25%,50%,75%*,100%', `Sound row: ${vol.join(' ')} (75% chosen by default)`);
   ok(await d.isHidden('#rowVibrate'), 'no Vibration setting on a computer');
@@ -22,9 +22,9 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   const g50 = await d.evaluate(() => [window.__rr.S.volume, JSON.parse(localStorage.getItem('retroRack.settings')).volume]);
   ok(g50[0] === 0.5 && g50[1] === 0.5, 'choosing 50% sets and saves it');
   ok(await d.evaluate(() => __rr.S.pixel === 1 && __rr.S.levels === 256), 'the sharpest graphics by default: pixel size 1x, full colours');
-  const cols = await d.evaluate(() => getComputedStyle(document.querySelector('.sGrid')).columnCount);
-  ok(cols === '2' && (await d.$$('#pausePanel .sSec h3')).length === 4, `Settings in four sections, in two columns (${cols})`);
-  await d.click('#pausePanel h2'); await d.waitForTimeout(150);
+  const tabs = await d.$$eval('#pTabs .pTab', ts => ts.filter(t => !t.hidden).map(t => t.textContent));
+  ok(tabs.join() === 'Play,Looks,Display,Sound' && await d.textContent('#bResume') === 'Done', `Settings from the menu: four tabs, and Done (${tabs})`);
+  await d.click('#pPages', { position: { x: 400, y: 300 } }); await d.waitForTimeout(150);
   ok(await d.isVisible('#pause'), 'a click inside the panel leaves it open');
   await d.mouse.click(5, 320); await d.waitForTimeout(200);
   ok(await d.isHidden('#pause'), 'a click outside the panel closes it');
@@ -63,7 +63,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
     await c.addInitScript(() => localStorage.setItem('retroRack.settings', JSON.stringify({ pixel: 1, levels: 8, gfx: 2 })));
     const p = await c.newPage(); watch(p, 'max ' + dpr); await p.goto(URL); await p.waitForTimeout(800);
     const w1 = await p.evaluate(() => document.querySelector('#view').width);
-    await p.click('#bMenuSettings'); await p.waitForTimeout(200);
+    await p.click('#bMenuSettings'); await p.waitForTimeout(200); await pauseTab(p, 'display');
     const seg = await p.$$eval('#sPixel .btn', bs => bs.map(x => x.textContent));
     await p.click('#sPixel .btn:first-child'); await p.waitForTimeout(300);
     const r = await p.evaluate(() => { const v = document.querySelector('#view'); return { w: v.width, h: v.height, cw: v.getBoundingClientRect().width, saved: JSON.parse(localStorage.getItem('retroRack.settings')).pixel, note: document.querySelector('#sPixelNote').textContent }; });
@@ -90,7 +90,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   await p.reload(); await p.waitForTimeout(1500);
   ok(await p.isHidden('#rotate'), 'and it stays hidden after a reload');
   await p.setViewportSize({ width: 915, height: 412 }); await p.waitForTimeout(300);
-  await p.tap('#bMenuSettings'); await p.waitForTimeout(200);
+  await p.tap('#bMenuSettings'); await p.waitForTimeout(200); await pauseTab(p, 'sound', true);
   ok(await p.isVisible('#rowVibrate') && (await p.textContent('#sVibrate')) === 'On', 'Vibration setting shows on the phone, On by default');
   await p.screenshot({ path: shot('c-phone-settings.png') });
   await p.tap('#bResume');
@@ -137,7 +137,7 @@ const watch = (p, n) => { p.on('console', m => { if (!/GPU stall/.test(m.text())
   for (let i = 0; i < 400 && !['aim', 'over'].includes(await ev(() => window.__rr.state)); i++) await p.waitForTimeout(300);   // let the CPU's shot finish
   await p.waitForTimeout(1200);   // the CPU may have won: its game-over panel appears 0.7 s after the last shot
   await ev(() => { const r = window.__rr; r.M.mode = '8ball'; r.M.opp = 'friend'; r.startGame(); }); await p.waitForTimeout(300);
-  await p.tap('#bPause'); await p.tap('#sVibrate'); await p.waitForTimeout(100);
+  await p.tap('#bPause'); await pauseTab(p, 'sound', true); await p.tap('#sVibrate'); await p.waitForTimeout(100);
   ok((await p.textContent('#sVibrate')) === 'Off' && await ev(() => window.__rr.S.vibrate === false), 'the Vibration switch turns it off');
   await p.tap('#bResume');
   await ev(() => { const r = window.__rr; r.M.mode = '8ball'; r.M.opp = 'friend'; r.startGame(); }); await p.waitForTimeout(300);

@@ -4,7 +4,7 @@
 // a still one with reduced motion), Preview (your looks at the table, trying on looks you don't own), the inventory
 // (one long list, rarest first), the shop's collections and their rewards and effects,
 // the looks from cases in use (a patterned cloth, a glove, mythics that move), and dev mode's test locker.
-const { chromium, SITE } = require('./lib');
+const { chromium, SITE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(200); } return false; };
@@ -156,7 +156,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await p.click('.invRow[data-id="c-galaxy"]'); await sleep(300);
   let lk = await p.evaluate(() => __rr.look);
   ok(lk.cloth === 'c-galaxy' && lk.clothTex, 'a patterned cloth goes on the table as a picture');
-  await p.click('#bMenuSettings'); await sleep(300);
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'looks');
   ok(await p.textContent('#sGlove .pickCur') === 'Classic white' && await p.textContent('#sCloth .pickCur') === 'Galaxy', 'Settings shows the glove and the cloth in use');
   await p.click('#sCloth .btn:last-child'); await sleep(200); ok(await p.textContent('#sCloth .pickCur') === 'Synthwave' && (await p.evaluate(() => __rr.look.clothTex)), 'the next cloth along');
   await p.click('#bResume'); await sleep(200);
@@ -219,7 +219,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   await sleep(300); ok(/Version [0-9a-f]{8} · DEV/.test(await p.textContent('#ver')), `the version line says DEV ("${await p.textContent('#ver')}")`);
   await p.click('[data-go="locker"]'); await sleep(400);
   ok(/^Test locker: £100,000 to spend/.test(await p.textContent('#lockMoney')), 'the locker says it is the test locker');
-  await p.click('#bMenuSettings'); await sleep(300); await p.click('#sDevMythic'); await sleep(150);
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'dev'); await p.click('#sDevMythic'); await sleep(150);
   ok(await p.textContent('#sDevMythic') === 'Next case mythic: On' && await p.getAttribute('#sDevMythic', 'aria-pressed') === 'true', 'Settings: "Next case mythic" switches on');
   await p.click('#bResume'); await sleep(200);
   ok(/next one mythic$/.test(await p.textContent('#lockMoney')), 'and the locker says the next case is a mythic');
@@ -235,7 +235,7 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
 
   console.log('--- dev mode: an empty test locker, so cases behave as they do for a new player');
   const reelGet = async () => { await sleep(300); await p.click('#reelWin'); await sleep(300); const r = await p.evaluate(() => ({ ...__rr.reel.res, txt: document.querySelector('#reelTxt').textContent })); await p.click('#bReelDone'); await sleep(200); return r; };
-  await p.click('#bMenuSettings'); await sleep(300);
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'dev');
   ok(await p.textContent('#sDevEmpty') === 'Empty test locker', 'Settings offers to empty the test locker');
   await p.click('#sDevEmpty'); await sleep(300);   // the confirm is accepted
   D = await p.evaluate(() => __rr.lock);
@@ -248,20 +248,20 @@ const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now(
   ok(treats.every(r => !r.dup && /New!/.test(r.txt)) && new Set(treats.map(r => r.id)).size === 3, `Treat cases: three different looks, each one new (${treats.map(r => r.id).join(', ')})`);
   await p.click('#lockTabs .btn:nth-child(1)'); await sleep(300);
   const myths = []; for (let i = 0; i < 2; i++) {
-    await p.click('#bMenuSettings'); await sleep(250); await p.click('#sDevMythic'); await sleep(100); await p.click('#bResume'); await sleep(200);
+    await p.click('#bMenuSettings'); await sleep(250); await pauseTab(p, 'dev'); await p.click('#sDevMythic'); await sleep(100); await p.click('#bResume'); await sleep(200);
     await p.click('.caseCard:nth-child(4) .btn:nth-child(1)'); myths.push(await reelGet());
   }
   ok(myths.every(r => r.rarity === 'mythic' && !r.dup) && myths[0].id !== myths[1].id, `"Next case mythic" twice: two different mythics, both new (${myths.map(r => r.id).join(', ')})`);
   await p.reload(); await sleep(1200);
   ok(await p.evaluate(() => __rr.dev && __rr.lock.owned.length === 5), 'it stays empty after a reload, with what it won since');
-  await p.click('#bMenuSettings'); await sleep(300); await p.click('#sDevEmpty'); await sleep(300);
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'dev'); await p.click('#sDevEmpty'); await sleep(300);
   D = await p.evaluate(() => __rr.lock);
   ok(await p.evaluate(() => Object.keys(__rr.LK.ALL).every(id => __rr.LK.owns(__rr.lock, id))) && D.claimed.includes('all') && D.cases.treat === 47 && await p.textContent('#sDevEmpty') === 'Empty test locker', 'Fill test locker: everything again, keeping its money and cases');
   await p.click('#sDevEmpty'); await sleep(300); await p.click('#bResume'); await sleep(200);   // empty again: switching dev mode off forgets it (below)
-  await p.click('#bMenuSettings'); await sleep(300);
-  ok(await p.isVisible('#rowDev'), 'Settings shows a Dev mode row');
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'dev');
+  ok(await p.isVisible('#rowDev'), 'Settings shows a Dev tab');
   await p.click('#sDev'); await sleep(300);
-  ok(!(await p.evaluate(() => __rr.dev)) && JSON.stringify(await lock()) === real && (await p.evaluate(() => __rr.lock.money)) === JSON.parse(real).money && await p.isHidden('#rowDev'), 'Switch off: your own locker is back');
+  ok(!(await p.evaluate(() => __rr.dev)) && JSON.stringify(await lock()) === real && (await p.evaluate(() => __rr.lock.money)) === JSON.parse(real).money && await p.isHidden('#rowDev') && await p.isHidden('#tabDev') && await p.isVisible('#pgPlay'), 'Switch off: your own locker is back, the Dev tab goes and Play shows');
   ok(await p.evaluate(() => __rr.S.cue) === 'house', 'and the cue you don\'t own goes back to the house cue');
   ok(await p.evaluate(() => localStorage.getItem('retroRack.devEmpty')) === null, 'and an emptied test locker is forgotten: next time dev mode starts full');
   await p.click('#bResume'); await sleep(200);

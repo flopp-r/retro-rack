@@ -1,6 +1,6 @@
 // Career: a new career, entering an event, playing and leaving a match (it resumes exactly), winning and losing
 // matches, prize money and unlocking, save to file / load, withdrawing and retiring; phone-sized screens throughout.
-const { chromium, SITE, shot } = require('./lib');
+const { chromium, SITE, shot, pauseTab } = require('./lib');
 const fs = require('fs');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,7 +65,9 @@ const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now(
   const names = await p.$$eval('.pname', es => es.map(e => e.textContent));
   ok(names[0] === 'You' && names[1] !== 'CPU' && !names[1].includes('('), `the scoreboard names your opponent (${names})`);
   await p.click('#bPause'); await sleep(200);
-  ok(await p.isHidden('#rowSGuide') && await p.isHidden('#bRestart') && await p.textContent('#bQuit') === 'Save and quit', 'Pause: no aim guide choice, no re-rack, "Save and quit"');
+  ok(await p.isVisible('#bQuit') && await p.isHidden('#bRestart') && await p.textContent('#bQuit') === 'Save and quit', 'Pause: no re-rack, "Save and quit"');
+  await pauseTab(p, 'play');
+  ok(await p.isHidden('#rowSGuide') && await p.isVisible('#sMarkers'), 'and no aim guide choice under Play');
   await p.click('#bResume');
   // play until a shot has been taken (yours or the computer's), then check the table after it was saved
   ok(await until(() => p.evaluate(() => __rr.state === 'aim' || __rr.state === 'botThink')), 'ready to play');

@@ -3,7 +3,7 @@
 // also when you'd moved the view mid-shot (a player's report: the view stayed parked on the last ball). Cue view and the
 // overhead view are left alone, it has a Settings switch, it waits for your turn against the computer, and with reduced
 // motion it's there at once. On a phone held sideways, where the HUD takes the most room.
-const { chromium, FILE } = require('./lib');
+const { chromium, FILE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 (async () => {
@@ -58,7 +58,7 @@ const ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-g
   await t.ev(() => __rr.toggleTop()); await t.sleep(300);
 
   console.log('--- the Settings switch');
-  await p.click('#bPause'); await t.sleep(250);
+  await p.click('#bPause'); await t.sleep(250); await pauseTab(p, 'play');
   ok(await p.textContent('#sFollow') === 'On', 'Settings has a Follow next shot switch, on by default');
   await p.click('#sFollow'); await t.sleep(150);
   ok(await p.textContent('#sFollow') === 'Off' && await t.ev(() => JSON.parse(localStorage.getItem('retroRack.settings')).follow === false), 'switching it off is saved');

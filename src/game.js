@@ -14,6 +14,7 @@ const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: r
 // ------------------------------------------------------------------ settings
 const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, shotCam: true, follow: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
 const S = { ...DEFAULTS };
+const PT = { tab: 'play', last: 'play' };   // the pause panel's tab, and the last settings tab used (see togglePause)
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
   Object.assign(S, saved);
@@ -2747,7 +2748,8 @@ function refreshMenus() {
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   purse(); ideaBadge();
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
-  $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
+  $('#tabDev').hidden = !DEV; if (!DEV && PT.last === 'dev') PT.last = 'play'; if (paused && $(`#tab${PT.tab[0].toUpperCase() + PT.tab.slice(1)}`).hidden) pauseTab('play');
+  $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sDevEmpty').textContent = devEmpty() ? 'Fill test locker' : 'Empty test locker';
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
@@ -2755,21 +2757,56 @@ function refreshMenus() {
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sFollow', 'follow'], ['#sVibrate', 'vibrate']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
+// Pause and Settings: tabs along the top, each its own page that scrolls: Match (in a game: Resume, Re-rack, Concede,
+// Quit), Play, Looks, Display, Sound and Dev (in dev mode). In a game it opens on Match; from the menus, on the last
+// settings tab used. Picking a tab glides the highlight under it and slides its page in from that side (not with reduced
+// motion: the CSS leaves the movement out).
+const pTabs = () => [...document.querySelectorAll('#pTabs .pTab')].filter(t => !t.hidden);
+function pauseTab(name, slide) {
+  const tabs = pTabs(), next = tabs.find(t => t.dataset.tab === name) || tabs.find(t => t.dataset.tab === 'play');
+  const from = tabs.findIndex(t => t.dataset.tab === PT.tab), to = tabs.indexOf(next);
+  PT.tab = next.dataset.tab; if (PT.tab !== 'match') PT.last = PT.tab;
+  for (const t of document.querySelectorAll('#pTabs .pTab')) { const on = t === next; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; }
+  for (const pg of document.querySelectorAll('.pPage')) {
+    const on = pg.dataset.tab === PT.tab; pg.hidden = !on; pg.classList.remove('slide');
+    if (on && slide && from >= 0 && from !== to) { pg.style.setProperty('--dx', (to > from ? 28 : -28) + 'px'); void pg.offsetWidth; pg.classList.add('slide'); }
+  }
+  inkTo(next, slide);
+}
+function inkTo(t, glide) {   // the highlight under the chosen tab: it glides there, or jumps when the panel opens
+  const ink = $('#pInk'); if (!t || !t.offsetWidth) return;
+  if (!glide) ink.style.transition = 'none';
+  ink.style.width = t.offsetWidth + 'px'; ink.style.transform = `translateX(${t.offsetLeft}px)`;
+  if (!glide) { void ink.offsetWidth; ink.style.transition = ''; }
+  const bar = $('#pTabs'); if (t.offsetLeft < bar.scrollLeft || t.offsetLeft + t.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2;
+}
+$('#pTabs').addEventListener('click', e => { const t = e.target.closest('.pTab'); if (t && t.dataset.tab !== PT.tab) { sfx('ui'); pauseTab(t.dataset.tab, true); } });
+$('#pTabs').addEventListener('keydown', e => {   // ← and → move between the tabs
+  if (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return;
+  const tabs = pTabs(), i = tabs.findIndex(t => t.dataset.tab === PT.tab), n = tabs[(i + (e.code === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+  e.preventDefault(); pauseTab(n.dataset.tab, true); n.focus();
+});
+addEventListener('resize', () => { if (paused) inkTo(pTabs().find(t => t.dataset.tab === PT.tab)); });
 function togglePause(force) {
   paused = force !== undefined ? force : !paused;
   $('#pause').hidden = !paused;
   const inMenu = state === 'menu';
-  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
+  $('#tabMatch').hidden = inMenu; $('#tabDev').hidden = !DEV; $('#pausePanel').setAttribute('aria-label', inMenu ? 'Settings' : 'Paused');
+  $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
   $('#bQuit').textContent = CAR.on ? 'Save and quit' : 'Quit to menu';
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus({ preventScroll: true }); $('#pausePanel').scrollTop = 0; armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
+  if (!inMenu) { const mt = matchText(); $('#pSub').textContent = M.mode === 'practice' ? (M.rack === 'trick' ? 'Trick shots' : 'Practice') : `${$('#modeName').textContent} · ${mt[0].toUpperCase() + mt.slice(1)}`; }
+  if (paused) {
+    refreshMenus(); for (const pg of document.querySelectorAll('.pPage')) pg.scrollTop = 0;
+    pauseTab(inMenu ? PT.last : 'match'); (inMenu ? $('#pTabs [aria-selected="true"]') : $('#bResumeBig')).focus({ preventScroll: true }); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
   else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
+$('#bResumeBig').addEventListener('click', () => togglePause(false));
 // a click outside the panel closes it, if it started outside too (pressing a button and sliding off doesn't)
 let pauseDown = null;
 $('#pause').addEventListener('pointerdown', e => { pauseDown = e.target; });

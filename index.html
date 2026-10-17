@@ -275,15 +275,39 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 
 /* overlays */
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(13,10,28,.35);padding:4vh 4vw}
-/* Settings: a big panel in four sections, two columns side by side where there's room; click outside it to close */
+/* Pause and Settings: tabs along the top (Match in a game, then Play, Looks, Display, Sound, and Dev in dev mode), each
+   tab its own page that scrolls; a large panel on a computer (a click outside it closes it), the whole screen on a phone */
 #pause,#help,#idea,#ideas{z-index:7}   /* above the game's messages and the menus' corner icons */
-#pausePanel{width:min(1060px,94vw);max-height:92vh;overflow:auto;padding:22px 30px}
-#pause h2{font-size:15px;margin-bottom:12px}
-.sGrid{columns:2;column-gap:44px}.sSec{break-inside:avoid;padding-bottom:4px}
-.sSec h3{font-family:'Press Start 2P',monospace;font-weight:400;font-size:11px;color:var(--paper);opacity:.75;margin:2px 0 12px;padding-bottom:7px;border-bottom:3px solid var(--plum)}
-#pause .row{grid-template-columns:118px 1fr;gap:4px 12px;margin-bottom:10px}#pause .lbl{font-size:25px;padding-top:7px}#pause .note{font-size:18px;max-width:none}
-#pause .btn{font-size:11px;padding:10px 12px}#pause .seg{gap:7px}#pause .pickCur{font-size:22px}#pause .actions{margin-top:8px}
-@media (max-width:880px){.sGrid{columns:1}}
+#pause{background:rgba(13,10,28,.6)}
+#pausePanel{display:flex;flex-direction:column;width:min(900px,94vw);height:min(620px,92vh);padding:0;background:rgba(22,17,44,.97);overflow:hidden;animation:pOpen .18s ease-out}
+@keyframes pOpen{from{opacity:0;transform:scale(.97)}}
+#pHead{display:flex;align-items:center;gap:12px;flex:none;padding:0 14px 0 8px;border-bottom:3px solid var(--plum)}
+#pTabs{position:relative;display:flex;flex:1;min-width:0;align-self:stretch;overflow-x:auto;scrollbar-width:none}
+#pTabs::-webkit-scrollbar{display:none}
+.pTab{flex:none;font-family:'Press Start 2P',monospace;font-size:12px;line-height:1;color:var(--paper);opacity:.55;background:none;border:0;border-radius:0;padding:22px 18px 20px;cursor:pointer;white-space:nowrap;transition:opacity .15s,color .15s}
+.pTab:hover{opacity:.9}
+.pTab[aria-selected="true"]{color:var(--lamp);opacity:1}
+.pTab:focus-visible{outline:3px dashed var(--chalk);outline-offset:-7px}
+#pInk{position:absolute;left:0;bottom:0;width:0;height:4px;background:var(--lamp);pointer-events:none;transition:transform .22s ease,width .22s ease}
+#bResume{flex:none;font-size:11px;padding:10px 14px;background:var(--lamp);color:var(--ink)}
+#bResume:hover,.pMain:hover{background:#ffd48e}
+#pPages{position:relative;flex:1;min-height:0}
+.pPage{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 32px 24px}
+.pPage.slide{animation:pSlide .22s ease-out}
+@keyframes pSlide{from{opacity:0;transform:translateX(var(--dx,28px))}}
+#pause .row{grid-template-columns:190px 1fr;gap:6px 18px;align-items:start;margin:0;padding:15px 0;border-bottom:2px solid rgba(78,50,112,.5)}
+#pause .row:last-child{border-bottom:0}
+#pause .lbl{font-size:25px;padding-top:6px}#pause .note{grid-column:2;font-size:18px;opacity:.6;max-width:58ch}
+#pause .btn{font-size:11px;padding:10px 12px}#pause .seg{gap:7px}#pause .pickCur{font-size:22px}
+#pgMatch:not([hidden]){display:flex;flex-direction:column}   /* the title and buttons centred top to bottom (auto margins, so a short screen scrolls rather than clips) */
+#pause #pTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:18px;color:var(--lamp);text-align:center;margin:auto 0 8px}
+#pSub{font-size:22px;text-align:center;opacity:.7;margin:0 0 24px}#pSub:empty{display:none}
+#pauseGame{display:flex;flex-direction:column;gap:12px;width:min(380px,100%);margin:0 auto auto}
+#pause .pBig{font-size:13px;padding:16px 18px}
+#pause .pMain{background:var(--lamp);color:var(--ink)}
+#pause .pQuiet{background:none;border-color:var(--plum2);box-shadow:none}#pause .pQuiet:hover{background:var(--plum)}
+@media (prefers-reduced-motion:reduce){#pausePanel,.pPage.slide{animation:none}#pInk{transition:none}}
+@media (max-width:560px){#pause #pausePanel .row{grid-template-columns:1fr}#pause #pausePanel .note{grid-column:1}#pause .pTab{font-size:9px;padding:17px 8px 16px}#pHead{gap:6px}}   /* upright phones: the name above its buttons, and the tabs closer */
 #overPanel{width:min(460px,92vw);padding:24px 24px 20px;text-align:left}
 #overTitle{font-family:'Press Start 2P',monospace;font-weight:400;font-size:26px;color:var(--lamp);margin:0 0 14px;text-shadow:3px 3px 0 var(--rose),6px 6px 0 var(--ink)}
 #overWhy{font-size:24px;margin:0 0 6px}
@@ -294,8 +318,11 @@ kbd{font-family:'VT323',monospace;font-size:19px;line-height:1;background:var(--
 @media (max-width:760px),(max-height:500px){
   html,body{font-size:19px}
   .row{grid-template-columns:1fr}.note{grid-column:1}
-  #pause{padding:2vh 2vw}#pausePanel{width:96vw;max-height:96vh;padding:14px 16px}#pause .row{grid-template-columns:1fr;margin-bottom:12px}
-  #pause .lbl{font-size:21px;padding-top:0}#pause .note{font-size:18px}#pause .btn{font-size:11px;padding:11px 13px;min-height:42px}
+  #pause{padding:0}#pausePanel{width:100vw;height:100vh;height:100dvh;border:0;box-shadow:none}
+  #pHead{padding:0 10px 0 4px}.pTab{font-size:11px;padding:17px 13px 16px}#bResume{font-size:10px;padding:9px 11px}
+  .pPage{padding:4px 18px 18px}#pause .row{grid-template-columns:150px 1fr;padding:10px 0}#pause .note{grid-column:2}
+  #pause .lbl{font-size:21px;padding-top:4px}#pause .note{font-size:17px}#pause .btn{font-size:11px;padding:11px 13px;min-height:42px}
+  #pause #pTitle{font-size:14px;margin:auto 0 6px}#pSub{font-size:19px;margin-bottom:14px}#pauseGame{gap:9px}#pause .pBig{font-size:12px;padding:12px 16px}
   #board{top:6px;gap:5px;transform:translateX(-50%) scale(.82);transform-origin:top center}
   .pl{min-width:130px}
   #shot{right:6px;bottom:6px;padding:7px;gap:5px 6px}
@@ -517,33 +544,43 @@ input:focus,textarea:focus{border-color:var(--chalk)}
 
 <div id="pause" class="overlay" hidden>
   <div id="pausePanel" class="panel" role="dialog" aria-label="Settings">
-    <h2>Settings</h2>
-    <div class="sGrid">
-      <section class="sSec"><h3>Game</h3>
+    <div id="pHead">
+      <div id="pTabs" role="tablist" aria-label="Settings"><button class="pTab" type="button" role="tab" id="tabMatch" data-tab="match" aria-controls="pgMatch" aria-selected="false" tabindex="-1">Match</button><button class="pTab" type="button" role="tab" id="tabPlay" data-tab="play" aria-controls="pgPlay" aria-selected="false" tabindex="-1">Play</button><button class="pTab" type="button" role="tab" id="tabLooks" data-tab="looks" aria-controls="pgLooks" aria-selected="false" tabindex="-1">Looks</button><button class="pTab" type="button" role="tab" id="tabDisplay" data-tab="display" aria-controls="pgDisplay" aria-selected="false" tabindex="-1">Display</button><button class="pTab" type="button" role="tab" id="tabSound" data-tab="sound" aria-controls="pgSound" aria-selected="false" tabindex="-1">Sound</button><button class="pTab" type="button" role="tab" id="tabDev" data-tab="dev" aria-controls="pgDev" aria-selected="false" tabindex="-1">Dev</button><span id="pInk" aria-hidden="true"></span></div>
+      <button class="btn" id="bResume" type="button">Resume</button>
+    </div>
+    <div id="pPages">
+      <section class="pPage" id="pgMatch" role="tabpanel" aria-labelledby="tabMatch" data-tab="match" hidden>
+        <h2 id="pTitle">Paused</h2><p id="pSub"></p>
+        <div id="pauseGame"><button class="btn pBig pMain" id="bResumeBig" type="button">Resume</button><button class="btn pBig" id="bRestart" type="button">Re-rack</button><button class="btn pBig" id="bOfferRerack" type="button">Offer re-rack</button><button class="btn pBig" id="bConcede" type="button">Concede frame</button><button class="btn pBig pQuiet" id="bQuit" type="button">Quit to menu</button></div>
+      </section>
+      <section class="pPage" id="pgPlay" role="tabpanel" aria-labelledby="tabPlay" data-tab="play" hidden>
         <div class="row" id="rowSGuide"><div class="lbl">Aim guide</div><div class="seg" id="sGuide"></div><div class="note" id="sGuideTxt"></div></div>
         <div class="row"><div class="lbl">Markers</div><div class="seg"><button class="btn" id="sMarkers"></button></div><div class="note">A pulsing gold halo round the balls you're on, once you have a colour. In 9-ball, the lowest ball.</div></div>
         <div class="row"><div class="lbl">Shot camera</div><div class="seg"><button class="btn" id="sShotCam"></button></div><div class="note">When you shoot, the view swings down to your eyes behind the cue, then back once the balls stop.</div></div>
         <div class="row"><div class="lbl">Follow next shot</div><div class="seg"><button class="btn" id="sFollow"></button></div><div class="note">When your turn comes round, the free view glides behind the cue ball to show it and the ball it points at. Cue view always does.</div></div>
       </section>
-      <section class="sSec"><h3>Looks</h3>
+      <section class="pPage" id="pgLooks" role="tabpanel" aria-labelledby="tabLooks" data-tab="looks" hidden>
         <div class="row"><div class="lbl">Cloth</div><div class="seg picker" id="sCloth"></div><div class="note" id="sClothTxt"></div></div>
         <div class="row" id="rowCue"><div class="lbl">Cue</div><div class="seg picker" id="sCue"></div></div>
         <div class="row"><div class="lbl">Gloves</div><div class="seg picker" id="sGlove"></div></div>
-        <div class="row" id="rowDev" hidden><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button><button class="btn" id="sDevMythic" type="button" aria-pressed="false">Next case mythic: Off</button><button class="btn" id="sDevEmpty" type="button">Empty test locker</button></div><div class="note">A test locker with every look; your own locker comes back when dev mode is off. "Next case mythic" makes the next case you open give a mythic, then switches itself off. "Empty test locker" starts it again with no looks and no rewards, so cases behave as they do for a new player (Treat cases always new, mythics never repeated); "Fill test locker" gives it everything again. The lightbulb in the menus' corner shows players' ideas.</div></div>
       </section>
-      <section class="sSec"><h3>Display</h3>
+      <section class="pPage" id="pgDisplay" role="tabpanel" aria-labelledby="tabDisplay" data-tab="display" hidden>
         <div class="row"><div class="lbl">Pixel size</div><div class="seg" id="sPixel"></div><div class="note" id="sPixelNote"></div></div>
         <div class="row"><div class="lbl">Colours</div><div class="seg" id="sLevels"></div><div class="note">Shades per colour channel. Lower is more retro.</div></div>
         <div class="row"><div class="lbl">Dither</div><div class="seg"><button class="btn" id="sDither"></button></div></div>
         <div class="row"><div class="lbl">Outlines</div><div class="seg"><button class="btn" id="sOutline"></button></div></div>
         <div class="row"><div class="lbl">Scanlines</div><div class="seg"><button class="btn" id="sScan"></button></div></div>
       </section>
-      <section class="sSec"><h3>Sound and touch</h3>
+      <section class="pPage" id="pgSound" role="tabpanel" aria-labelledby="tabSound" data-tab="sound" hidden>
         <div class="row"><div class="lbl">Sound</div><div class="seg" id="sVolume"></div></div>
         <div class="row" id="rowVibrate"><div class="lbl">Vibration</div><div class="seg"><button class="btn" id="sVibrate"></button></div><div class="note">A short buzz when you pot a ball, a longer one on a foul.</div></div>
       </section>
+      <section class="pPage" id="pgDev" role="tabpanel" aria-labelledby="tabDev" data-tab="dev" hidden>
+        <div class="row" id="rowDev"><div class="lbl">Dev mode</div><div class="seg"><button class="btn" id="sDev" type="button">Switch off</button></div><div class="note">A test locker with every look; your own locker comes back when dev mode is off. The lightbulb in the menus' corner shows players' ideas.</div></div>
+        <div class="row"><div class="lbl">Next case</div><div class="seg"><button class="btn" id="sDevMythic" type="button" aria-pressed="false">Next case mythic: Off</button></div><div class="note">The next case you open gives a mythic, then this switches itself off.</div></div>
+        <div class="row"><div class="lbl">Test locker</div><div class="seg"><button class="btn" id="sDevEmpty" type="button">Empty test locker</button></div><div class="note">Empty starts it again with no looks and no rewards, so cases behave as they do for a new player (Treat cases always new, mythics never repeated). Fill gives it everything again.</div></div>
+      </section>
     </div>
-    <div class="actions"><button class="btn" id="bResume">Resume</button><span id="pauseGame"><button class="btn" id="bRestart">Re-rack</button> <button class="btn" id="bOfferRerack">Offer re-rack</button> <button class="btn" id="bConcede">Concede frame</button> <button class="btn" id="bQuit">Quit to menu</button></span></div>
   </div>
 </div>
 
@@ -2085,12 +2122,13 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 const DEG = Math.PI / 180;
-const BUILD = 'a985de1c';   // version: tools/build.js fills in a fingerprint of the game code
+const BUILD = 'fc971ef2';   // version: tools/build.js fills in a fingerprint of the game code
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------------ settings
 const DEFAULTS = { pixel: 1, levels: 256, dither: true, outline: true, scan: false, volume: 0.75, cloth: 'teal', cue: 'house', glove: 'none', markers: true, vibrate: true, shotCam: true, follow: true, gfx: 2, fxOff: [] };   // fxOff: collection effects switched off
 const S = { ...DEFAULTS };
+const PT = { tab: 'play', last: 'play' };   // the pause panel's tab, and the last settings tab used (see togglePause)
 try {
   const saved = JSON.parse(localStorage.getItem('retroRack.settings') || '{}');
   Object.assign(S, saved);
@@ -4824,7 +4862,8 @@ function refreshMenus() {
   $('#lockerTxt').textContent = waiting ? `${waiting} ${waiting === 1 ? 'case' : 'cases'} to open` : 'Cases and looks';
   purse(); ideaBadge();
   $('#sClothTxt').textContent = NET.on && NET.seat === 1 && NET.cloth ? "Online, the table wears the host's cloth." : '';
-  $('#rowDev').hidden = !DEV; $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
+  $('#tabDev').hidden = !DEV; if (!DEV && PT.last === 'dev') PT.last = 'play'; if (paused && $(`#tab${PT.tab[0].toUpperCase() + PT.tab.slice(1)}`).hidden) pauseTab('play');
+  $('#ver').textContent = `Version ${BUILD}${DEV ? ' · DEV' : ''}`;
   $('#sDevMythic').setAttribute('aria-pressed', String(DEV_MYTHIC)); $('#sDevMythic').textContent = `Next case mythic: ${DEV_MYTHIC ? 'On' : 'Off'}`;
   $('#sDevEmpty').textContent = devEmpty() ? 'Fill test locker' : 'Empty test locker';
   $('#sGuideTxt').textContent = GUIDE_TXT[guideLevel()];
@@ -4832,21 +4871,56 @@ function refreshMenus() {
 for (const [id, key] of [['#sDither', 'dither'], ['#sOutline', 'outline'], ['#sScan', 'scan'], ['#sMarkers', 'markers'], ['#sShotCam', 'shotCam'], ['#sFollow', 'follow'], ['#sVibrate', 'vibrate']]) {
   $(id).addEventListener('click', () => { S[key] = !S[key]; saveS(); applyLook(); ensureAudio(); sfx('ui'); refreshMenus(); });
 }
+// Pause and Settings: tabs along the top, each its own page that scrolls: Match (in a game: Resume, Re-rack, Concede,
+// Quit), Play, Looks, Display, Sound and Dev (in dev mode). In a game it opens on Match; from the menus, on the last
+// settings tab used. Picking a tab glides the highlight under it and slides its page in from that side (not with reduced
+// motion: the CSS leaves the movement out).
+const pTabs = () => [...document.querySelectorAll('#pTabs .pTab')].filter(t => !t.hidden);
+function pauseTab(name, slide) {
+  const tabs = pTabs(), next = tabs.find(t => t.dataset.tab === name) || tabs.find(t => t.dataset.tab === 'play');
+  const from = tabs.findIndex(t => t.dataset.tab === PT.tab), to = tabs.indexOf(next);
+  PT.tab = next.dataset.tab; if (PT.tab !== 'match') PT.last = PT.tab;
+  for (const t of document.querySelectorAll('#pTabs .pTab')) { const on = t === next; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; }
+  for (const pg of document.querySelectorAll('.pPage')) {
+    const on = pg.dataset.tab === PT.tab; pg.hidden = !on; pg.classList.remove('slide');
+    if (on && slide && from >= 0 && from !== to) { pg.style.setProperty('--dx', (to > from ? 28 : -28) + 'px'); void pg.offsetWidth; pg.classList.add('slide'); }
+  }
+  inkTo(next, slide);
+}
+function inkTo(t, glide) {   // the highlight under the chosen tab: it glides there, or jumps when the panel opens
+  const ink = $('#pInk'); if (!t || !t.offsetWidth) return;
+  if (!glide) ink.style.transition = 'none';
+  ink.style.width = t.offsetWidth + 'px'; ink.style.transform = `translateX(${t.offsetLeft}px)`;
+  if (!glide) { void ink.offsetWidth; ink.style.transition = ''; }
+  const bar = $('#pTabs'); if (t.offsetLeft < bar.scrollLeft || t.offsetLeft + t.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2;
+}
+$('#pTabs').addEventListener('click', e => { const t = e.target.closest('.pTab'); if (t && t.dataset.tab !== PT.tab) { sfx('ui'); pauseTab(t.dataset.tab, true); } });
+$('#pTabs').addEventListener('keydown', e => {   // ← and → move between the tabs
+  if (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return;
+  const tabs = pTabs(), i = tabs.findIndex(t => t.dataset.tab === PT.tab), n = tabs[(i + (e.code === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+  e.preventDefault(); pauseTab(n.dataset.tab, true); n.focus();
+});
+addEventListener('resize', () => { if (paused) inkTo(pTabs().find(t => t.dataset.tab === PT.tab)); });
 function togglePause(force) {
   paused = force !== undefined ? force : !paused;
   $('#pause').hidden = !paused;
   const inMenu = state === 'menu';
-  $('#pauseGame').hidden = inMenu; $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
+  $('#tabMatch').hidden = inMenu; $('#tabDev').hidden = !DEV; $('#pausePanel').setAttribute('aria-label', inMenu ? 'Settings' : 'Paused');
+  $('#rowSGuide').hidden = inMenu || NET.on || CAR.on; $('#bRestart').hidden = NET.on || CAR.on;
   $('#bQuit').textContent = CAR.on ? 'Save and quit' : 'Quit to menu';
   $('#bRestart').textContent = M.mode === 'practice' ? 'Reset table' : 'Re-rack';
   $('#bConcede').hidden = M.mode === 'practice' || game.over; $('#bOfferRerack').hidden = !NET.on || game.over;
   $('#bResume').textContent = inMenu ? 'Done' : 'Resume';
-  if (paused) { refreshMenus(); $('#bResume').focus({ preventScroll: true }); $('#pausePanel').scrollTop = 0; armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
+  if (!inMenu) { const mt = matchText(); $('#pSub').textContent = M.mode === 'practice' ? (M.rack === 'trick' ? 'Trick shots' : 'Practice') : `${$('#modeName').textContent} · ${mt[0].toUpperCase() + mt.slice(1)}`; }
+  if (paused) {
+    refreshMenus(); for (const pg of document.querySelectorAll('.pPage')) pg.scrollTop = 0;
+    pauseTab(inMenu ? PT.last : 'match'); (inMenu ? $('#pTabs [aria-selected="true"]') : $('#bResumeBig')).focus({ preventScroll: true }); armBack(); $('#ballPick').hidden = true; $('#bBalls').setAttribute('aria-pressed', 'false'); }   // the picker would sit on top of Pause
   else { aimDirty = true; if (state === 'menu' && NAV.stack.length < 2) disarm(); }
 }
 $('#bStart').addEventListener('click', () => { ensureAudio(); sfx('ui'); if (M.opp === 'online') startOnline(newCode(), M.listed !== false); else startGame(false); });
 $('#bMenuSettings').addEventListener('click', () => { ensureAudio(); togglePause(true); });
 $('#bResume').addEventListener('click', () => togglePause(false));
+$('#bResumeBig').addEventListener('click', () => togglePause(false));
 // a click outside the panel closes it, if it started outside too (pressing a button and sliding off doesn't)
 let pauseDown = null;
 $('#pause').addEventListener('pointerdown', e => { pauseDown = e.target; });
