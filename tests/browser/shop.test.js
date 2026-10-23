@@ -1,6 +1,6 @@
 // Career Stage 2 on one device: the tier tabs, the shop (cloths and cues, now in the Locker), bought looks in Settings
 // and in every game, the venues (the room changes with the tier), and the event screen's list of players.
-const { chromium, FILE } = require('./lib');
+const { chromium, FILE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 30000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(250); } return false; };
@@ -76,7 +76,7 @@ const PUB_DONE = { redlion: { played: 1, won: 1, best: 3 }, crown: { played: 1, 
   await p.click('.invRow[data-id="ash"]'); await sleep(200);
 
   console.log('--- bought looks in Settings, and in an ordinary game');
-  await p.click('#bMenuSettings'); await sleep(300);
+  await p.click('#bMenuSettings'); await sleep(300); await pauseTab(p, 'looks');
   const names = [];
   for (let i = 0; i < 7; i++) { names.push(await p.textContent('#sCloth .pickCur')); if (i < 6) { await p.click('#sCloth .btn:last-child'); await sleep(100); } }
   ok(names.join() === 'Navy,Teal,Club green,Tournament blue,Wine,Violet,Navy', `Settings steps through the five free cloths and Navy (${names})`);

@@ -1,5 +1,5 @@
 // Behaviour of the "you're on" markers in every mode, plus the Settings switch.
-const { chromium, SITE } = require('./lib');
+const { chromium, SITE, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -64,7 +64,7 @@ const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) pro
   ok(await ev(() => !!window.__rr.replay) && (await marked()).length === 0, 'nothing marked during a replay');
   for (let i = 0; i < 100 && await ev(() => !!window.__rr.replay); i++) await p.waitForTimeout(300);
   ok((await marked()).length > 0, 'markers back after the replay');
-  await p.click('#bPause'); await p.waitForTimeout(200);
+  await p.click('#bPause'); await p.waitForTimeout(200); await pauseTab(p, 'play');
   ok((await p.textContent('#sMarkers')) === 'On', 'Settings shows Markers: On by default');
   await p.click('#sMarkers'); await p.waitForTimeout(100);
   ok((await p.textContent('#sMarkers')) === 'Off', 'the switch turns to Off');

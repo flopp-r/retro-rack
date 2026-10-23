@@ -40,4 +40,7 @@ chromium.launch = async (...args) => {
   return b;
 };
 
-module.exports = { ...pw, chromium, ROOT, WORK, FILE, SITE, PORTS, shot };
+// the pause panel's tabs (Match, Play, Looks, Display, Sound, Dev): pick one (tap on a touch screen) and let its page slide in
+const pauseTab = async (p, name, tap) => { await p[tap ? 'tap' : 'click'](`#pTabs [data-tab="${name}"]`); await p.waitForTimeout(300); };
+
+module.exports = { ...pw, chromium, ROOT, WORK, FILE, SITE, PORTS, shot, pauseTab };

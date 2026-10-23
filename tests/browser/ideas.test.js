@@ -4,7 +4,7 @@
 // the dev word (a stand-in here, 'testword'; run-all.js gives the local relay its fingerprint), new ones are counted
 // on the lightbulb and in a note under the icons, and they can be deleted. Over http, against the local relay.
 const fs = require('fs'), path = require('path');
-const { chromium, SITE, PORTS, ROOT, shot } = require('./lib');
+const { chromium, SITE, PORTS, ROOT, shot, pauseTab } = require('./lib');
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await sleep(100); } return false; };
@@ -101,7 +101,7 @@ const relay = async body => (await fetch(RELAY, { method: 'POST', headers: { 'co
   await o.click('#bIdeasClose'); await sleep(200);
 
   console.log('--- dev mode off, and a device in dev mode without the word');
-  await o.click('#bMenuSettings'); await sleep(300); await o.click('#sDev'); await sleep(300); await o.click('#bResume'); await sleep(300);
+  await o.click('#bMenuSettings'); await sleep(300); await pauseTab(o, 'dev'); await o.click('#sDev'); await sleep(300); await o.click('#bResume'); await sleep(300);
   ok(await o.evaluate(() => localStorage.getItem('retroRack.devWord')) === null && await o.getAttribute('#bIdea', 'title') === 'Send an idea', 'switching dev mode off forgets the word, and the lightbulb sends ideas again');
   await o.evaluate(() => { localStorage.setItem('retroRack.dev', '1'); }); await o.reload(); await sleep(1500);
   await o.evaluate(async () => { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('retroRack:testword')); __rr.DEVW.print = [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); });

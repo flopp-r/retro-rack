@@ -1,7 +1,7 @@
 // Online looks: each player's cue and gloves show on both screens, the table wears the host's cloth, changes made
 // mid-game reach the other player, nonsense from the other side is ignored, the day's first win pays, and your own
 // cloth comes back afterwards.
-const { chromium, SITE } = require('./lib');
+const { chromium, SITE, pauseTab } = require('./lib');
 const BASE = SITE.new + '?relay=ws://127.0.0.1:8787';
 const ok = (c, msg) => { console.log((c ? 'PASS ' : 'FAIL ') + msg); if (!c) process.exitCode = 1; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,9 +65,9 @@ const st = p => p.evaluate(() => ({ state: __rr.state, turn: __rr.game.turn, sea
 
   ok(!(await st(h)).state.startsWith('over') && await h.isHidden('#over') && await g.isHidden('#over'), 'the frame is still on');
   console.log('--- changes made mid-game reach the other player');
-  await g.click('#bPause'); await sleep(200); await g.click('#sCue .btn:last-child'); await g.click('#bResume');   // Arcade, then round to the house cue
+  await g.click('#bPause'); await sleep(200); await pauseTab(g, 'looks'); await g.click('#sCue .btn:last-child'); await g.click('#bResume');   // Arcade, then round to the house cue
   ok(await until(async () => (await st(h)).peerCue === 'house'), 'the guest switches to the house cue: the host\'s game knows at once');
-  await h.click('#bPause'); await sleep(200); await h.click('#sCloth .btn:last-child'); await h.click('#bResume');   // Navy, then round to Teal
+  await h.click('#bPause'); await sleep(200); await pauseTab(h, 'looks'); await h.click('#sCloth .btn:last-child'); await h.click('#bResume');   // Navy, then round to Teal
   ok(await until(async () => (await look(g)).cloth === 'teal' && (await look(h)).cloth === 'teal'), 'the host changes the cloth to Teal: both tables follow');
 
   console.log('--- nonsense from the other side is ignored');
